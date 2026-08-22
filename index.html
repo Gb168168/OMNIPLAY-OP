@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OMNIPLAY OP Workspace</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">🔥 OMNIPLAY OP</div>
+      <button id="addCategoryBtn" class="primary">＋ 新增分類</button>
+      <div id="categoryList" class="category-list"></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div id="breadcrumb" class="breadcrumb">工作區</div>
+          <h1 id="pageTitle">歡迎使用 OMNIPLAY</h1>
+        </div>
+        <div class="actions">
+          <span id="cloudStatus" class="status">正在連線…</span>
+          <button id="addPageBtn" class="primary" disabled>＋ 新增頁面</button>
+        </div>
+      </header>
+
+      <section id="emptyState" class="empty-state">
+        <h2>建立你的第一個分類</h2>
+        <p>分類中可新增試算表、檔案、照片或影片頁面。</p>
+      </section>
+
+      <section id="workspace" class="workspace hidden"></section>
+    </main>
+  </div>
+
+  <dialog id="categoryDialog">
+    <form method="dialog" id="categoryForm" class="dialog-form">
+      <h3>新增分類</h3>
+      <label>分類名稱<input id="categoryName" required maxlength="60" placeholder="例如：財務、專案、客戶資料" /></label>
+      <div class="dialog-actions"><button value="cancel">取消</button><button class="primary" value="default">建立</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="pageDialog">
+    <form method="dialog" id="pageForm" class="dialog-form">
+      <h3>新增頁面</h3>
+      <label>頁面名稱<input id="pageName" required maxlength="80" placeholder="頁面名稱" /></label>
+      <label>頁面類型
+        <select id="pageType">
+          <option value="sheet">📊 試算表</option>
+          <option value="files">📄 檔案 / PDF</option>
+          <option value="photos">🖼️ 照片</option>
+          <option value="videos">🎬 影片</option>
+        </select>
+      </label>
+      <div class="dialog-actions"><button value="cancel">取消</button><button class="primary" value="default">建立</button></div>
+    </form>
+  </dialog>
+
+  <input id="hiddenUpload" type="file" hidden multiple />
+  <input id="csvImport" type="file" hidden accept=".csv,text/csv" />
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
