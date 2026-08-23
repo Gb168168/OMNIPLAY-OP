@@ -6,6 +6,17 @@
     createBtn.style.display=hasGroup?'':'none';
   }
 
+  function simplifyCustomerManagement(){
+    const groups=document.querySelector('#groups');
+    if(!groups)return;
+    document.querySelector('.stats-grid')?.remove();
+    const layout=document.querySelector('.customer-layout');
+    if(!layout)return;
+    const cards=layout.querySelectorAll(':scope > .admin-card');
+    if(cards.length>1)cards[1].remove();
+    layout.style.gridTemplateColumns='minmax(0,1fr)';
+  }
+
   function selectedRowCount(api){
     try{
       const wb=api?.getActiveWorkbook?.();
@@ -70,6 +81,7 @@
 
   const observer=new MutationObserver(()=>{
     syncCustomerCreateButton();
+    simplifyCustomerManagement();
     fixFreezeMenuText();
   });
   observer.observe(document.documentElement,{childList:true,subtree:true});
@@ -77,6 +89,7 @@
     setTimeout(fixFreezeMenuText,0);
     setTimeout(fixFreezeMenuText,50);
   },true);
-  document.addEventListener('DOMContentLoaded',()=>{syncCustomerCreateButton();fixFreezeMenuText()});
+  document.addEventListener('DOMContentLoaded',()=>{syncCustomerCreateButton();simplifyCustomerManagement();fixFreezeMenuText()});
   syncCustomerCreateButton();
+  simplifyCustomerManagement();
 })();
