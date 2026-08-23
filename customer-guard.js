@@ -1,5 +1,6 @@
 (function(){
   const firebaseConfig={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
+  const GROUP_ORDER_KEY='omniplay-customer-group-order-v1';
   let groupSortTimer=null;
   let groupSortBusy=false;
 
@@ -29,11 +30,48 @@
     return {fsMod,ref:fsMod.doc(db,'omniplay','workspace')};
   }
 
+  function readSavedGroupOrder(){
+    try{
+      const v=JSON.parse(localStorage.getItem(GROUP_ORDER_KEY)||'[]');
+      return Array.isArray(v)?v:[];
+    }catch{return []}
+  }
+
+  function saveLocalGroupOrder(container){
+    const ids=[...container.querySelectorAll(':scope > .admin-row[data-group-id]')].map(r=>r.dataset.groupId).filter(Boolean);
+    localStorage.setItem(GROUP_ORDER_KEY,JSON.stringify(ids));
+    return ids;
+  }
+
   function rowGroupName(row){
     return (row.querySelector('strong')?.textContent||'').trim();
   }
 
+  function arrangeRows(container,groups){
+    const rows=[...container.querySelectorAll(':scope > .admin-row')];
+    const buckets=new Map();
+    groups.forEach(g=>{
+      const key=String(g.name||'').trim();
+      if(!buckets.has(key))buckets.set(key,[]);
+      buckets.get(key).push(g);
+    });
+    rows.forEach(row=>{
+      const list=buckets.get(rowGroupName(row))||[];
+      const g=list.shift();
+      if(g)row.dataset.groupId=g.id;
+    });
+
+    const rowById=new Map(rows.filter(r=>r.dataset.groupId).map(r=>[r.dataset.groupId,r]));
+    const localOrder=readSavedGroupOrder();
+    const sourceOrder=localOrder.length?localOrder:groups.map(g=>g.id);
+    sourceOrder.forEach(id=>{const row=rowById.get(id);if(row)container.appendChild(row)});
+    groups.forEach(g=>{const row=rowById.get(g.id);if(row&&!sourceOrder.includes(g.id))container.appendChild(row)});
+    rows.forEach(row=>{if(!row.dataset.groupId)container.appendChild(row)});
+  }
+
   async function persistGroupOrder(container){
+    const ids=saveLocalGroupOrder(container);
+    if(!ids.length)return;
     try{
       const {fsMod,ref}=await getWorkspaceStore();
       const snap=await fsMod.getDoc(ref);
@@ -41,7 +79,6 @@
       const data=snap.data();
       const groups=Array.isArray(data.customerGroups)?data.customerGroups:[];
       const byId=new Map(groups.map(g=>[g.id,g]));
-      const ids=[...container.querySelectorAll('.admin-row[data-group-id]')].map(r=>r.dataset.groupId);
       const ordered=ids.map(id=>byId.get(id)).filter(Boolean);
       groups.forEach(g=>{if(!ids.includes(g.id))ordered.push(g)});
       await fsMod.setDoc(ref,{...data,customerGroups:ordered,updatedAt:new Date().toISOString()});
@@ -62,22 +99,7 @@
       const snap=await fsMod.getDoc(ref);
       if(!snap.exists())return;
       const groups=Array.isArray(snap.data().customerGroups)?snap.data().customerGroups:[];
-
-      const buckets=new Map();
-      groups.forEach(g=>{
-        const key=String(g.name||'').trim();
-        if(!buckets.has(key))buckets.set(key,[]);
-        buckets.get(key).push(g);
-      });
-      rows.forEach(row=>{
-        const list=buckets.get(rowGroupName(row))||[];
-        const g=list.shift();
-        if(g)row.dataset.groupId=g.id;
-      });
-
-      const rowById=new Map(rows.filter(r=>r.dataset.groupId).map(r=>[r.dataset.groupId,r]));
-      groups.forEach(g=>{const row=rowById.get(g.id);if(row)container.appendChild(row)});
-      rows.forEach(row=>{if(!row.dataset.groupId)container.appendChild(row)});
+      arrangeRows(container,groups);
 
       let dragging=null;
       [...container.querySelectorAll(':scope > .admin-row')].forEach(row=>{
@@ -97,11 +119,12 @@
           e.dataTransfer.effectAllowed='move';
           e.dataTransfer.setData('text/plain',row.dataset.groupId||'group');
         });
-        handle.addEventListener('dragend',async e=>{
+        handle.addEventListener('dragend',e=>{
           e.stopPropagation();
           if(dragging)dragging.style.opacity='';
           dragging=null;
-          await persistGroupOrder(container);
+          saveLocalGroupOrder(container);
+          persistGroupOrder(container);
         });
       });
 
@@ -114,8 +137,18 @@
         const box=target.getBoundingClientRect();
         container.insertBefore(dragging,e.clientY<box.top+box.height/2?target:target.nextSibling);
       });
-      container.addEventListener('drop',e=>{if(dragging){e.preventDefault();e.stopPropagation()}});
+      container.addEventListener('drop',e=>{
+        if(!dragging)return;
+        e.preventDefault();
+        e.stopPropagation();
+        saveLocalGroupOrder(container);
+        setTimeout(()=>persistGroupOrder(container),0);
+      });
       container.dataset.dragSortReady='1';
+
+      if(readSavedGroupOrder().length){
+        setTimeout(()=>persistGroupOrder(container),250);
+      }
     }catch(e){console.warn('group drag setup failed',e)}
     finally{groupSortBusy=false}
   }
@@ -131,7 +164,6 @@
       const sheet=wb?.getActiveSheet?.();
       const range=sheet?.getActiveRange?.();
       if(!range)return 1;
-
       const notation=String(range.getA1Notation?.()||'').replace(/\$/g,'');
       let m=notation.match(/^(\d+):(\d+)$/);
       if(m)return Math.max(1,Number(m[2]));
@@ -139,7 +171,6 @@
       if(m)return Math.max(1,Number(m[2]));
       m=notation.match(/^[A-Z]+(\d+)$/i);
       if(m)return Math.max(1,Number(m[1]));
-
       const start=Number(range.getRow?.() ?? 0);
       const count=Number(range.getNumRows?.() ?? 1);
       return Math.max(1,start+count);
