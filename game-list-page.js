@@ -1,0 +1,106 @@
+import './game-list-data-1.js';
+import './game-list-data-2.js';
+import './game-list-data-3.js';
+import './game-list-data-4.js';
+import './game-list-data-5.js';
+import './game-list-data-6.js';
+import './game-list-data-7.js';
+import './game-list-data-8.js';
+import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
+import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+
+const DATA=window.GAME_LIST_ONLINE_DATA||[];
+const firebaseConfig={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
+const fb=getApps().length?getApps()[0]:initializeApp(firebaseConfig);
+const db=getFirestore(fb);
+const noteRef=doc(db,'omniplay','game-list-online-page');
+
+const esc=(s='')=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const nl=(s='')=>esc(s).replace(/\n/g,'<br>');
+function display(v,i){
+ const s=String(v??'');
+ if(i===9 && /^\d+(?:\.\d+)?e[+-]?\d+$/i.test(s)) return Number(s).toLocaleString('en-US');
+ if(i===6 && /^\d+\.0$/.test(s)) return s.slice(0,-2);
+ return s;
+}
+
+function addStyles(){
+ if(document.getElementById('gameListPageStyle'))return;
+ const st=document.createElement('style');st.id='gameListPageStyle';st.textContent=`
+ #workspace.game-list-page{padding:0;background:#f4f6f9;overflow:hidden;display:grid;grid-template-rows:auto 1fr;min-height:0}
+ .gl-toolbar{height:48px;display:flex;align-items:center;gap:10px;padding:7px 12px;background:#111722;border-bottom:1px solid #28364b;position:relative;z-index:8}
+ .gl-search{width:min(420px,46vw);height:34px;border:1px solid #34445e;border-radius:9px;background:#0c131e;color:#fff;padding:0 12px;outline:none}
+ .gl-search:focus{border-color:#568ef4;box-shadow:0 0 0 3px rgba(79,140,255,.13)}
+ .gl-count{font-size:12px;color:#8fa3bf;margin-right:auto;white-space:nowrap}
+ .gl-note-btn{height:34px;border:1px solid #3c5274;border-radius:9px;background:#18263a;color:#e9f1ff;padding:0 12px;cursor:pointer;font-weight:700}
+ .gl-note-panel{position:absolute;right:12px;top:44px;width:min(430px,calc(100vw - 320px));background:#111925;border:1px solid #344861;border-radius:13px;box-shadow:0 18px 50px rgba(0,0,0,.45);padding:13px;display:none;z-index:30}
+ .gl-note-panel.open{display:block}
+ .gl-note-panel textarea{width:100%;min-height:130px;resize:vertical;border:1px solid #354861;border-radius:9px;background:#0b121c;color:#fff;padding:10px;outline:none}
+ .gl-note-actions{display:flex;justify-content:space-between;align-items:center;margin-top:9px}
+ .gl-note-status{font-size:11px;color:#8fa3bf}
+ .gl-save{border:0;border-radius:8px;background:#4f8cff;color:#fff;padding:8px 12px;font-weight:700;cursor:pointer}
+ .gl-scroll{overflow:auto;min-width:0;min-height:0;background:#fff}
+ .gl-table{border-collapse:separate;border-spacing:0;min-width:2260px;width:max-content;font:12px Arial,sans-serif;color:#111}
+ .gl-table th,.gl-table td{border-right:1px solid #202020;border-bottom:1px solid #b8bec7;padding:6px 7px;vertical-align:middle;white-space:nowrap}
+ .gl-table thead th{background:#a6a6a6;font-weight:700;text-align:center;border-bottom:1px solid #111;position:sticky;z-index:5}
+ .gl-table thead tr:first-child th{top:0;height:30px}
+ .gl-table thead tr:nth-child(2) th{top:30px;height:25px}
+ .gl-table tbody td{background:#fff}
+ .gl-table tbody tr:nth-child(even) td{background:#f6f8fb}
+ .gl-table tbody tr:hover td{background:#eaf2ff}
+ .gl-wrap{white-space:normal!important;line-height:1.25;min-width:240px;max-width:340px}
+ .gl-c-id{min-width:82px} .gl-c-ver{min-width:135px} .gl-c-name{min-width:180px} .gl-c-man{min-width:115px} .gl-c-den{min-width:105px}
+ .gl-c-type{min-width:285px} .gl-c-lines{min-width:100px} .gl-c-num{min-width:90px;text-align:right} .gl-c-prize{min-width:130px;text-align:right}
+ .gl-c-jackpot{min-width:250px} .gl-c-rtp{min-width:105px;text-align:center}
+ @media(max-width:800px){.gl-note-panel{width:calc(100vw - 24px);right:12px}}
+ `;document.head.appendChild(st);
+}
+async function loadNote(area){
+ try{const s=await getDoc(noteRef);if(s.exists())area.value=String(s.data().note||'')}catch(e){console.warn('note load',e)}
+}
+async function saveNote(area,status){
+ status.textContent='儲存中…';
+ try{await setDoc(noteRef,{note:area.value||'',updatedAt:new Date().toISOString()},{merge:true});status.textContent='已儲存';setTimeout(()=>status.textContent='',1200)}catch(e){console.warn('note save',e);status.textContent='儲存失敗'}
+}
+function rowHtml(r){
+ const cls=['gl-c-id','gl-c-ver','gl-c-name','gl-c-man','gl-c-den','gl-c-type','gl-c-lines','gl-c-num','gl-c-num','gl-c-prize','gl-c-prize','gl-c-jackpot gl-wrap','gl-c-jackpot gl-wrap','gl-c-rtp','gl-c-jackpot gl-wrap','gl-c-jackpot gl-wrap','gl-c-rtp','gl-c-rtp','gl-c-rtp'];
+ return '<tr>'+r.map((v,i)=>`<td class="${cls[i]}">${nl(display(v,i))}</td>`).join('')+'</tr>';
+}
+function renderRows(body,q,count){
+ const term=(q||'').trim().toLowerCase();
+ const rows=term?DATA.filter(r=>r.some(v=>String(v??'').toLowerCase().includes(term))):DATA;
+ body.innerHTML=rows.map(rowHtml).join('');
+ count.textContent=`${rows.length} / ${DATA.length} 筆`;
+}
+function build(workspace){
+ addStyles();
+ workspace.className='workspace game-list-page';
+ workspace.dataset.gameListBuilt='1';
+ workspace.innerHTML=`<div class="gl-toolbar">
+  <input class="gl-search" id="glSearch" placeholder="搜尋 GAME ID、遊戲名稱、版本…">
+  <span class="gl-count" id="glCount"></span>
+  <button class="gl-note-btn" id="glNoteBtn">📝 記事</button>
+  <div class="gl-note-panel" id="glNotePanel"><textarea id="glNoteText" placeholder="輸入 Game List_Online 的記事…"></textarea><div class="gl-note-actions"><span class="gl-note-status" id="glNoteStatus"></span><button class="gl-save" id="glSaveNote">儲存記事</button></div></div>
+ </div>
+ <div class="gl-scroll"><table class="gl-table"><thead>
+ <tr><th rowspan="2">GAME ID</th><th rowspan="2">GAME VERSION</th><th rowspan="2">LIST OF GAMES</th><th rowspan="2">MANUFACTURER</th><th rowspan="2">DENOMINATION</th><th rowspan="2">GAME TYPE</th><th rowspan="2">NO. OF LINES</th><th colspan="2">BET (PHP)</th><th rowspan="2">MAX PRIZE (PHP)</th><th rowspan="2">MAX PRIZE<br>MULTIPLIER</th><th rowspan="2">PROGRESSIVE JACKPOT GROUP</th><th colspan="2">JACKPOT RANGE (PHP)</th><th colspan="2">JACKPOT RTP%</th><th rowspan="2">TOTAL JACKPOT RTP %</th><th rowspan="2">BASE GAME RTP %</th><th rowspan="2">TOTAL PAYOUT %<br>(THEORETICAL)</th></tr>
+ <tr><th>MINIMUM</th><th>MAXIMUM</th><th>MIN</th><th>MAX</th><th>RESERVE%</th><th>INCREMENT%</th></tr>
+ </thead><tbody id="glBody"></tbody></table></div>`;
+ const body=workspace.querySelector('#glBody'),search=workspace.querySelector('#glSearch'),count=workspace.querySelector('#glCount');
+ renderRows(body,'',count);search.addEventListener('input',()=>renderRows(body,search.value,count));
+ const btn=workspace.querySelector('#glNoteBtn'),panel=workspace.querySelector('#glNotePanel'),area=workspace.querySelector('#glNoteText'),status=workspace.querySelector('#glNoteStatus');
+ btn.onclick=()=>panel.classList.toggle('open');
+ workspace.querySelector('#glSaveNote').onclick=()=>saveNote(area,status);
+ loadNote(area);
+}
+function mount(){
+ const title=(document.querySelector('#pageTitle')?.textContent||'').trim();
+ const workspace=document.querySelector('#workspace');
+ if(!workspace)return;
+ if(title==='Game List_Online'){if(workspace.dataset.gameListBuilt!=='1')build(workspace)}
+ else if(workspace.dataset.gameListBuilt==='1'){delete workspace.dataset.gameListBuilt}
+}
+const obs=new MutationObserver(()=>setTimeout(mount,0));
+obs.observe(document.documentElement,{childList:true,subtree:true});
+document.addEventListener('DOMContentLoaded',mount);
+setTimeout(mount,250);
