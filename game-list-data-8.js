@@ -1,0 +1,1 @@
+window.GAME_LIST_ONLINE_DATA=(window.GAME_LIST_ONLINE_DATA||[]).concat([["","106007-3.0.0","Bathala 1000","OMNIPLAY","PHP 0.002","Electronic (eCasino Games)- Slot Games","5.0","1.0","1,500","45,000,000","30,000","OP Jackpot","N/A","N/A","N/A","N/A","N/A","96.00%","96.00%"]]);
