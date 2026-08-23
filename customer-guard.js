@@ -12,6 +12,15 @@
       const sheet=wb?.getActiveSheet?.();
       const range=sheet?.getActiveRange?.();
       if(!range)return 1;
+
+      const notation=String(range.getA1Notation?.()||'').replace(/\$/g,'');
+      let m=notation.match(/^(\d+):(\d+)$/);
+      if(m)return Math.max(1,Number(m[2]));
+      m=notation.match(/^[A-Z]+(\d+):[A-Z]+(\d+)$/i);
+      if(m)return Math.max(1,Number(m[2]));
+      m=notation.match(/^[A-Z]+(\d+)$/i);
+      if(m)return Math.max(1,Number(m[1]));
+
       const start=Number(range.getRow?.() ?? 0);
       const count=Number(range.getNumRows?.() ?? 1);
       return Math.max(1,start+count);
@@ -64,7 +73,10 @@
     fixFreezeMenuText();
   });
   observer.observe(document.documentElement,{childList:true,subtree:true});
-  document.addEventListener('contextmenu',()=>setTimeout(fixFreezeMenuText,0),true);
+  document.addEventListener('contextmenu',()=>{
+    setTimeout(fixFreezeMenuText,0);
+    setTimeout(fixFreezeMenuText,50);
+  },true);
   document.addEventListener('DOMContentLoaded',()=>{syncCustomerCreateButton();fixFreezeMenuText()});
   syncCustomerCreateButton();
 })();
