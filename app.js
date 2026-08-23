@@ -90,10 +90,9 @@ function renderCustomers(){
   w.innerHTML=`
     <div class="customer-hero">
       <div><div class="eyebrow">ACCESS CONTROL</div><h2>客戶存取管理</h2><p>建立客戶、整理群組，並精準控制每一個帳號可查看的頁面。</p></div>
-      <div class="customer-tools"><button class="secondary" id="newGroup">＋ 新增群組</button><button class="primary" id="newCustomer">＋ 建立客戶</button></div>
+      <div class="customer-tools"><button class="secondary" id="newGroup">＋ 新增群組</button>${groups.length?'<button class="primary" id="newCustomer">＋ 建立客戶</button>':''}</div>
     </div>
     <div class="stats-grid"><div class="stat-card"><span>客戶</span><strong>${customers.length}</strong></div><div class="stat-card"><span>群組</span><strong>${groups.length}</strong></div><div class="stat-card"><span>可管理頁面</span><strong>${allPages().length}</strong></div></div>
-    <div class="notice">🔐 正式密碼登入下一階段接 Firebase Authentication；目前不會把明碼密碼存進 Firestore。</div>
     <div class="customer-layout"><section class="admin-card"><div class="card-head"><h3>群組分類</h3><span>${groups.length} 組</span></div><div id="groups"></div></section><section class="admin-card"><div class="card-head"><h3>客戶列表</h3><span>${customers.length} 位</span></div><div id="customers"></div></section></div>`;
 
   const gr=$('#groups');
@@ -101,7 +100,7 @@ function renderCustomers(){
   groups.forEach(g=>{const count=customers.filter(u=>u.groupId===g.id).length;gr.insertAdjacentHTML('beforeend',`<div class="admin-row"><div class="group-icon">👥</div><div><strong>${esc(g.name)}</strong><div class="file-meta">${count} 位客戶</div></div></div>`)});
 
   const cr=$('#customers');
-  if(!customers.length)cr.innerHTML='<div class="empty-mini"><div>👤</div><strong>尚無客戶</strong><span>點右上「建立客戶」開始</span></div>';
+  if(!customers.length)cr.innerHTML=`<div class="empty-mini"><div>👤</div><strong>尚無客戶</strong><span>${groups.length?'建立客戶後會顯示在這裡':'請先建立群組'}</span></div>`;
   customers.forEach(u=>{
     const d=document.createElement('div');d.className='customer-item';
     const groupName=groups.find(g=>g.id===u.groupId)?.name||'未分類';
@@ -109,7 +108,8 @@ function renderCustomers(){
     d.querySelector('button').onclick=()=>editPermissions(u); cr.append(d);
   });
 
-  $('#newGroup').onclick=openGroupDialog; $('#newCustomer').onclick=openCustomerDialog;
+  $('#newGroup').onclick=openGroupDialog;
+  if($('#newCustomer')) $('#newCustomer').onclick=openCustomerDialog;
 }
 
 function openGroupDialog(){
@@ -117,7 +117,7 @@ function openGroupDialog(){
 }
 function openCustomerDialog(){
   $('#customerName').value=''; $('#customerUsername').value='';
-  const sel=$('#customerGroup'); sel.innerHTML='<option value="">未分類</option>'+state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
+  const sel=$('#customerGroup'); sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');
   $('#customerDialog').showModal(); setTimeout(()=>$('#customerName').focus(),50);
 }
 
@@ -138,7 +138,7 @@ $('#categoryForm').onsubmit=e=>{e.preventDefault();const n=$('#categoryName').va
 $('#addPageBtn').onclick=()=>{$('#pageName').value='';$('#pageDialog').showModal()};
 $('#pageForm').onsubmit=e=>{e.preventDefault();const c=cat(),n=$('#pageName').value.trim(),t=$('#pageType').value;if(!c||!n)return;const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};if(t!=='sheet')p.files=[];c.pages.push(p);state.activePageId=p.id;save();$('#pageDialog').close();renderNav();renderPage()};
 $('#groupForm').onsubmit=e=>{e.preventDefault();const n=$('#groupName').value.trim();if(!n)return;state.customerGroups.push({id:uid('grp'),name:n});save();$('#groupDialog').close();renderCustomers()};
-$('#customerForm').onsubmit=e=>{e.preventDefault();const name=$('#customerName').value.trim(),username=$('#customerUsername').value.trim(),groupId=$('#customerGroup').value||null;if(!name||!username)return;state.customers.push({id:uid('usr'),name,username,groupId,allowedPages:[]});save();$('#customerDialog').close();renderCustomers()};
+$('#customerForm').onsubmit=e=>{e.preventDefault();const name=$('#customerName').value.trim(),username=$('#customerUsername').value.trim(),groupId=$('#customerGroup').value||null;if(!name||!username||!groupId)return;state.customers.push({id:uid('usr'),name,username,groupId,allowedPages:[]});save();$('#customerDialog').close();renderCustomers()};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>document.getElementById(b.dataset.close)?.close());
 window.addEventListener('beforeunload',()=>{dispose();saveNow()});
 load();
