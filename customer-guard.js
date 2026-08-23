@@ -1,4 +1,8 @@
 (function(){
+  const firebaseConfig={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
+  let groupSortTimer=null;
+  let groupSortBusy=false;
+
   function syncCustomerCreateButton(){
     const createBtn=document.querySelector('#newCustomer');
     if(!createBtn)return;
@@ -15,6 +19,110 @@
     const cards=layout.querySelectorAll(':scope > .admin-card');
     if(cards.length>1)cards[1].remove();
     layout.style.gridTemplateColumns='minmax(0,1fr)';
+  }
+
+  async function getWorkspaceStore(){
+    const appMod=await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js');
+    const fsMod=await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js');
+    const app=appMod.getApps().length?appMod.getApps()[0]:appMod.initializeApp(firebaseConfig);
+    const db=fsMod.getFirestore(app);
+    return {fsMod,ref:fsMod.doc(db,'omniplay','workspace')};
+  }
+
+  function rowGroupName(row){
+    return (row.querySelector('strong')?.textContent||'').trim();
+  }
+
+  async function persistGroupOrder(container){
+    try{
+      const {fsMod,ref}=await getWorkspaceStore();
+      const snap=await fsMod.getDoc(ref);
+      if(!snap.exists())return;
+      const data=snap.data();
+      const groups=Array.isArray(data.customerGroups)?data.customerGroups:[];
+      const byId=new Map(groups.map(g=>[g.id,g]));
+      const ids=[...container.querySelectorAll('.admin-row[data-group-id]')].map(r=>r.dataset.groupId);
+      const ordered=ids.map(id=>byId.get(id)).filter(Boolean);
+      groups.forEach(g=>{if(!ids.includes(g.id))ordered.push(g)});
+      await fsMod.setDoc(ref,{...data,customerGroups:ordered,updatedAt:new Date().toISOString()});
+      const status=document.querySelector('#cloudStatus');
+      if(status)status.textContent='☁️ 群組排序已同步';
+    }catch(e){console.warn('group order save failed',e)}
+  }
+
+  async function setupGroupDragSort(){
+    if(groupSortBusy)return;
+    const container=document.querySelector('#groups');
+    if(!container||container.dataset.dragSortReady==='1')return;
+    const rows=[...container.querySelectorAll(':scope > .admin-row')];
+    if(!rows.length)return;
+    groupSortBusy=true;
+    try{
+      const {fsMod,ref}=await getWorkspaceStore();
+      const snap=await fsMod.getDoc(ref);
+      if(!snap.exists())return;
+      const groups=Array.isArray(snap.data().customerGroups)?snap.data().customerGroups:[];
+
+      const buckets=new Map();
+      groups.forEach(g=>{
+        const key=String(g.name||'').trim();
+        if(!buckets.has(key))buckets.set(key,[]);
+        buckets.get(key).push(g);
+      });
+      rows.forEach(row=>{
+        const list=buckets.get(rowGroupName(row))||[];
+        const g=list.shift();
+        if(g)row.dataset.groupId=g.id;
+      });
+
+      const rowById=new Map(rows.filter(r=>r.dataset.groupId).map(r=>[r.dataset.groupId,r]));
+      groups.forEach(g=>{const row=rowById.get(g.id);if(row)container.appendChild(row)});
+      rows.forEach(row=>{if(!row.dataset.groupId)container.appendChild(row)});
+
+      let dragging=null;
+      [...container.querySelectorAll(':scope > .admin-row')].forEach(row=>{
+        if(row.querySelector('.group-drag-handle'))return;
+        const handle=document.createElement('span');
+        handle.className='group-drag-handle';
+        handle.textContent='☰';
+        handle.title='拖曳調整群組順序';
+        handle.draggable=true;
+        handle.style.cssText='cursor:grab;font-size:20px;line-height:1;color:#8fa4c4;padding:10px 10px 10px 2px;user-select:none;flex:0 0 auto;';
+        row.insertBefore(handle,row.firstChild);
+        handle.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()});
+        handle.addEventListener('dragstart',e=>{
+          e.stopPropagation();
+          dragging=row;
+          row.style.opacity='.45';
+          e.dataTransfer.effectAllowed='move';
+          e.dataTransfer.setData('text/plain',row.dataset.groupId||'group');
+        });
+        handle.addEventListener('dragend',async e=>{
+          e.stopPropagation();
+          if(dragging)dragging.style.opacity='';
+          dragging=null;
+          await persistGroupOrder(container);
+        });
+      });
+
+      container.addEventListener('dragover',e=>{
+        if(!dragging)return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect='move';
+        const target=e.target.closest('.admin-row');
+        if(!target||target===dragging||target.parentElement!==container)return;
+        const box=target.getBoundingClientRect();
+        container.insertBefore(dragging,e.clientY<box.top+box.height/2?target:target.nextSibling);
+      });
+      container.addEventListener('drop',e=>{if(dragging){e.preventDefault();e.stopPropagation()}});
+      container.dataset.dragSortReady='1';
+    }catch(e){console.warn('group drag setup failed',e)}
+    finally{groupSortBusy=false}
+  }
+
+  function scheduleGroupDragSort(){
+    clearTimeout(groupSortTimer);
+    groupSortTimer=setTimeout(setupGroupDragSort,80);
   }
 
   function selectedRowCount(api){
@@ -82,6 +190,7 @@
   const observer=new MutationObserver(()=>{
     syncCustomerCreateButton();
     simplifyCustomerManagement();
+    scheduleGroupDragSort();
     fixFreezeMenuText();
   });
   observer.observe(document.documentElement,{childList:true,subtree:true});
@@ -89,7 +198,8 @@
     setTimeout(fixFreezeMenuText,0);
     setTimeout(fixFreezeMenuText,50);
   },true);
-  document.addEventListener('DOMContentLoaded',()=>{syncCustomerCreateButton();simplifyCustomerManagement();fixFreezeMenuText()});
+  document.addEventListener('DOMContentLoaded',()=>{syncCustomerCreateButton();simplifyCustomerManagement();scheduleGroupDragSort();fixFreezeMenuText()});
   syncCustomerCreateButton();
   simplifyCustomerManagement();
+  scheduleGroupDragSort();
 })();
