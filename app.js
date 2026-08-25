@@ -27,7 +27,7 @@ const PLATFORM_IMPORT_VERSION=1,IMPORTED_PLATFORMS=[
 ['OKBet','OKBT','一般平台','正式上線','2025-09-15','Okbet 轉帳錢包'],['Solaire','SLS','','','','Philweb旗下平台'],['Philweb','ECGT','一般平台','已終止','',''],['Laikiwin (OCMS)','OCS','一般平台','正式上線','','']
 ];
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
-let currentUniver=null,timer=null,cloud=false;
+let currentUniver=null,timer=null,cloud=false,editingCustomerId=null;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
@@ -132,8 +132,9 @@ const groups=state.customerGroups,customers=state.customers,liveCount=customers.
 w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>集中查看所有平台資料，並可直接調整分類、進度與所屬群組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span><button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><section class="admin-card platform-table-card"><div class="platform-table-wrap"><table class="platform-table"><thead><tr><th>客戶名稱</th><th>客戶域名</th><th>客戶群組</th><th>通訊 APP</th><th>對接進度</th><th>上線日期</th><th>備註說明</th><th>所屬群組</th><th>操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><div>🏢</div><strong>尚未建立平台</strong><span>按右上「新增平台」開始</span></div></section>`;
 const rows=$('#platformRows');
 if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
-customers.forEach(u=>{const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td><select data-field="customerType">${platformOptionMarkup(state.customerTypeOptions,u.customerType)}</select></td><td><select data-field="commApp">${platformOptionMarkup(state.customerCommAppOptions,u.commApp)}</select></td><td><select data-field="progress">${platformOptionMarkup(state.customerProgressOptions,u.progress)}</select></td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><select data-field="groupId">${platformOptionMarkup(groups,u.groupId)}</select></td><td><div class="platform-actions"><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+customers.forEach(u=>{const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td><select data-field="customerType">${platformOptionMarkup(state.customerTypeOptions,u.customerType)}</select></td><td><select data-field="commApp">${platformOptionMarkup(state.customerCommAppOptions,u.commApp)}</select></td><td><select data-field="progress">${platformOptionMarkup(state.customerProgressOptions,u.progress)}</select></td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><select data-field="groupId">${platformOptionMarkup(groups,u.groupId)}</select></td><td><div class="platform-actions"><button type="button" class="platform-edit">編輯</button><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
 tr.querySelectorAll('select[data-field]').forEach(select=>select.onchange=()=>handlePlatformOption(select,u,select.dataset.field));
+tr.querySelector('.platform-edit').onclick=()=>openCustomerDialog(u.groupId,u);
 tr.querySelector('.permission-btn').onclick=()=>{const selectedGroup=state.customerGroups.find(g=>g.id===u.groupId);if(!selectedGroup){alert('請先選擇所屬群組');return}editGroupPermissions(selectedGroup)};
 tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定要刪除平台「${u.name}」嗎？\n刪除後無法復原。`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
 rows.append(tr)});
@@ -154,15 +155,19 @@ list.append(d)});
 $('#backCustomers').onclick=renderCustomers;
 $('#addGroupCustomer').onclick=()=>openCustomerDialog(g.id);
 $('#groupPermission').onclick=()=>editGroupPermissions(g)}
-function fillCustomerOptionSelect(id,items){const sel=$(id);
-sel.innerHTML=items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
+function fillCustomerOptionSelect(id,items,allowEmpty=false){const sel=$(id);
+sel.innerHTML=(allowEmpty?'<option value="">未設定</option>':'')+items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
 $('#groupDialog').showModal();
-setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId){['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
-fillCustomerOptionSelect('#customerType',state.customerTypeOptions);
-fillCustomerOptionSelect('#customerCommApp',state.customerCommAppOptions);
-fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions);
+setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId,customer=null){editingCustomerId=customer?.id||null;
+$('#customerDialogTitle').textContent=customer?'編輯平台':'建立平台';
+$('#customerSubmitBtn').textContent=customer?'儲存變更':'建立平台';
+['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
+fillCustomerOptionSelect('#customerType',state.customerTypeOptions,true);
+fillCustomerOptionSelect('#customerCommApp',state.customerCommAppOptions,true);
+fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions,true);
 const sel=$('#customerGroup');
-sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
+sel.innerHTML='<option value="">未設定</option>'+state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
+if(customer){$('#customerName').value=customer.name||'';$('#customerDomain').value=customer.domain||customer.username||'';$('#customerType').value=customer.customerType||'';$('#customerCommApp').value=customer.commApp||'';$('#customerProgress').value=customer.progress||'';$('#customerLaunchDate').value=/^\d{4}-\d{2}-\d{2}$/.test(customer.launchDate||'')?customer.launchDate:'';$('#customerNotes').value=customer.notes||'';sel.value=customer.groupId||''}
 const launchDate=$('#customerLaunchDate');
 launchDate.onclick=()=>launchDate.showPicker?.();
 $('#customerDialog').showModal();
@@ -229,13 +234,15 @@ if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){gr
 save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
-if(!name||!groupId)return;
-state.customers.push({id:uid('usr'),name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,commApp:$('#customerCommApp').value.trim(),groupId,progress:$('#customerProgress').value,launchDate:$('#customerLaunchDate').value.trim(),notes:$('#customerNotes').value.trim()});
+if(!name)return;
+const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,commApp:$('#customerCommApp').value.trim(),groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
+if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
+editingCustomerId=null;
 save();
 $('#customerDialog').close();
 renderCustomers()};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);
-if(d?.id==='customerDialog'){const s=$('#customerGroup');
+if(d?.id==='customerDialog'){editingCustomerId=null;const s=$('#customerGroup');
 s.disabled=false;
 delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
