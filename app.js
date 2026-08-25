@@ -6,8 +6,8 @@ const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay
 
 const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
 
-const CUSTOMER_OPTION_VERSION=3,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'];
-const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:['LINE','Telegram','WhatsApp'],customerOptionVersion:0,activeCategoryId:null,activePageId:null};
+const CUSTOMER_OPTION_VERSION=4,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'],DEFAULT_COMM_APPS=['Telegram','Teams'];
+const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,activeCategoryId:null,activePageId:null};
 let currentUniver=null,timer=null,cloud=false;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
@@ -17,10 +17,10 @@ if(s.exists())Object.assign(state,s.data());
 else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
 await saveNow()}state.customerGroups||=[];
 state.customers||=[];
-if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
+if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerCommAppOptions=[...DEFAULT_COMM_APPS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
 state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
 state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
-state.customerCommAppOptions||=['LINE','Telegram','WhatsApp'];
+state.customerCommAppOptions||=[...DEFAULT_COMM_APPS];
 state.customers.map(u=>u.commApp).filter(Boolean).forEach(value=>{if(!state.customerCommAppOptions.includes(value))state.customerCommAppOptions.push(value)});
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
