@@ -118,4 +118,5 @@ dialog.modal-xl{width:min(96vw,1180px)}
 .select-add{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:7px}
 .add-option{border:1px solid #36527a;border-radius:10px;background:#192a43;color:#8db4ff;font-size:20px;cursor:pointer}
 .add-option:hover{background:#223858;color:#fff}
+.customer-delete{padding:7px 10px;border-radius:8px;border:1px solid #713842;background:#2a171d;color:#ff9ca8;cursor:pointer;font-size:11px;font-weight:700}.customer-delete:hover{background:#42202a;border-color:#a34a59;color:#ffd4da}
 @media(max-width:800px){.customer-form-row-first,.customer-form-row-second{grid-template-columns:1fr}}
