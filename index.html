@@ -19,7 +19,7 @@
 <script src="https://unpkg.com/@univerjs/preset-sheets-core/lib/umd/locales/zh-TW.js">
 </script>
 <link rel="stylesheet" href="https://unpkg.com/@univerjs/preset-sheets-core/lib/index.css"/>
-<link rel="stylesheet" href="./styles.css?v=20260826-4"/>
+<link rel="stylesheet" href="./styles.css?v=20260826-5"/>
 </head>
 <body>
 <div id="app">
@@ -122,7 +122,7 @@
 <div class="modal-head">
 <div>
 <div class="eyebrow">CUSTOMER ACCOUNT</div>
-<h3>建立客戶</h3>
+<h3 id="customerDialogTitle">建立平台</h3>
 </div>
 <button type="button" class="icon-close" data-close="customerDialog">×</button>
 </div>
@@ -140,7 +140,7 @@
 </div>
 <div class="dialog-actions">
 <button type="button" class="secondary" data-close="customerDialog">取消</button>
-<button class="primary" value="default">建立客戶</button>
+<button class="primary" id="customerSubmitBtn" value="default">建立平台</button>
 </div>
 </form>
 </dialog>
@@ -151,7 +151,7 @@
 </script>
 <script src="./sheet-freeze-submenu-fix.js?v=20260826-1">
 </script>
-<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-10');</script>
+<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-11');</script>
 <script src="./sheet-shift-enter.js?v=20260825-3">
 </script>
 <script src="./sheet-ui-cleanup.js?v=20260825-1">
