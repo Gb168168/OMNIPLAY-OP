@@ -128,7 +128,7 @@
 </div>
 <div class="customer-form-row customer-form-row-second">
 <label>對接進度<div class="select-add"><select id="customerProgress"></select><button type="button" class="add-option" data-target="customerProgress" aria-label="新增對接進度選項">＋</button></div></label>
-<label>平台正式上線日期<input id="customerLaunchDate" inputmode="numeric" maxlength="8" pattern="[0-9]{2}/[0-9]{2}/[0-9]{2}" placeholder="YY/MM/DD" title="請輸入 YY/MM/DD，例如 26/08/26"/></label>
+<label>平台正式上線日期<input id="customerLaunchDate" type="date" title="點擊選擇正式上線日期"/></label>
 <label>備註說明<textarea id="customerNotes" rows="3" maxlength="1000" placeholder="輸入客戶備註"></textarea></label>
 </div>
 <div class="dialog-actions">
@@ -144,7 +144,7 @@
 </script>
 <script src="./sheet-freeze-submenu-fix.js?v=20260826-1">
 </script>
-<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-1');</script>
+<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-2');</script>
 <script src="./sheet-shift-enter.js?v=20260825-3">
 </script>
 <script src="./sheet-ui-cleanup.js?v=20260825-1">
