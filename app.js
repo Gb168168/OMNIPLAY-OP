@@ -1,18 +1,218 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
+
 import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
+
 const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
-const state={categories:[],customerGroups:[],customers:[],activeCategoryId:null,activePageId:null};let currentUniver=null,timer=null,cloud=false;
+
+const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:['一般客戶'],customerProgressOptions:['尚未開始','對接中','已完成'],activeCategoryId:null,activePageId:null};
+let currentUniver=null,timer=null,cloud=false;
+
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
-async function load(){try{const s=await getDoc(ref);if(s.exists())Object.assign(state,s.data());else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;await saveNow()}state.customerGroups||=[];state.customers||=[];state.customerGroups.forEach(g=>{g.allowedPages||=[];g.pageOrder||=[]});cloud=true;$('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);$('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();renderPage()}
-function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));$('#cloudStatus').textContent='☁️ 儲存中…';clearTimeout(timer);timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;try{await setDoc(ref,payload());$('#cloudStatus').textContent='☁️ 已同步'}catch(e){console.error(e);$('#cloudStatus').textContent='⚠️ 雲端儲存失敗'}}function dispose(){if(!currentUniver)return;try{const w=currentUniver.api.getActiveWorkbook();if(w?.save)currentUniver.page.snapshot=w.save();else if(w?.getSnapshot)currentUniver.page.snapshot=w.getSnapshot();save()}catch{}try{currentUniver.univer.dispose()}catch{}currentUniver=null}
-function renderNav(){const r=$('#categoryList');r.innerHTML='';state.categories.forEach(c=>{const b=document.createElement('div');b.className='category';b.innerHTML=`<div class="category-head ${c.id===state.activeCategoryId?'active':''}"><span>📁 ${esc(c.name)}</span><button class="mini">⋯</button></div><div class="category-pages"></div>`;b.querySelector('.category-head').onclick=e=>{if(e.target.classList.contains('mini'))return;state.activeCategoryId=c.id;state.activePageId=c.pages?.[0]?.id||null;renderNav();renderPage()};b.querySelector('.mini').onclick=()=>{if(confirm(`刪除分類「${c.name}」？`)){state.categories=state.categories.filter(x=>x.id!==c.id);save();renderNav();renderPage()}};const ps=b.querySelector('.category-pages');(c.pages||[]).forEach(p=>{const row=document.createElement('div');row.className=`page-row ${p.id===state.activePageId?'active':''}`;row.innerHTML=`<button class="page-link">${icon(p.type)} ${esc(p.name)}</button><button class="page-delete">×</button>`;row.querySelector('.page-link').onclick=()=>{state.activeCategoryId=c.id;state.activePageId=p.id;renderNav();renderPage()};row.querySelector('.page-delete').onclick=()=>{if(confirm(`刪除頁面「${p.name}」？`)){c.pages=c.pages.filter(x=>x.id!==p.id);state.customerGroups.forEach(g=>{g.allowedPages=(g.allowedPages||[]).filter(id=>id!==p.id);g.pageOrder=(g.pageOrder||[]).filter(id=>id!==p.id)});state.activePageId=c.pages[0]?.id||null;save();renderNav();renderPage()}};ps.append(row)});r.append(b)});$('#addPageBtn').disabled=!state.activeCategoryId}
-function renderPage(){dispose();const p=page(),c=cat();$('#emptyState').classList.toggle('hidden',!!p||!!c);$('#workspace').classList.toggle('hidden',!p);$('#breadcrumb').textContent=c?`工作區 / ${c.name}`:'工作區';$('#pageTitle').textContent=p?p.name:(c?c.name:'歡迎使用 OMNIPLAY');if(!p){if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';return}p.type==='sheet'?sheet(p):files(p)}
-function sheet(p){const w=$('#workspace');w.className='workspace sheet-workspace';w.innerHTML='<div class="sheet-note">📊 試算表・繁體中文・Firestore 雲端同步</div><div id="univerSheet" class="univer-sheet"></div>';try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet'})]});x.univerAPI.createWorkbook(p.snapshot||{name:p.name});currentUniver={univer:x.univer,api:x.univerAPI,page:p}}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
-function files(p){const w=$('#workspace');w.className='workspace';p.files||=[];w.innerHTML='<div class="notice">☁️ 檔案清單已同步；實際檔案內容的雲端儲存稍後接。</div><div class="file-panel"><div id="uploadZone" class="upload-zone"><strong>＋ 加入檔案</strong></div><div id="fileGrid" class="file-grid"></div></div>';$('#uploadZone').onclick=()=>$('#hiddenUpload').click();$('#hiddenUpload').onchange=e=>{[...e.target.files].forEach(f=>p.files.push({id:uid('file'),name:f.name,type:f.type,size:f.size}));save();files(p)};const g=$('#fileGrid');p.files.forEach(f=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div class="file-placeholder">📄</div><div class="file-name">${esc(f.name)}</div></div>`))}
+
+async function load(){try{const s=await getDoc(ref);
+if(s.exists())Object.assign(state,s.data());
+else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
+await saveNow()}state.customerGroups||=[];
+state.customers||=[];
+state.customerTypeOptions||=['一般客戶'];
+state.customerProgressOptions||=['尚未開始','對接中','已完成'];
+state.customerGroups.forEach(g=>{g.allowedPages||=[];
+g.pageOrder||=[]});
+cloud=true;
+$('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
+$('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();
+renderPage()}
+function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
+$('#cloudStatus').textContent='☁️ 儲存中…';
+clearTimeout(timer);
+timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;
+try{await setDoc(ref,payload());
+$('#cloudStatus').textContent='☁️ 已同步'}catch(e){console.error(e);
+$('#cloudStatus').textContent='⚠️ 雲端儲存失敗'}}function dispose(){if(!currentUniver)return;
+try{const w=currentUniver.api.getActiveWorkbook();
+if(w?.save)currentUniver.page.snapshot=w.save();
+else if(w?.getSnapshot)currentUniver.page.snapshot=w.getSnapshot();
+save()}catch{}try{currentUniver.univer.dispose()}catch{}currentUniver=null}
+function renderNav(){const r=$('#categoryList');
+r.innerHTML='';
+state.categories.forEach(c=>{const b=document.createElement('div');
+b.className='category';
+b.innerHTML=`<div class="category-head ${c.id===state.activeCategoryId?'active':''}"><span>📁 ${esc(c.name)}</span><button class="mini">⋯</button></div><div class="category-pages"></div>`;
+b.querySelector('.category-head').onclick=e=>{if(e.target.classList.contains('mini'))return;
+state.activeCategoryId=c.id;
+state.activePageId=c.pages?.[0]?.id||null;
+renderNav();
+renderPage()};
+b.querySelector('.mini').onclick=()=>{if(confirm(`刪除分類「${c.name}」？`)){state.categories=state.categories.filter(x=>x.id!==c.id);
+save();
+renderNav();
+renderPage()}};
+const ps=b.querySelector('.category-pages');
+(c.pages||[]).forEach(p=>{const row=document.createElement('div');
+row.className=`page-row ${p.id===state.activePageId?'active':''}`;
+row.innerHTML=`<button class="page-link">${icon(p.type)} ${esc(p.name)}</button><button class="page-delete">×</button>`;
+row.querySelector('.page-link').onclick=()=>{state.activeCategoryId=c.id;
+state.activePageId=p.id;
+renderNav();
+renderPage()};
+row.querySelector('.page-delete').onclick=()=>{if(confirm(`刪除頁面「${p.name}」？`)){c.pages=c.pages.filter(x=>x.id!==p.id);
+state.customerGroups.forEach(g=>{g.allowedPages=(g.allowedPages||[]).filter(id=>id!==p.id);
+g.pageOrder=(g.pageOrder||[]).filter(id=>id!==p.id)});
+state.activePageId=c.pages[0]?.id||null;
+save();
+renderNav();
+renderPage()}};
+ps.append(row)});
+r.append(b)});
+$('#addPageBtn').disabled=!state.activeCategoryId}
+function renderPage(){dispose();
+const p=page(),c=cat();
+$('#emptyState').classList.toggle('hidden',!!p||!!c);
+$('#workspace').classList.toggle('hidden',!p);
+$('#breadcrumb').textContent=c?`工作區 / ${c.name}`:'工作區';
+$('#pageTitle').textContent=p?p.name:(c?c.name:'歡迎使用 OMNIPLAY');
+if(!p){if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
+return}p.type==='sheet'?sheet(p):files(p)}
+function sheet(p){const w=$('#workspace');
+w.className='workspace sheet-workspace';
+w.innerHTML='<div class="sheet-note">📊 試算表・繁體中文・Firestore 雲端同步</div><div id="univerSheet" class="univer-sheet"></div>';
+try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet'})]});
+x.univerAPI.createWorkbook(p.snapshot||{name:p.name});
+currentUniver={univer:x.univer,api:x.univerAPI,page:p}}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
+function files(p){const w=$('#workspace');
+w.className='workspace';
+p.files||=[];
+w.innerHTML='<div class="notice">☁️ 檔案清單已同步；實際檔案內容的雲端儲存稍後接。</div><div class="file-panel"><div id="uploadZone" class="upload-zone"><strong>＋ 加入檔案</strong></div><div id="fileGrid" class="file-grid"></div></div>';
+$('#uploadZone').onclick=()=>$('#hiddenUpload').click();
+$('#hiddenUpload').onchange=e=>{[...e.target.files].forEach(f=>p.files.push({id:uid('file'),name:f.name,type:f.type,size:f.size}));
+save();
+files(p)};
+const g=$('#fileGrid');
+p.files.forEach(f=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div class="file-placeholder">📄</div><div class="file-name">${esc(f.name)}</div></div>`))}
 function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id:p.id,name:p.name,cat:c.name,type:p.type})))}
-function renderCustomers(){dispose();$('#emptyState').classList.add('hidden');const w=$('#workspace');w.className='workspace';w.classList.remove('hidden');$('#breadcrumb').textContent='系統管理';$('#pageTitle').textContent='客戶列表 / 群組權限';$('#addPageBtn').disabled=true;const groups=state.customerGroups,customers=state.customers;w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">ACCESS CONTROL</div><h2>群組權限管理</h2><p>客戶權限由所屬群組統一管理，不需要逐一設定。</p></div><div class="customer-tools"><button class="secondary" id="newGroup">＋ 新增群組</button></div></div><div class="customer-layout"><section class="admin-card"><div class="card-head"><h3>群組分類</h3><span>${groups.length} 組</span></div><div id="groups"></div></section></div>`;const gr=$('#groups');if(!groups.length)gr.innerHTML='<div class="empty-mini"><div>👥</div><strong>尚無群組</strong><span>請先新增群組</span></div>';groups.forEach(g=>{g.allowedPages||=[];const count=customers.filter(u=>u.groupId===g.id).length;const row=document.createElement('div');row.className='admin-row';row.style.cursor='pointer';row.innerHTML=`<div class="group-icon">👥</div><div><strong>${esc(g.name)}</strong><div class="file-meta">${count} 位客戶・可看 ${g.allowedPages.length} 個頁面</div></div><div style="margin-left:auto">›</div>`;row.onclick=()=>renderGroup(g);gr.append(row)});$('#newGroup').onclick=openGroupDialog}
-function renderGroup(g){g.allowedPages||=[];const w=$('#workspace'),members=state.customers.filter(u=>u.groupId===g.id);$('#breadcrumb').textContent='系統管理 / 群組分類';$('#pageTitle').textContent=g.name;w.innerHTML=`<div class="permission-top"><button id="backCustomers" class="secondary">← 返回群組列表</button></div><div class="customer-hero"><div><div class="eyebrow">CUSTOMER GROUP</div><h2>👥 ${esc(g.name)}</h2><p>${members.length} 位客戶・目前可看 ${g.allowedPages.length} 個頁面</p></div><div class="customer-tools"><button class="secondary" id="groupPermission">⚙ 設定群組權限</button><button class="primary" id="addGroupCustomer">＋ 新增客戶</button></div></div><section class="admin-card"><div class="card-head"><h3>群組客戶</h3><span>${members.length} 位</span></div><div id="groupMembers"></div></section>`;const list=$('#groupMembers');if(!members.length)list.innerHTML='<div class="empty-mini"><div>👤</div><strong>這個群組還沒有客戶</strong><span>按右上「新增客戶」建立第一位客戶</span></div>';members.forEach(u=>{const d=document.createElement('div');d.className='customer-item';d.innerHTML=`<div class="customer-avatar">${esc((u.name||'?').slice(0,1).toUpperCase())}</div><div class="customer-main"><strong>${esc(u.name)}</strong><div class="file-meta">${esc(u.username)}</div></div><div class="customer-access"><span>沿用群組權限</span></div>`;list.append(d)});$('#backCustomers').onclick=renderCustomers;$('#addGroupCustomer').onclick=()=>openCustomerDialog(g.id);$('#groupPermission').onclick=()=>editGroupPermissions(g)}
-function openGroupDialog(){$('#groupName').value='';$('#groupDialog').showModal();setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId){$('#customerName').value='';$('#customerUsername').value='';const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');sel.disabled=true;sel.dataset.lockedGroup=groupId;$('#customerDialog').showModal();setTimeout(()=>$('#customerName').focus(),50)}
-function editGroupPermissions(g){g.allowedPages||=[];const w=$('#workspace');w.innerHTML=`<div class="permission-top"><button id="backGroup" class="secondary">← 返回 ${esc(g.name)}</button></div><div class="admin-card permission-card"><div class="modal-head"><div><div class="eyebrow">GROUP PAGE ACCESS</div><h2>${esc(g.name)} 的群組權限</h2><p>依照「分類 → 頁面」顯示，勾選要開放給此群組查看的頁面。</p></div><div class="group-icon">👥</div></div><div id="permissionList" class="permission-list"></div><div class="permission-footer"><span id="permCount">已選 ${g.allowedPages.length} 個頁面</span><button id="savePerm" class="primary">儲存群組權限</button></div></div>`;const l=$('#permissionList');const total=allPages().length;if(!total)l.innerHTML='<div class="empty-mini"><strong>目前沒有可設定的頁面</strong></div>';state.categories.forEach(c=>{const pages=c.pages||[];if(!pages.length)return;const section=document.createElement('section');section.className='permission-category';section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">📁</span><strong>${esc(c.name)}</strong><span class="permission-category-count">${pages.length} 頁</span></div><div class="permission-category-pages"></div>`;const pageList=section.querySelector('.permission-category-pages');pages.forEach(p=>pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${icon(p.type)}</span><span><strong>${esc(p.name)}</strong><small>頁面</small></span></label>`));l.append(section)});l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySelectorAll('input:checked').length} 個頁面`);$('#backGroup').onclick=()=>renderGroup(g);$('#savePerm').onclick=()=>{const rows=[...l.querySelectorAll('.permission-row')];g.pageOrder=rows.map(x=>x.dataset.pageId);g.allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId);save();renderGroup(g)}}
-$('#customerBtn').onclick=renderCustomers;$('#addCategoryBtn').onclick=()=>{$('#categoryName').value='';$('#categoryDialog').showModal()};$('#categoryForm').onsubmit=e=>{e.preventDefault();const n=$('#categoryName').value.trim();if(!n)return;const c={id:uid('cat'),name:n,pages:[]};state.categories.push(c);state.activeCategoryId=c.id;save();$('#categoryDialog').close();renderNav();renderPage()};$('#addPageBtn').onclick=()=>{$('#pageName').value='';$('#pageDialog').showModal()};$('#pageForm').onsubmit=e=>{e.preventDefault();const c=cat(),n=$('#pageName').value.trim(),t=$('#pageType').value;if(!c||!n)return;const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};if(t!=='sheet')p.files=[];c.pages.push(p);state.activePageId=p.id;save();$('#pageDialog').close();renderNav();renderPage()};$('#groupForm').onsubmit=e=>{e.preventDefault();const n=$('#groupName').value.trim();if(!n)return;state.customerGroups.push({id:uid('grp'),name:n,allowedPages:[],pageOrder:[]});save();$('#groupDialog').close();renderCustomers()};$('#customerForm').onsubmit=e=>{e.preventDefault();const name=$('#customerName').value.trim(),username=$('#customerUsername').value.trim(),sel=$('#customerGroup'),groupId=sel.dataset.lockedGroup||sel.value;if(!name||!username||!groupId)return;state.customers.push({id:uid('usr'),name,username,groupId});sel.disabled=false;delete sel.dataset.lockedGroup;save();$('#customerDialog').close();renderGroup(state.customerGroups.find(g=>g.id===groupId))};document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);if(d?.id==='customerDialog'){const s=$('#customerGroup');s.disabled=false;delete s.dataset.lockedGroup}d?.close()});window.addEventListener('beforeunload',()=>{dispose();saveNow()});load();
+function renderCustomers(){dispose();
+$('#emptyState').classList.add('hidden');
+const w=$('#workspace');
+w.className='workspace';
+w.classList.remove('hidden');
+$('#breadcrumb').textContent='系統管理';
+$('#pageTitle').textContent='客戶列表 / 群組權限';
+$('#addPageBtn').disabled=true;
+const groups=state.customerGroups,customers=state.customers;
+w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">ACCESS CONTROL</div><h2>群組權限管理</h2><p>客戶權限由所屬群組統一管理，不需要逐一設定。</p></div><div class="customer-tools"><button class="secondary" id="newGroup">＋ 新增群組</button></div></div><div class="customer-layout"><section class="admin-card"><div class="card-head"><h3>群組分類</h3><span>${groups.length} 組</span></div><div id="groups"></div></section></div>`;
+const gr=$('#groups');
+if(!groups.length)gr.innerHTML='<div class="empty-mini"><div>👥</div><strong>尚無群組</strong><span>請先新增群組</span></div>';
+groups.forEach(g=>{g.allowedPages||=[];
+const count=customers.filter(u=>u.groupId===g.id).length;
+const row=document.createElement('div');
+row.className='admin-row';
+row.style.cursor='pointer';
+row.innerHTML=`<div class="group-icon">👥</div><div><strong>${esc(g.name)}</strong><div class="file-meta">${count} 位客戶・可看 ${g.allowedPages.length} 個頁面</div></div><div style="margin-left:auto">›</div>`;
+row.onclick=()=>renderGroup(g);
+gr.append(row)});
+$('#newGroup').onclick=openGroupDialog}
+function renderGroup(g){g.allowedPages||=[];
+const w=$('#workspace'),members=state.customers.filter(u=>u.groupId===g.id);
+$('#breadcrumb').textContent='系統管理 / 群組分類';
+$('#pageTitle').textContent=g.name;
+w.innerHTML=`<div class="permission-top"><button id="backCustomers" class="secondary">← 返回群組列表</button></div><div class="customer-hero"><div><div class="eyebrow">CUSTOMER GROUP</div><h2>👥 ${esc(g.name)}</h2><p>${members.length} 位客戶・目前可看 ${g.allowedPages.length} 個頁面</p></div><div class="customer-tools"><button class="secondary" id="groupPermission">⚙ 設定群組權限</button><button class="primary" id="addGroupCustomer">＋ 新增客戶</button></div></div><section class="admin-card"><div class="card-head"><h3>群組客戶</h3><span>${members.length} 位</span></div><div id="groupMembers"></div></section>`;
+const list=$('#groupMembers');
+if(!members.length)list.innerHTML='<div class="empty-mini"><div>👤</div><strong>這個群組還沒有客戶</strong><span>按右上「新增客戶」建立第一位客戶</span></div>';
+members.forEach(u=>{const d=document.createElement('div');
+d.className='customer-item';
+d.innerHTML=`<div class="customer-avatar">${esc((u.name||'?').slice(0,1).toUpperCase())}</div><div class="customer-main"><strong>${esc(u.name)}</strong><div class="file-meta">${esc(u.domain||u.username||'未填域名')}・${esc(u.customerType||'一般客戶')}・${esc(u.progress||'尚未開始')}</div></div><div class="customer-access"><span>沿用群組權限</span></div>`;
+list.append(d)});
+$('#backCustomers').onclick=renderCustomers;
+$('#addGroupCustomer').onclick=()=>openCustomerDialog(g.id);
+$('#groupPermission').onclick=()=>editGroupPermissions(g)}
+function fillCustomerOptionSelect(id,items){const sel=$(id);
+sel.innerHTML=items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
+$('#groupDialog').showModal();
+setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId){['#customerName','#customerDomain','#customerCommApp','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
+fillCustomerOptionSelect('#customerType',state.customerTypeOptions);
+fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions);
+const sel=$('#customerGroup');
+sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
+sel.disabled=true;
+sel.dataset.lockedGroup=groupId;
+$('#customerDialog').showModal();
+setTimeout(()=>$('#customerName').focus(),50)}
+function editGroupPermissions(g){g.allowedPages||=[];
+const w=$('#workspace');
+w.innerHTML=`<div class="permission-top"><button id="backGroup" class="secondary">← 返回 ${esc(g.name)}</button></div><div class="admin-card permission-card"><div class="modal-head"><div><div class="eyebrow">GROUP PAGE ACCESS</div><h2>${esc(g.name)} 的群組權限</h2><p>依照「分類 → 頁面」顯示，勾選要開放給此群組查看的頁面。</p></div><div class="group-icon">👥</div></div><div id="permissionList" class="permission-list"></div><div class="permission-footer"><span id="permCount">已選 ${g.allowedPages.length} 個頁面</span><button id="savePerm" class="primary">儲存群組權限</button></div></div>`;
+const l=$('#permissionList');
+const total=allPages().length;
+if(!total)l.innerHTML='<div class="empty-mini"><strong>目前沒有可設定的頁面</strong></div>';
+state.categories.forEach(c=>{const pages=c.pages||[];
+if(!pages.length)return;
+const section=document.createElement('section');
+section.className='permission-category';
+section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">📁</span><strong>${esc(c.name)}</strong><span class="permission-category-count">${pages.length} 頁</span></div><div class="permission-category-pages"></div>`;
+const pageList=section.querySelector('.permission-category-pages');
+pages.forEach(p=>pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${icon(p.type)}</span><span><strong>${esc(p.name)}</strong><small>頁面</small></span></label>`));
+l.append(section)});
+l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySelectorAll('input:checked').length} 個頁面`);
+$('#backGroup').onclick=()=>renderGroup(g);
+$('#savePerm').onclick=()=>{const rows=[...l.querySelectorAll('.permission-row')];
+g.pageOrder=rows.map(x=>x.dataset.pageId);
+g.allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId);
+save();
+renderGroup(g)}}
+$('#customerBtn').onclick=renderCustomers;
+$('#addCategoryBtn').onclick=()=>{$('#categoryName').value='';
+$('#categoryDialog').showModal()};
+$('#categoryForm').onsubmit=e=>{e.preventDefault();
+const n=$('#categoryName').value.trim();
+if(!n)return;
+const c={id:uid('cat'),name:n,pages:[]};
+state.categories.push(c);
+state.activeCategoryId=c.id;
+save();
+$('#categoryDialog').close();
+renderNav();
+renderPage()};
+$('#addPageBtn').onclick=()=>{$('#pageName').value='';
+$('#pageDialog').showModal()};
+$('#pageForm').onsubmit=e=>{e.preventDefault();
+const c=cat(),n=$('#pageName').value.trim(),t=$('#pageType').value;
+if(!c||!n)return;
+const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};
+if(t!=='sheet')p.files=[];
+c.pages.push(p);
+state.activePageId=p.id;
+save();
+$('#pageDialog').close();
+renderNav();
+renderPage()};
+$('#groupForm').onsubmit=e=>{e.preventDefault();
+const n=$('#groupName').value.trim();
+if(!n)return;
+state.customerGroups.push({id:uid('grp'),name:n,allowedPages:[],pageOrder:[]});
+save();
+$('#groupDialog').close();
+renderCustomers()};
+document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const isType=b.dataset.target==='customerType',label=isType?'客戶群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
+if(!value)return;
+const items=isType?state.customerTypeOptions:state.customerProgressOptions;
+if(!items.includes(value))items.push(value);
+fillCustomerOptionSelect(`#${b.dataset.target}`,items);
+$(`#${b.dataset.target}`).value=value;
+save()});
+$('#customerForm').onsubmit=e=>{e.preventDefault();
+const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.dataset.lockedGroup||sel.value;
+if(!name||!groupId)return;
+state.customers.push({id:uid('usr'),name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,commApp:$('#customerCommApp').value.trim(),groupId,progress:$('#customerProgress').value,launchDate:$('#customerLaunchDate').value.trim(),notes:$('#customerNotes').value.trim()});
+sel.disabled=false;
+delete sel.dataset.lockedGroup;
+save();
+$('#customerDialog').close();
+renderGroup(state.customerGroups.find(g=>g.id===groupId))};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);
+if(d?.id==='customerDialog'){const s=$('#customerGroup');
+s.disabled=false;
+delete s.dataset.lockedGroup}d?.close()});
+window.addEventListener('beforeunload',()=>{dispose();
+saveNow()});
+load();
