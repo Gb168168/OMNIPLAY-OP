@@ -7,7 +7,26 @@ const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay
 const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
 
 const CUSTOMER_OPTION_VERSION=4,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'],DEFAULT_COMM_APPS=['Telegram','Teams'];
-const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,activeCategoryId:null,activePageId:null};
+const PLATFORM_IMPORT_VERSION=1,IMPORTED_PLATFORMS=[
+['Newport (Playtech)','', 'IR平台','','','找不到資料'],['Juan365','', '一般平台','','','找不到資料'],
+['Filbet','FBTS4','一般平台','測試環境對接中','',''],['Filbet','FBTS3','一般平台','測試環境對接中','',''],['Filbet','FBTS2','一般平台','測試環境對接中','',''],
+['789PLAY','PLS','一般平台','正式上線','2026-08-24',''],['789BINGO','BGS','一般平台','正式上線','2026-08-24',''],['Arenaplus','APS1','一般平台','測試環境對接中','',''],['H&H','LLS','IR平台','正式環境對接中','',''],
+['OKBet','OKBS','一般平台','正式環境對接中','','Okbet 單一錢包'],['FBM','MBF2S','一般平台','正式環境對接中','','Philweb旗下平台'],['IGO-NP','IGNS','IR平台','正式環境對接中','',''],
+['PWNWR','PWN2S','','','','Philweb旗下平台'],['PWNWR','PWNWRS','','','','Philweb旗下平台'],
+['NinoGaming','LORAT','一般平台','正式上線','2026-05-12','Philweb旗下平台：Hann分支（原PWNN）'],['NinoGaming','PWNNT','一般平台','正式上線','2026-05-12','Philweb旗下平台：Hann分支（原PWNNT）'],
+['BigBunny','VIVOT','一般平台','正式上線','2026-05-12','Philweb旗下平台：Hann分支（原PWBB）'],['BigBunny','PWBBT','一般平台','正式上線','2026-05-12','Philweb旗下平台：Hann分支（原PWBB）'],
+['ArionPlay','YOYOT','一般平台','正式上線','2026-05-12','Philweb旗下平台：Hann分支（原PWAP）'],['ArionPlay','PWAPT','一般平台','正式上線','2026-05-12','Philweb旗下平台：Hann分支（原PWAP）'],
+['Pin77','PNS','一般平台','測試環境對接中','',''],['Hann','HNT','一般平台','正式上線','2026-05-12',''],['FBM','FBMS','一般平台','正式上線','2026-05-01','Philweb旗下平台'],
+['Nustar','NSS2','一般平台','正式上線','2026-04-24','Philweb旗下平台'],['Casino Plus','CPS5','IR平台','正式上線','2026-05-04',''],['OKADAPLAY','OKPS','一般平台','正式上線','2026-05-01','Philweb旗下平台'],
+['Digitalwin','DGWS','一般平台','正式環境對接中','',''],['Playtime','PTS2','一般平台','正式上線','2026-04-01','Philweb旗下平台'],['LuckyWorld','LWS','IR平台','正式環境對接中','',''],
+['DF','DFS2','一般平台','已終止','2026-03-20',''],['DF','DFS1','一般平台','已終止','2026-03-20',''],['BingoPlus','BPS2','一般平台','測試環境對接中','','GLI環境，僅有測試環境，不會有BPS2正式環境'],
+['BingoPlus','BPS1','一般平台','正式上線','2026-04-01',''],['Casino Plus','CPS4','IR平台','測試環境對接中','','CPS4不會有正式環境'],['Casino Plus','CPS3','IR平台','測試環境對接中','','CPS3不會有正式環境'],
+['Casino Plus','CPS2','IR平台','正式上線','2026-03-25','檢查用途'],['Casino Plus','CPS1','IR平台','正式上線','2026-03-25',''],['Nustar','NSS','一般平台','正式上線','2026-02-10','Philweb旗下平台'],
+['Playtime','PTS','一般平台','正式上線','2026-02-12','Philweb旗下平台'],['Okada','OKDT','IR平台','正式上線','2026-02-12',''],['Okfun / Okcard','GSPHT','一般平台','已暫停','2025-11-11',''],
+['S5','NTS','','','','Philweb旗下平台'],['Casino Filipino Online','CFOS','IR平台','正式環境對接中','',''],['Filbet','FBTS','一般平台','正式上線','2025-11-10',''],
+['OKBet','OKBT','一般平台','正式上線','2025-09-15','Okbet 轉帳錢包'],['Solaire','SLS','','','','Philweb旗下平台'],['Philweb','ECGT','一般平台','已終止','',''],['Laikiwin (OCMS)','OCS','一般平台','正式上線','','']
+];
+const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
 let currentUniver=null,timer=null,cloud=false;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
@@ -22,6 +41,7 @@ state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
 state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
 state.customerCommAppOptions||=[...DEFAULT_COMM_APPS];
 state.customers.map(u=>u.commApp).filter(Boolean).forEach(value=>{if(!state.customerCommAppOptions.includes(value))state.customerCommAppOptions.push(value)});
+if(state.platformImportVersion!==PLATFORM_IMPORT_VERSION){const existing=new Map(state.customers.map(u=>[`${String(u.name||'').trim().toLowerCase()}|${String(u.domain||u.username||'').trim().toLowerCase()}`,u]));IMPORTED_PLATFORMS.forEach(([name,domain,customerType,progress,launchDate,notes])=>{const key=`${name.trim().toLowerCase()}|${domain.trim().toLowerCase()}`,found=existing.get(key),data={name,domain,customerType,progress,launchDate,notes};if(found){Object.entries(data).forEach(([field,value])=>{if(value&&!found[field])found[field]=value})}else{const customer={id:uid('usr'),...data,commApp:'',groupId:''};state.customers.push(customer);existing.set(key,customer)}});state.platformImportVersion=PLATFORM_IMPORT_VERSION}
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
 cloud=true;
@@ -29,7 +49,7 @@ await saveNow();
 $('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();
 renderPage()}
-function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
+function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
 timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;
@@ -98,7 +118,7 @@ const g=$('#fileGrid');
 p.files.forEach(f=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div class="file-placeholder">📄</div><div class="file-name">${esc(f.name)}</div></div>`))}
 function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id:p.id,name:p.name,cat:c.name,type:p.type})))}
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
-function platformOptionMarkup(items,current){return items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
+function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
 function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
 function renderCustomers(){dispose();
 $('#emptyState').classList.add('hidden');
