@@ -19,14 +19,14 @@
 <script src="https://unpkg.com/@univerjs/preset-sheets-core/lib/umd/locales/zh-TW.js">
 </script>
 <link rel="stylesheet" href="https://unpkg.com/@univerjs/preset-sheets-core/lib/index.css"/>
-<link rel="stylesheet" href="./styles.css?v=20260826-2"/>
+<link rel="stylesheet" href="./styles.css?v=20260826-3"/>
 </head>
 <body>
 <div id="app">
 <aside class="sidebar">
 <div class="brand">🔥 OMNIPLAY OP</div>
 <button id="addCategoryBtn" class="primary">＋ 新增分類</button>
-<button id="customerBtn" class="side-action">👥 客戶列表 / 權限</button>
+<button id="customerBtn" class="side-action">🏢 所有平台列表</button>
 <div id="categoryList" class="category-list">
 </div>
 </aside>
@@ -124,12 +124,12 @@
 <label>客戶域名<input id="customerDomain" maxlength="160" placeholder="例如：abc.com"/></label>
 <label>客戶群組<div class="select-add"><select id="customerType"></select><button type="button" class="add-option" data-target="customerType" aria-label="新增客戶群組選項">＋</button></div></label>
 <label>通訊 APP<textarea id="customerCommApp" rows="3" maxlength="500" placeholder="例如：LINE、Telegram、WhatsApp"></textarea></label>
-<label>所屬群組<select id="customerGroup"></select></label>
 </div>
 <div class="customer-form-row customer-form-row-second">
 <label>對接進度<div class="select-add"><select id="customerProgress"></select><button type="button" class="add-option" data-target="customerProgress" aria-label="新增對接進度選項">＋</button></div></label>
 <label>平台正式上線日期<input id="customerLaunchDate" type="date" title="點擊選擇正式上線日期"/></label>
 <label>備註說明<textarea id="customerNotes" rows="3" maxlength="1000" placeholder="輸入客戶備註"></textarea></label>
+<label>所屬群組<div class="select-add"><select id="customerGroup"></select><button type="button" class="add-option" data-target="customerGroup" aria-label="新增所屬群組選項">＋</button></div></label>
 </div>
 <div class="dialog-actions">
 <button type="button" class="secondary" data-close="customerDialog">取消</button>
@@ -144,7 +144,7 @@
 </script>
 <script src="./sheet-freeze-submenu-fix.js?v=20260826-1">
 </script>
-<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-4');</script>
+<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-5');</script>
 <script src="./sheet-shift-enter.js?v=20260825-3">
 </script>
 <script src="./sheet-ui-cleanup.js?v=20260825-1">
