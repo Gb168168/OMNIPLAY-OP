@@ -6,7 +6,8 @@ const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay
 
 const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
 
-const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:['一般客戶'],customerProgressOptions:['尚未開始','對接中','已完成'],activeCategoryId:null,activePageId:null};
+const CUSTOMER_OPTION_VERSION=2,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'];
+const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerOptionVersion:CUSTOMER_OPTION_VERSION,activeCategoryId:null,activePageId:null};
 let currentUniver=null,timer=null,cloud=false;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
@@ -16,15 +17,16 @@ if(s.exists())Object.assign(state,s.data());
 else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
 await saveNow()}state.customerGroups||=[];
 state.customers||=[];
-state.customerTypeOptions||=['一般客戶'];
-state.customerProgressOptions||=['尚未開始','對接中','已完成'];
+if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
+state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
+state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
 cloud=true;
 $('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();
 renderPage()}
-function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
+function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerOptionVersion:state.customerOptionVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
 timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;
@@ -135,8 +137,6 @@ fillCustomerOptionSelect('#customerType',state.customerTypeOptions);
 fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions);
 const sel=$('#customerGroup');
 sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
-sel.disabled=true;
-sel.dataset.lockedGroup=groupId;
 $('#customerDialog').showModal();
 setTimeout(()=>$('#customerName').focus(),50)}
 function editGroupPermissions(g){g.allowedPages||=[];
@@ -201,11 +201,9 @@ fillCustomerOptionSelect(`#${b.dataset.target}`,items);
 $(`#${b.dataset.target}`).value=value;
 save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
-const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.dataset.lockedGroup||sel.value;
+const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name||!groupId)return;
 state.customers.push({id:uid('usr'),name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,commApp:$('#customerCommApp').value.trim(),groupId,progress:$('#customerProgress').value,launchDate:$('#customerLaunchDate').value.trim(),notes:$('#customerNotes').value.trim()});
-sel.disabled=false;
-delete sel.dataset.lockedGroup;
 save();
 $('#customerDialog').close();
 renderGroup(state.customerGroups.find(g=>g.id===groupId))};
