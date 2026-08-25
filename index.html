@@ -19,7 +19,7 @@
 <script src="https://unpkg.com/@univerjs/preset-sheets-core/lib/umd/locales/zh-TW.js">
 </script>
 <link rel="stylesheet" href="https://unpkg.com/@univerjs/preset-sheets-core/lib/index.css"/>
-<link rel="stylesheet" href="./styles.css?v=20260826-3"/>
+<link rel="stylesheet" href="./styles.css?v=20260826-4"/>
 </head>
 <body>
 <div id="app">
@@ -110,6 +110,13 @@
 </div>
 </form>
 </dialog>
+<dialog id="groupManagerDialog" class="modal-md">
+<div class="dialog-form">
+<div class="modal-head"><div><div class="eyebrow">CUSTOMER GROUPS</div><h3>群組分類管理</h3><p>新增群組，或刪除目前未被平台使用的群組。</p></div><button type="button" class="icon-close" data-close="groupManagerDialog">×</button></div>
+<div id="groupManagerList" class="group-manager-list"></div>
+<div class="dialog-actions"><button type="button" class="secondary" data-close="groupManagerDialog">關閉</button><button type="button" class="primary" id="addManagedGroup">＋ 新增群組分類</button></div>
+</div>
+</dialog>
 <dialog id="customerDialog" class="modal-xl">
 <form method="dialog" id="customerForm" class="dialog-form">
 <div class="modal-head">
@@ -144,7 +151,7 @@
 </script>
 <script src="./sheet-freeze-submenu-fix.js?v=20260826-1">
 </script>
-<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-8');</script>
+<script type="module">await import('./sheet-unifier-bootstrap.js?v=20260825-2');await import('./app.js?v=20260826-9');</script>
 <script src="./sheet-shift-enter.js?v=20260825-3">
 </script>
 <script src="./sheet-ui-cleanup.js?v=20260825-1">
