@@ -1,0 +1,1 @@
+(()=>{const ns=window.UniverPresetSheetsCore;if(!ns||typeof ns.UniverSheetsCorePreset!=='function')return;const original=ns.UniverSheetsCorePreset;ns.UniverSheetsCorePreset=function(config={}){return original({...config,disableForceStringAlert:true,disableForceStringMark:true})}})();
