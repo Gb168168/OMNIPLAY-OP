@@ -6,8 +6,8 @@ const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay
 
 const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
 
-const CUSTOMER_OPTION_VERSION=2,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'];
-const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerOptionVersion:CUSTOMER_OPTION_VERSION,activeCategoryId:null,activePageId:null};
+const CUSTOMER_OPTION_VERSION=3,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'];
+const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerOptionVersion:0,activeCategoryId:null,activePageId:null};
 let currentUniver=null,timer=null,cloud=false;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
@@ -23,6 +23,7 @@ state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
 cloud=true;
+await saveNow();
 $('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();
 renderPage()}
@@ -137,6 +138,8 @@ fillCustomerOptionSelect('#customerType',state.customerTypeOptions);
 fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions);
 const sel=$('#customerGroup');
 sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
+const launchDate=$('#customerLaunchDate');
+launchDate.onclick=()=>launchDate.showPicker?.();
 $('#customerDialog').showModal();
 setTimeout(()=>$('#customerName').focus(),50)}
 function editGroupPermissions(g){g.allowedPages||=[];
