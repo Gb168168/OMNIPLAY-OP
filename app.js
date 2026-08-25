@@ -7,7 +7,7 @@ const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay
 const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
 
 const CUSTOMER_OPTION_VERSION=3,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'];
-const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerOptionVersion:0,activeCategoryId:null,activePageId:null};
+const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:['LINE','Telegram','WhatsApp'],customerOptionVersion:0,activeCategoryId:null,activePageId:null};
 let currentUniver=null,timer=null,cloud=false;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
@@ -20,6 +20,8 @@ state.customers||=[];
 if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
 state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
 state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
+state.customerCommAppOptions||=['LINE','Telegram','WhatsApp'];
+state.customers.map(u=>u.commApp).filter(Boolean).forEach(value=>{if(!state.customerCommAppOptions.includes(value))state.customerCommAppOptions.push(value)});
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
 cloud=true;
@@ -27,7 +29,7 @@ await saveNow();
 $('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();
 renderPage()}
-function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerOptionVersion:state.customerOptionVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
+function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
 timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;
@@ -97,7 +99,7 @@ p.files.forEach(f=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div
 function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id:p.id,name:p.name,cat:c.name,type:p.type})))}
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){return items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
-function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
+function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
 function renderCustomers(){dispose();
 $('#emptyState').classList.add('hidden');
 const w=$('#workspace');
@@ -110,7 +112,7 @@ const groups=state.customerGroups,customers=state.customers,liveCount=customers.
 w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>集中查看所有平台資料，並可直接調整分類、進度與所屬群組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><section class="admin-card platform-table-card"><div class="platform-table-wrap"><table class="platform-table"><thead><tr><th>客戶名稱</th><th>客戶域名</th><th>客戶群組</th><th>通訊 APP</th><th>對接進度</th><th>上線日期</th><th>備註說明</th><th>所屬群組</th><th>操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><div>🏢</div><strong>尚未建立平台</strong><span>按右上「新增平台」開始</span></div></section>`;
 const rows=$('#platformRows');
 if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
-customers.forEach(u=>{const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td><select data-field="customerType">${platformOptionMarkup(state.customerTypeOptions,u.customerType)}</select></td><td><div class="platform-multiline">${esc(u.commApp||'—')}</div></td><td><select data-field="progress">${platformOptionMarkup(state.customerProgressOptions,u.progress)}</select></td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><select data-field="groupId">${platformOptionMarkup(groups,u.groupId)}</select></td><td><div class="platform-actions"><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+customers.forEach(u=>{const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td><select data-field="customerType">${platformOptionMarkup(state.customerTypeOptions,u.customerType)}</select></td><td><select data-field="commApp">${platformOptionMarkup(state.customerCommAppOptions,u.commApp)}</select></td><td><select data-field="progress">${platformOptionMarkup(state.customerProgressOptions,u.progress)}</select></td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><select data-field="groupId">${platformOptionMarkup(groups,u.groupId)}</select></td><td><div class="platform-actions"><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
 tr.querySelectorAll('select[data-field]').forEach(select=>select.onchange=()=>handlePlatformOption(select,u,select.dataset.field));
 tr.querySelector('.permission-btn').onclick=()=>{const selectedGroup=state.customerGroups.find(g=>g.id===u.groupId);if(!selectedGroup){alert('請先選擇所屬群組');return}editGroupPermissions(selectedGroup)};
 tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定要刪除平台「${u.name}」嗎？\n刪除後無法復原。`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
@@ -134,8 +136,9 @@ $('#groupPermission').onclick=()=>editGroupPermissions(g)}
 function fillCustomerOptionSelect(id,items){const sel=$(id);
 sel.innerHTML=items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
 $('#groupDialog').showModal();
-setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId){['#customerName','#customerDomain','#customerCommApp','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
+setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId){['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
 fillCustomerOptionSelect('#customerType',state.customerTypeOptions);
+fillCustomerOptionSelect('#customerCommApp',state.customerCommAppOptions);
 fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions);
 const sel=$('#customerGroup');
 sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
@@ -197,9 +200,9 @@ state.customerGroups.push({id:uid('grp'),name:n,allowedPages:[],pageOrder:[]});
 save();
 $('#groupDialog').close();
 renderCustomers()};
-document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isGroup=target==='customerGroup',label=isType?'客戶群組':isGroup?'所屬群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
+document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isCommApp=target==='customerCommApp',isGroup=target==='customerGroup',label=isType?'客戶群組':isCommApp?'通訊 APP':isGroup?'所屬群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
 if(!value)return;
-if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}
+if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:isCommApp?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}
 save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
