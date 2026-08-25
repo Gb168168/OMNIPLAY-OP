@@ -95,27 +95,27 @@ files(p)};
 const g=$('#fileGrid');
 p.files.forEach(f=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div class="file-placeholder">📄</div><div class="file-name">${esc(f.name)}</div></div>`))}
 function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id:p.id,name:p.name,cat:c.name,type:p.type})))}
+function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
+function platformOptionMarkup(items,current){return items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
+function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
 function renderCustomers(){dispose();
 $('#emptyState').classList.add('hidden');
 const w=$('#workspace');
-w.className='workspace';
+w.className='workspace platform-list-workspace';
 w.classList.remove('hidden');
 $('#breadcrumb').textContent='系統管理';
-$('#pageTitle').textContent='客戶列表 / 群組權限';
+$('#pageTitle').textContent='所有平台列表';
 $('#addPageBtn').disabled=true;
 const groups=state.customerGroups,customers=state.customers;
-w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">ACCESS CONTROL</div><h2>群組權限管理</h2><p>客戶權限由所屬群組統一管理，不需要逐一設定。</p></div><div class="customer-tools"><button class="secondary" id="newGroup">＋ 新增群組</button></div></div><div class="customer-layout"><section class="admin-card"><div class="card-head"><h3>群組分類</h3><span>${groups.length} 組</span></div><div id="groups"></div></section></div>`;
-const gr=$('#groups');
-if(!groups.length)gr.innerHTML='<div class="empty-mini"><div>👥</div><strong>尚無群組</strong><span>請先新增群組</span></div>';
-groups.forEach(g=>{g.allowedPages||=[];
-const count=customers.filter(u=>u.groupId===g.id).length;
-const row=document.createElement('div');
-row.className='admin-row';
-row.style.cursor='pointer';
-row.innerHTML=`<div class="group-icon">👥</div><div><strong>${esc(g.name)}</strong><div class="file-meta">${count} 位客戶・可看 ${g.allowedPages.length} 個頁面</div></div><div style="margin-left:auto">›</div>`;
-row.onclick=()=>renderGroup(g);
-gr.append(row)});
-$('#newGroup').onclick=openGroupDialog}
+w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>集中查看所有平台資料，並可直接調整分類、進度與所屬群組。</p></div><div class="customer-tools"><span class="platform-count">共 ${customers.length} 個平台</span><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><section class="admin-card platform-table-card"><div class="platform-table-wrap"><table class="platform-table"><thead><tr><th>客戶名稱</th><th>客戶域名</th><th>客戶群組</th><th>通訊 APP</th><th>對接進度</th><th>上線日期</th><th>備註說明</th><th>所屬群組</th><th>操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><div>🏢</div><strong>尚未建立平台</strong><span>按右上「新增平台」開始</span></div></section>`;
+const rows=$('#platformRows');
+if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
+customers.forEach(u=>{const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td><select data-field="customerType">${platformOptionMarkup(state.customerTypeOptions,u.customerType)}</select></td><td><div class="platform-multiline">${esc(u.commApp||'—')}</div></td><td><select data-field="progress">${platformOptionMarkup(state.customerProgressOptions,u.progress)}</select></td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><select data-field="groupId">${platformOptionMarkup(groups,u.groupId)}</select></td><td><div class="platform-actions"><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+tr.querySelectorAll('select[data-field]').forEach(select=>select.onchange=()=>handlePlatformOption(select,u,select.dataset.field));
+tr.querySelector('.permission-btn').onclick=()=>{const selectedGroup=state.customerGroups.find(g=>g.id===u.groupId);if(!selectedGroup){alert('請先選擇所屬群組');return}editGroupPermissions(selectedGroup)};
+tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定要刪除平台「${u.name}」嗎？\n刪除後無法復原。`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
+rows.append(tr)});
+$('#newPlatform').onclick=()=>openCustomerDialog()}
 function renderGroup(g){g.allowedPages||=[];
 const w=$('#workspace'),members=state.customers.filter(u=>u.groupId===g.id);
 $('#breadcrumb').textContent='系統管理 / 群組分類';
@@ -158,12 +158,12 @@ const pageList=section.querySelector('.permission-category-pages');
 pages.forEach(p=>pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${icon(p.type)}</span><span><strong>${esc(p.name)}</strong><small>頁面</small></span></label>`));
 l.append(section)});
 l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySelectorAll('input:checked').length} 個頁面`);
-$('#backGroup').onclick=()=>renderGroup(g);
+$('#backGroup').onclick=renderCustomers;
 $('#savePerm').onclick=()=>{const rows=[...l.querySelectorAll('.permission-row')];
 g.pageOrder=rows.map(x=>x.dataset.pageId);
 g.allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId);
 save();
-renderGroup(g)}}
+renderCustomers()}}
 $('#customerBtn').onclick=renderCustomers;
 $('#addCategoryBtn').onclick=()=>{$('#categoryName').value='';
 $('#categoryDialog').showModal()};
@@ -197,12 +197,9 @@ state.customerGroups.push({id:uid('grp'),name:n,allowedPages:[],pageOrder:[]});
 save();
 $('#groupDialog').close();
 renderCustomers()};
-document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const isType=b.dataset.target==='customerType',label=isType?'客戶群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
+document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isGroup=target==='customerGroup',label=isType?'客戶群組':isGroup?'所屬群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
 if(!value)return;
-const items=isType?state.customerTypeOptions:state.customerProgressOptions;
-if(!items.includes(value))items.push(value);
-fillCustomerOptionSelect(`#${b.dataset.target}`,items);
-$(`#${b.dataset.target}`).value=value;
+if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}
 save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
@@ -210,7 +207,7 @@ if(!name||!groupId)return;
 state.customers.push({id:uid('usr'),name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,commApp:$('#customerCommApp').value.trim(),groupId,progress:$('#customerProgress').value,launchDate:$('#customerLaunchDate').value.trim(),notes:$('#customerNotes').value.trim()});
 save();
 $('#customerDialog').close();
-renderGroup(state.customerGroups.find(g=>g.id===groupId))};
+renderCustomers()};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);
 if(d?.id==='customerDialog'){const s=$('#customerGroup');
 s.disabled=false;
