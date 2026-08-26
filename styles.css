@@ -15,9 +15,9 @@ button,input,select{font:inherit}
 .secondary:hover{background:#202e44}
 .side-action{flex:0 0 auto;margin:0;padding:10px 12px;text-align:left;background:#182335;color:#dbe7fa;border:1px solid #2b3b55;border-radius:10px;cursor:pointer;white-space:nowrap}
 .category-list{display:flex;align-items:center;gap:8px;min-width:0;overflow:visible}
-.category{position:relative;width:auto;min-width:190px;max-width:240px;flex:0 1 auto;border:1px solid #273148;border-radius:10px;background:#151c28}
+.category{position:relative;width:max-content;min-width:190px;max-width:none;flex:0 0 auto;border:1px solid #273148;border-radius:10px;background:#151c28}
 .category-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;white-space:nowrap;border-radius:9px}
-.category-head>span{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.category-head>span{display:block;min-width:0;overflow:visible;text-overflow:clip;white-space:nowrap}
 .category-head>.mini{flex:0 0 auto}
 .category-head.active{background:#20355a}
 .mini,.page-delete{border:0;background:transparent;color:#8190a8;cursor:pointer;font-size:16px}
