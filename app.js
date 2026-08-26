@@ -247,4 +247,8 @@ s.disabled=false;
 delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
 saveNow()});
+const themeToggle=$('#themeToggle');
+function applyTheme(theme){document.documentElement.dataset.theme=theme;themeToggle.checked=theme==='dark';try{localStorage.setItem('omniplay-theme',theme)}catch{}}
+applyTheme(document.documentElement.dataset.theme==='light'?'light':'dark');
+themeToggle.onchange=()=>applyTheme(themeToggle.checked?'dark':'light');
 load();
