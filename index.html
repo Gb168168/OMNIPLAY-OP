@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<script>
+try{document.documentElement.dataset.theme=localStorage.getItem('omniplay-theme')||'dark'}catch{document.documentElement.dataset.theme='dark'}
+</script>
 <title>OMNIPLAY OP Workspace</title>
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js">
 </script>
@@ -37,6 +40,12 @@
 <h1 id="pageTitle">歡迎使用 OMNIPLAY</h1>
 </div>
 <div class="actions">
+<label class="theme-switch" title="切換淺色／深色模式">
+<span>☀️ 淺色</span>
+<input id="themeToggle" type="checkbox" role="switch" aria-label="切換淺色與深色模式"/>
+<i aria-hidden="true"></i>
+<span>🌙 深色</span>
+</label>
 <span id="cloudStatus" class="status">連接雲端中…</span>
 <button id="addPageBtn" class="primary" disabled>＋ 新增頁面</button>
 </div>
