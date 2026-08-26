@@ -93,6 +93,7 @@ ps.append(row)});
 r.append(b)});
 $('#addPageBtn').disabled=!state.activeCategoryId}
 function renderPage(){dispose();
+$('.topbar').classList.remove('hidden');
 const p=page(),c=cat();
 $('#emptyState').classList.toggle('hidden',!!p||!!c);
 $('#workspace').classList.toggle('hidden',!p);
@@ -121,6 +122,7 @@ function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
 function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
 function renderCustomers(){dispose();
+$('.topbar').classList.add('hidden');
 $('#emptyState').classList.add('hidden');
 const w=$('#workspace');
 w.className='workspace platform-list-workspace';
