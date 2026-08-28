@@ -4,7 +4,7 @@ import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/fireb
 
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 
-const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),sheetRef=id=>doc(db,'omniplay-sheet-snapshots',String(id)),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
+const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),sheetRef=id=>doc(db,'omniplay',`sheet-${String(id)}`),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
 
 const CUSTOMER_OPTION_VERSION=4,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'],DEFAULT_COMM_APPS=['Telegram','Teams'];
 const PLATFORM_IMPORT_VERSION=1,IMPORTED_PLATFORMS=[
