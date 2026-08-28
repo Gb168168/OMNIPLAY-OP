@@ -103,8 +103,8 @@ $('#pageTitle').textContent=p?p.name:(c?c.name:'歡迎使用 OMNIPLAY');
 if(!p){if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
 return}p.type==='sheet'?sheet(p):files(p)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
-function cellValue(cell){return cell&&typeof cell==='object'&&'v'in cell?cell.v:(cell??'')}
-function normalizedHeader(value){return String(value??'').toLowerCase().replace(/%/g,' percent ').replace(/[^a-z0-9]+/g,' ').trim()}
+function cellValue(cell){let value=cell;for(let i=0;i<4&&value&&typeof value==='object'&&'v'in value;i++)value=value.v;return value&&typeof value==='object'?'':(value??'')}
+function normalizedHeader(value){const key=String(value??'').toLowerCase().replace(/%/g,' percent ').replace(/[^a-z0-9]+/g,' ').trim();return key==='list of games'?'game name english':key}
 function syncOpGameFromGameList(targetPage){
 const sourcePage=state.categories.flatMap(c=>c.pages||[]).find(p=>p.type==='sheet'&&String(p.name||'').trim()==='Game List_Online');
 const source=firstSheet(sourcePage?.snapshot),target=firstSheet(targetPage?.snapshot);
@@ -113,11 +113,9 @@ const sourceCells=source.cellData||{},targetCells=target.cellData||(target.cellD
 const sourceColumns=new Map();Object.entries(sourceHeader).forEach(([column,cell])=>{const key=normalizedHeader(cellValue(cell));if(key)sourceColumns.set(key,+column)});
 const matches=[];Object.entries(targetHeader).forEach(([column,cell])=>{const sourceColumn=sourceColumns.get(normalizedHeader(cellValue(cell)));if(Number.isInteger(sourceColumn))matches.push([sourceColumn,+column])});
 if(!matches.length)return false;
-const sourceIdColumn=sourceColumns.get('game id'),targetIdEntry=Object.entries(targetHeader).find(([,cell])=>normalizedHeader(cellValue(cell))==='game id'),targetIdColumn=targetIdEntry?+targetIdEntry[0]:null;
-const targetRowsById=new Map();if(Number.isInteger(targetIdColumn))Object.entries(targetCells).forEach(([row,cells])=>{if(+row===0)return;const id=String(cellValue(cells?.[targetIdColumn])??'').trim().toLowerCase();if(id)targetRowsById.set(id,+row)});
-let nextRow=Math.max(0,...Object.keys(targetCells).map(Number))+1,changed=false;
-Object.entries(sourceCells).sort((a,b)=>+a[0]-+b[0]).forEach(([sourceRow,cells])=>{if(+sourceRow===0||!cells)return;const id=Number.isInteger(sourceIdColumn)?String(cellValue(cells[sourceIdColumn])??'').trim().toLowerCase():'';if(!id)return;let targetRow=targetRowsById.get(id);if(!Number.isInteger(targetRow)){targetRow=nextRow++;targetRowsById.set(id,targetRow)}const row=targetCells[targetRow]||(targetCells[targetRow]={});matches.forEach(([from,to])=>{const value=cellValue(cells[from]);if(value==null||value==='')return;const old=cellValue(row[to]);if(String(old??'')!==String(value)){row[to]={...(row[to]&&typeof row[to]==='object'?row[to]:{}),v:value};changed=true}})});
-if(changed){target.rowCount=Math.max(Number(target.rowCount)||0,nextRow+200);targetPage.opGameAutoLinkedAt=new Date().toISOString();save()}
+const matchedTargets=new Set(matches.map(([,to])=>to));Object.entries(targetCells).forEach(([row,cells])=>{if(+row===0||!cells)return;matchedTargets.forEach(column=>delete cells[column]);if(!Object.keys(cells).length)delete targetCells[row]});
+let lastRow=1,changed=true;Object.entries(sourceCells).sort((a,b)=>+a[0]-+b[0]).forEach(([sourceRow,cells])=>{const rowNumber=+sourceRow;if(rowNumber===0||!cells)return;const row=targetCells[rowNumber]||(targetCells[rowNumber]={});let copied=false;matches.forEach(([from,to])=>{const sourceCell=cells[from];if(sourceCell==null)return;row[to]=typeof structuredClone==='function'?structuredClone(sourceCell):JSON.parse(JSON.stringify(sourceCell));copied=true});if(copied)lastRow=Math.max(lastRow,rowNumber)});
+if(changed){target.rowCount=Math.max(Number(target.rowCount)||0,lastRow+200);targetPage.opGameAutoLinkedAt=new Date().toISOString();save()}
 return changed}
 function sheet(p){const w=$('#workspace');
 w.className='workspace sheet-workspace';
