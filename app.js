@@ -27,7 +27,7 @@ const PLATFORM_IMPORT_VERSION=1,IMPORTED_PLATFORMS=[
 ['OKBet','OKBT','一般平台','正式上線','2025-09-15','Okbet 轉帳錢包'],['Solaire','SLS','','','','Philweb旗下平台'],['Philweb','ECGT','一般平台','已終止','',''],['Laikiwin (OCMS)','OCS','一般平台','正式上線','','']
 ];
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
-let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null;
+let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,saveQueue=Promise.resolve();
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
@@ -52,15 +52,11 @@ renderPage()}
 function payload(){return{categories:state.categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
-timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;
-try{await setDoc(ref,payload());
-$('#cloudStatus').textContent='☁️ 已同步'}catch(e){console.error(e);
-$('#cloudStatus').textContent='⚠️ 雲端儲存失敗'}}function scheduleSheetSave(){if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';sheetSaveTimer=setTimeout(captureCurrentSheet,900)}function captureCurrentSheet(){if(!currentUniver)return;try{const workbook=currentUniver.api.getActiveWorkbook(),snapshot=workbook?.save?.()||workbook?.getSnapshot?.();if(snapshot&&typeof snapshot.then!=='function'){currentUniver.page.snapshot=snapshot;save()}}catch(e){console.warn('sheet autosave',e)}}function dispose(){if(!currentUniver)return;
-clearTimeout(sheetSaveTimer);currentUniver.autoSaveDisposable?.dispose?.();
-try{const w=currentUniver.api.getActiveWorkbook();
-if(w?.save)currentUniver.page.snapshot=w.save();
-else if(w?.getSnapshot)currentUniver.page.snapshot=w.getSnapshot();
-save()}catch{}try{currentUniver.univer.dispose()}catch{}currentUniver=null}
+timer=setTimeout(saveNow,400)}function saveNow(){if(!cloud)return Promise.resolve();clearTimeout(timer);
+const data=payload();saveQueue=saveQueue.catch(()=>{}).then(()=>setDoc(ref,data)).then(()=>{$('#cloudStatus').textContent='☁️ 已同步'}).catch(e=>{console.error(e);
+$('#cloudStatus').textContent='⚠️ 雲端儲存失敗';throw e});return saveQueue}function scheduleSheetSave(){if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';const context=currentUniver;sheetSaveTimer=setTimeout(()=>captureCurrentSheet(context),900)}function workbookSnapshot(workbook){try{const snapshot=workbook?.getSnapshot?.();if(snapshot)return snapshot}catch(e){console.warn('get sheet snapshot',e)}return workbook?.save?.()}async function captureCurrentSheet(context=currentUniver){if(!context)return false;try{const workbook=context.api.getActiveWorkbook(),snapshot=await Promise.resolve(workbookSnapshot(workbook));if(!snapshot)return false;context.page.snapshot=snapshot;localStorage.setItem(KEY,JSON.stringify(state.categories));await saveNow();return true}catch(e){console.warn('sheet autosave',e);return false}}function dispose(){if(!currentUniver)return;
+const context=currentUniver;clearTimeout(sheetSaveTimer);context.autoSaveDisposable?.dispose?.();
+captureCurrentSheet(context);try{context.univer.dispose()}catch{}currentUniver=null}
 function renderNav(){const r=$('#categoryList');
 r.innerHTML='';
 state.categories.forEach(c=>{const b=document.createElement('div');
