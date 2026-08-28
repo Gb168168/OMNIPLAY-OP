@@ -121,12 +121,13 @@ const matchedTargets=new Set(matches.map(([,to])=>to));Object.entries(targetCell
 let lastRow=1,changed=true;Object.entries(sourceCells).sort((a,b)=>+a[0]-+b[0]).forEach(([sourceRow,cells])=>{const rowNumber=+sourceRow;if(rowNumber===0||!cells)return;const row=targetCells[rowNumber]||(targetCells[rowNumber]={});let copied=false;matches.forEach(([from,to])=>{const sourceCell=cells[from];if(sourceCell==null)return;const header=normalizedHeader(cellValue(targetHeader[to])),next=normalizedCell(sourceCell,header);row[to]=next;if(typeof cellValue(next)==='string'&&cellValue(next).includes('\n')){target.rowData||(target.rowData={});target.rowData[rowNumber]={...(target.rowData[rowNumber]||{}),h:44}}copied=true});if(copied)lastRow=Math.max(lastRow,rowNumber)});
 if(changed){target.rowCount=Math.max(Number(target.rowCount)||0,lastRow+200);targetPage.opGameAutoLinkedAt=new Date().toISOString();save()}
 return changed}
+function applyVisibleCellFixes(api,pageName){if(pageName!=='Game List_Online'&&pageName!=='OP GAME')return;requestAnimationFrame(()=>setTimeout(()=>{try{const worksheet=api.getActiveWorkbook()?.getActiveSheet(),range=worksheet?.getDataRange?.(),values=range?.getValues?.();if(!worksheet||!Array.isArray(values))return;values.forEach((row,ri)=>(row||[]).forEach((value,ci)=>{if(typeof value!=='string'||!/Grand\s*:.*Major\s*:/i.test(value))return;const fixed=value.replace(/\s+(Major\s*:)/gi,'\n$1');if(fixed===value)return;const cell=worksheet.getRange(ri,ci,1,1);cell.setValue(fixed);cell.setWrap?.(true);worksheet.setRowHeightsForced?.(ri,1,44)}))}catch(e){console.warn('visible cell fix',e)}},80))}
 function sheet(p){const w=$('#workspace');
 w.className='workspace sheet-workspace';
 w.innerHTML='<div class="sheet-note">📊 試算表・繁體中文・Firestore 雲端同步</div><div id="univerSheet" class="univer-sheet"></div>';
-try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet'})]});
+try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet',disableTextFormatAlert:true,disableTextFormatMark:true})]});
 x.univerAPI.createWorkbook(p.snapshot||{name:p.name});
-currentUniver={univer:x.univer,api:x.univerAPI,page:p}}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
+currentUniver={univer:x.univer,api:x.univerAPI,page:p};applyVisibleCellFixes(x.univerAPI,String(p.name||'').trim())}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
 function files(p){const w=$('#workspace');
 w.className='workspace';
 p.files||=[];
