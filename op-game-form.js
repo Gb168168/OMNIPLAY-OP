@@ -3,11 +3,11 @@ const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay
 const esc=(value='')=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 let records={},activeGame=null;
 function installStyles(){if(document.querySelector('#opGameFormStyles'))return;const style=document.createElement('style');style.id='opGameFormStyles';style.textContent=`
-.op-form-page{padding:20px 22px!important;background:#f3f6fb!important;color:#172033;overflow:auto!important}
-.op-form-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:15px}
+.op-form-page{padding:16px 18px!important;background:#f3f6fb!important;color:#172033;overflow:hidden!important;display:grid!important;grid-template-rows:auto minmax(0,1fr);min-height:0}
+.op-form-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:12px;flex:0 0 auto}
 .op-form-head h2{margin:3px 0 4px;font-size:24px}.op-form-head p{margin:0;color:#66758b;font-size:12px}
 .op-form-search{width:min(390px,42vw);height:38px;border:1px solid #b9c8da;border-radius:10px;background:#fff;color:#172033;padding:0 12px;outline:none}.op-form-search:focus{border-color:#4f8cff;box-shadow:0 0 0 3px rgba(79,140,255,.13)}
-.op-game-card{background:#fff;border:1px solid #d7e0ec;border-radius:14px;overflow:auto;box-shadow:0 8px 26px rgba(33,55,84,.07)}
+.op-game-card{background:#fff;border:1px solid #d7e0ec;border-radius:14px;overflow:auto;min-height:0;height:100%;box-shadow:0 8px 26px rgba(33,55,84,.07);scrollbar-gutter:stable}
 .op-game-table{width:max-content;min-width:3300px;border-collapse:collapse;table-layout:auto}.op-game-table th{position:sticky;top:0;z-index:2;background:#e9f0fa;color:#52657f;font-size:10px;text-align:left;padding:10px 11px;border-bottom:1px solid #cad7e7;white-space:nowrap;min-width:125px}.op-game-table td{padding:10px 11px;border-bottom:1px solid #e4eaf2;font-size:11px;vertical-align:middle;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}.op-game-table tr:hover td{background:#f2f7fd}.op-game-table tr:last-child td{border-bottom:0}
 .op-id-link{border:0;background:transparent;color:#2467c8;font-weight:800;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}.op-muted{color:#78879b}.op-pills{display:flex;gap:5px;flex-wrap:wrap}.op-pill{display:inline-flex;border:1px solid #c7d7eb;background:#edf4fc;color:#395878;border-radius:999px;padding:3px 7px;font-size:10px}.op-edit-btn{border:1px solid #a9c2e2;background:#e9f2ff;color:#24558e;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer}
 .op-form-dialog{width:min(94vw,980px);max-height:90vh;padding:0;background:#fff;color:#172033;border:1px solid #cbd7e6;border-radius:18px;box-shadow:0 30px 90px rgba(10,25,45,.28)}.op-form-dialog::backdrop{background:rgba(9,17,29,.62);backdrop-filter:blur(4px)}
