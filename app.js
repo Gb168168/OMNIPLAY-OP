@@ -27,7 +27,7 @@ const PLATFORM_IMPORT_VERSION=1,IMPORTED_PLATFORMS=[
 ['OKBet','OKBT','一般平台','正式上線','2025-09-15','Okbet 轉帳錢包'],['Solaire','SLS','','','','Philweb旗下平台'],['Philweb','ECGT','一般平台','已終止','',''],['Laikiwin (OCMS)','OCS','一般平台','正式上線','','']
 ];
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
-let currentUniver=null,timer=null,cloud=false,editingCustomerId=null;
+let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null;
 
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
@@ -55,7 +55,8 @@ clearTimeout(timer);
 timer=setTimeout(saveNow,400)}async function saveNow(){if(!cloud)return;
 try{await setDoc(ref,payload());
 $('#cloudStatus').textContent='☁️ 已同步'}catch(e){console.error(e);
-$('#cloudStatus').textContent='⚠️ 雲端儲存失敗'}}function dispose(){if(!currentUniver)return;
+$('#cloudStatus').textContent='⚠️ 雲端儲存失敗'}}function scheduleSheetSave(){if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';sheetSaveTimer=setTimeout(captureCurrentSheet,900)}function captureCurrentSheet(){if(!currentUniver)return;try{const workbook=currentUniver.api.getActiveWorkbook(),snapshot=workbook?.save?.()||workbook?.getSnapshot?.();if(snapshot&&typeof snapshot.then!=='function'){currentUniver.page.snapshot=snapshot;save()}}catch(e){console.warn('sheet autosave',e)}}function dispose(){if(!currentUniver)return;
+clearTimeout(sheetSaveTimer);currentUniver.autoSaveDisposable?.dispose?.();
 try{const w=currentUniver.api.getActiveWorkbook();
 if(w?.save)currentUniver.page.snapshot=w.save();
 else if(w?.getSnapshot)currentUniver.page.snapshot=w.getSnapshot();
@@ -128,7 +129,7 @@ w.className='workspace sheet-workspace';
 w.innerHTML='<div class="sheet-note">📊 試算表・繁體中文・Firestore 雲端同步</div><div id="univerSheet" class="univer-sheet"></div>';
 try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet',disableTextFormatAlert:true,disableTextFormatMark:true})]});
 x.univerAPI.createWorkbook(p.snapshot||{name:p.name});
-currentUniver={univer:x.univer,api:x.univerAPI,page:p};applyVisibleCellFixes(x.univerAPI,String(p.name||'').trim())}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
+currentUniver={univer:x.univer,api:x.univerAPI,page:p};currentUniver.autoSaveDisposable=x.univerAPI.addEvent?.(x.univerAPI.Event.CommandExecuted,()=>scheduleSheetSave());applyVisibleCellFixes(x.univerAPI,String(p.name||'').trim())}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
 function files(p){const w=$('#workspace');
 w.className='workspace';
 p.files||=[];
