@@ -4,7 +4,7 @@ import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/fireb
 
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 
-const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),sheetRef=id=>doc(db,'omniplay',`sheet-${String(id)}`),sheetChunkRef=(id,index)=>doc(db,'omniplay',`sheet-${String(id)}-chunk-${index}`),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3';
+const fb=initializeApp(cfg),db=getFirestore(fb),ref=doc(db,'omniplay','workspace'),sheetRef=id=>doc(db,'omniplay',`sheet-${String(id)}`),sheetChunkRef=(id,index)=>doc(db,'omniplay',`sheet-${String(id)}-chunk-${index}`),$=s=>document.querySelector(s),KEY='omniplay-workspace-v3',VIEW_KEY='omniplay-active-view-v1';
 
 const CUSTOMER_OPTION_VERSION=4,DEFAULT_CUSTOMER_TYPES=['一般平台','IR平台'],DEFAULT_CUSTOMER_PROGRESS=['測試環境對接中','正式環境對接中','正式上線','已暫停','已終止'],DEFAULT_COMM_APPS=['Telegram','Teams'];
 const GAME_LIST_HEADERS=['GAME ID','GAME VERSION','LIST OF GAMES','MANUFACTURER','DENOMINATION','GAME TYPE','NO. OF LINES','BET (PHP) MINIMUM','BET (PHP) MAXIMUM','MAX PRIZE (PHP)','MAX PRIZE MULTIPLIER','PROGRESSIVE JACKPOT GROUP','JACKPOT RANGE MIN (PHP)','JACKPOT RANGE MAX (PHP)','JACKPOT RTP RESERVE %','JACKPOT RTP INCREMENT %','TOTAL JACKPOT RTP %','BASE GAME RTP %','TOTAL PAYOUT % (THEORETICAL)'];
@@ -31,6 +31,8 @@ const PLATFORM_IMPORT_VERSION=1,IMPORTED_PLATFORMS=[
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
 let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,saveQueue=Promise.resolve();
 
+function readSavedView(){try{return JSON.parse(localStorage.getItem(VIEW_KEY)||'null')}catch{return null}}
+function rememberView(mode='page'){try{localStorage.setItem(VIEW_KEY,JSON.stringify({mode,categoryId:state.activeCategoryId,pageId:state.activePageId}))}catch{}}
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
 const SHEET_CHUNK_SIZE=240000;
@@ -39,7 +41,7 @@ function cleanSnapshot(snapshot){try{return JSON.parse(JSON.stringify(snapshot))
 async function readStoredSheet(page){const stored=await getDoc(sheetRef(page.id));if(!stored.exists())return null;const data=stored.data()||{};if(data.format==='json-chunks-v1'&&Number(data.chunkCount)>0){const pieces=[];for(let i=0;i<Number(data.chunkCount);i++){const part=await getDoc(sheetChunkRef(page.id,i));if(!part.exists()||typeof part.data()?.data!=='string')throw new Error(`缺少試算表分段 ${i+1}/${data.chunkCount}`);pieces.push(part.data().data)}return JSON.parse(pieces.join(''))}if(typeof data.snapshotJson==='string')return JSON.parse(data.snapshotJson);return data.snapshot||null}
 async function hydrateSheetSnapshots(){for(const category of state.categories||[]){for(const page of category.pages||[]){if(page.type!=='sheet'||!page.id)continue;try{const snapshot=await readStoredSheet(page);if(snapshot)page.snapshot=snapshot;else if(page.snapshot)await persistSheetSnapshot(page,page.snapshot)}catch(e){console.warn('load sheet snapshot',page.id,e);$('#cloudStatus').textContent=`⚠️ 讀取失敗：${firebaseError(e)}`}}}}
 async function persistSheetSnapshot(page,snapshot=page?.snapshot){if(!page?.id||!snapshot)return false;const clean=cleanSnapshot(snapshot);if(!clean)return false;const json=JSON.stringify(clean),chunks=[];for(let i=0;i<json.length;i+=SHEET_CHUNK_SIZE)chunks.push(json.slice(i,i+SHEET_CHUNK_SIZE));await Promise.all(chunks.map((data,index)=>setDoc(sheetChunkRef(page.id,index),{data,index,updatedAt:new Date().toISOString()})));await setDoc(sheetRef(page.id),{format:'json-chunks-v1',chunkCount:chunks.length,updatedAt:new Date().toISOString()});page.snapshot=clean;return true}
-async function load(){try{const s=await getDoc(ref);
+async function load(){const savedView=readSavedView();try{const s=await getDoc(ref);
 if(s.exists())Object.assign(state,s.data());
 else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
 await saveNow()}await hydrateSheetSnapshots();state.customerGroups||=[];
@@ -52,11 +54,12 @@ state.customers.map(u=>u.commApp).filter(Boolean).forEach(value=>{if(!state.cust
 if(state.platformImportVersion!==PLATFORM_IMPORT_VERSION){const existing=new Map(state.customers.map(u=>[`${String(u.name||'').trim().toLowerCase()}|${String(u.domain||u.username||'').trim().toLowerCase()}`,u]));IMPORTED_PLATFORMS.forEach(([name,domain,customerType,progress,launchDate,notes])=>{const key=`${name.trim().toLowerCase()}|${domain.trim().toLowerCase()}`,found=existing.get(key),data={name,domain,customerType,progress,launchDate,notes};if(found){Object.entries(data).forEach(([field,value])=>{if(value&&!found[field])found[field]=value})}else{const customer={id:uid('usr'),...data,commApp:'',groupId:''};state.customers.push(customer);existing.set(key,customer)}});state.platformImportVersion=PLATFORM_IMPORT_VERSION}
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
+if(savedView?.categoryId){const savedCategory=state.categories.find(category=>category.id===savedView.categoryId),savedPage=savedCategory?.pages?.find(page=>page.id===savedView.pageId);if(savedCategory){state.activeCategoryId=savedCategory.id;state.activePageId=savedPage?.id||savedCategory.pages?.[0]?.id||null}}
 cloud=true;
 await saveNow();
 $('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ Firestore 連線失敗'}renderNav();
-renderPage()}
+if(savedView?.mode==='customers')renderCustomers();else renderPage()}
 function payload(){const categories=(state.categories||[]).map(category=>({...category,pages:(category.pages||[]).map(page=>{if(page.type!=='sheet')return page;const{snapshot,...metadata}=page;return metadata})}));return{categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
@@ -97,7 +100,7 @@ renderPage()}};
 ps.append(row)});
 r.append(b)});
 $('#addPageBtn').disabled=!state.activeCategoryId}
-async function renderPage(){dispose();
+async function renderPage(){dispose();rememberView('page');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
 if(isGameList&&typeof window.renderGameListOnlinePage!=='function')normalizeGameListCells(p);
@@ -155,7 +158,7 @@ function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
 function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
-function renderCustomers(){dispose();
+function renderCustomers(){dispose();rememberView('customers');
 $('.topbar').classList.add('hidden');
 $('#emptyState').classList.add('hidden');
 const w=$('#workspace');
