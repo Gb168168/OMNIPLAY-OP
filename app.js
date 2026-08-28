@@ -100,7 +100,7 @@ renderNav();
 renderPage()}};
 ps.append(row)});
 r.append(b)});
-$('#addPageBtn').disabled=!state.activeCategoryId}
+const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').disabled=!state.activeCategoryId||!adminView}
 async function renderPage(){dispose();rememberView('page');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
