@@ -99,15 +99,15 @@ r.append(b)});
 $('#addPageBtn').disabled=!state.activeCategoryId}
 async function renderPage(){dispose();
 $('.topbar').classList.remove('hidden');
-const p=page(),c=cat(),isOpGame=p?.type==='sheet'&&String(p.name||'').trim()==='OP GAME';
-if(p?.type==='sheet'&&String(p.name||'').trim()==='Game List_Online')normalizeGameListCells(p);
+const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
+if(isGameList&&typeof window.renderGameListOnlinePage!=='function')normalizeGameListCells(p);
 if(isOpGame&&typeof window.renderOpGameFormPage!=='function')await syncOpGameFromGameList(p);
 $('#emptyState').classList.toggle('hidden',!!p||!!c);
 $('#workspace').classList.toggle('hidden',!p);
 $('#breadcrumb').textContent=c?`工作區 / ${c.name}`:'工作區';
 $('#pageTitle').textContent=p?p.name:(c?c.name:'歡迎使用 OMNIPLAY');
 if(!p){if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
-return}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state,page:p});p.type==='sheet'?sheet(p):files(p)}
+return}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state,page:p});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(p)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
 function cellValue(cell){let value=cell;for(let i=0;i<4&&value&&typeof value==='object'&&'v'in value;i++)value=value.v;return value&&typeof value==='object'?'':(value??'')}
 function normalizedHeader(value){const key=String(value??'').toLowerCase().replace(/%/g,' percent ').replace(/[^a-z0-9]+/g,' ').trim();return key==='list of games'?'game name english':key}
