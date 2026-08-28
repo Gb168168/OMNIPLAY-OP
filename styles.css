@@ -156,6 +156,14 @@ html[data-theme="light"] .page-link{color:#41536c}
 html[data-theme="light"] .page-row:hover,html[data-theme="light"] .page-row.active{background:#edf3fb}
 html[data-theme="light"] .workspace{background:#f3f6fb}
 html[data-theme="light"] .file-panel,html[data-theme="light"] .admin-card,html[data-theme="light"] .stat-card{background:#fff;border-color:#d8e1ed;box-shadow:0 8px 24px rgba(30,52,80,.07)}
+html[data-theme="light"] .notice{background:#eef4fc;color:#385575;border-color:#c6d7eb}
+html[data-theme="light"] .notice .secondary{background:#fff;color:#26496f;border-color:#b8cce3}
+html[data-theme="light"] .file-card{background:#fff;border-color:#cbd8e8;color:#172033;box-shadow:0 4px 12px rgba(31,54,82,.05)}
+html[data-theme="light"] .file-card:hover{background:#f4f8fd;border-color:#9fbade}
+html[data-theme="light"] .file-placeholder{background:#edf3fa;color:#253b56}
+html[data-theme="light"] .file-name{color:#172033}
+html[data-theme="light"] .file-card small{color:#65758b}
+html[data-theme="light"] .upload-zone{background:#f7faff;border-color:#91afd4;color:#315b88}
 html[data-theme="light"] .platform-table th{background:#e9f0fa;color:#425777;border-color:#c9d6e8}
 html[data-theme="light"] .platform-table td{color:#1f2c3f;border-color:#dce4ef}
 html[data-theme="light"] .platform-table tr:hover td{background:#edf4fc}
