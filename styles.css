@@ -33,8 +33,12 @@ button,input,select{font:inherit}
 .actions{display:flex;align-items:center;gap:10px}
 .status,.file-meta{font-size:12px;color:#91a2bb}
 .workspace{padding:22px 24px;overflow:auto;min-height:0}
-.sheet-workspace{padding:0;overflow:hidden;display:grid;grid-template-rows:34px 1fr;background:#fff}
-.sheet-note{background:#101722;color:#aab9cf;padding:8px 12px;font-size:11px}
+.sheet-workspace{padding:0;overflow:hidden;display:grid;grid-template-rows:42px 1fr;background:#fff}
+.sheet-note{background:#101722;color:#aab9cf;padding:6px 12px;font-size:11px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sheet-cell-tools{display:flex;align-items:center;gap:7px}
+.sheet-cell-tools button{border:1px solid #3a4e6d;background:#1a2940;color:#dbe8fa;border-radius:7px;padding:5px 9px;font-size:11px;cursor:pointer}
+.sheet-cell-tools button:hover{background:#263c5d;border-color:#5f83b8}
+.sheet-cell-tools small{min-width:64px;color:#7fa8e8}
 .univer-sheet{height:100%;width:100%;position:relative;background:#fff}
 .empty-state{display:grid;place-items:center;text-align:center;min-height:65vh;color:#9cabc1}
 .file-panel,.admin-card{border:1px solid #27344a;border-radius:16px;padding:20px;background:linear-gradient(180deg,#121a27,#101722);box-shadow:0 10px 30px rgba(0,0,0,.14)}
