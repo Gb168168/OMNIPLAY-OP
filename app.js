@@ -95,11 +95,11 @@ renderPage()}};
 ps.append(row)});
 r.append(b)});
 $('#addPageBtn').disabled=!state.activeCategoryId}
-function renderPage(){dispose();
+async function renderPage(){dispose();
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat();
 if(p?.type==='sheet'&&String(p.name||'').trim()==='Game List_Online')normalizeGameListCells(p);
-if(p?.type==='sheet'&&String(p.name||'').trim()==='OP GAME')syncOpGameFromGameList(p);
+if(p?.type==='sheet'&&String(p.name||'').trim()==='OP GAME')await syncOpGameFromGameList(p);
 $('#emptyState').classList.toggle('hidden',!!p||!!c);
 $('#workspace').classList.toggle('hidden',!p);
 $('#breadcrumb').textContent=c?`工作區 / ${c.name}`:'工作區';
@@ -112,7 +112,11 @@ function normalizedHeader(value){const key=String(value??'').toLowerCase().repla
 function jackpotTwoLines(value){return String(value).replace(/Grand\s*[:：]\s*/i,'Grand：').replace(/\s*Major\s*[:：]\s*/i,'\nMajor：')}
 function normalizedCell(cell,header){const value=cellValue(cell),style=cell&&typeof cell==='object'&&cell.s&&typeof cell.s==='object'?cell.s:{};if(typeof value==='string'&&/Grand\s*[:：].*Major\s*[:：]/i.test(value))return{v:jackpotTwoLines(value),s:style};const numericColumn=/^(no of lines|bet php|maximum|minimum|max prize|jackpot range|jackpot rtp|total jackpot rtp|base game rtp|total payout)/.test(header),raw=String(value??'').trim();if(numericColumn&&/^[+-]?[\d,]+(?:\.\d+)?$/.test(raw)){const number=Number(raw.replace(/,/g,''));if(Number.isFinite(number))return{v:number,t:2,s:{...style,n:{pattern:'#,##0.###'}}}}return typeof structuredClone==='function'?structuredClone(cell):JSON.parse(JSON.stringify(cell))}
 function normalizeGameListCells(sourcePage){const sheet=firstSheet(sourcePage?.snapshot);if(!sheet)return false;const cells=sheet.cellData||{},headers=cells[0]||{};let changed=false;Object.entries(cells).forEach(([row,rowCells])=>{if(+row===0||!rowCells)return;Object.entries(rowCells).forEach(([column,cell])=>{const header=normalizedHeader(cellValue(headers[column])),value=cellValue(cell),next=normalizedCell(cell,header),nextValue=cellValue(next);if(String(value??'')!==String(nextValue??'')||next?.t!==cell?.t||nextValue!==value){rowCells[column]=next;changed=true}if(typeof nextValue==='string'&&nextValue.includes('\n')){sheet.rowData||(sheet.rowData={});sheet.rowData[row]={...(sheet.rowData[row]||{}),h:44}}})});if(changed){sourcePage.gameListNormalizedAt=new Date().toISOString();persistSheetSnapshot(sourcePage).catch(e=>console.warn('save normalized sheet',e));save()}return changed}
-function syncOpGameFromGameList(targetPage){
+function applyGameListRows(rows){if(!Array.isArray(rows))return false;const sourcePage=state.categories.flatMap(c=>c.pages||[]).find(p=>p.type==='sheet'&&String(p.name||'').trim()==='Game List_Online'),sheet=firstSheet(sourcePage?.snapshot);if(!sheet)return false;const header=sheet.cellData?.[0]||{},cellData={0:header};rows.forEach((values,index)=>{if(!Array.isArray(values))return;const row={};values.forEach((value,column)=>{if(value!==''&&value!=null)row[column]={v:value}});if(Object.keys(row).length)cellData[index+1]=row});sheet.cellData=cellData;sheet.rowCount=Math.max(rows.length+201,500);sourcePage.gameListLegacySyncedAt=new Date().toISOString();return true}
+async function refreshGameListSource(){try{const stored=await getDoc(doc(db,'omniplay','game-list-online-page'));if(stored.exists()&&Array.isArray(stored.data()?.rows))applyGameListRows(stored.data().rows)}catch(e){console.warn('refresh Game List source',e)}}
+window.addEventListener('omniplay-game-list-updated',event=>{if(applyGameListRows(event.detail?.rows)){const target=state.categories.flatMap(c=>c.pages||[]).find(p=>p.type==='sheet'&&String(p.name||'').trim()==='OP GAME');if(target)syncOpGameFromGameList(target,false)}})
+async function syncOpGameFromGameList(targetPage,refresh=true){
+if(refresh)await refreshGameListSource();
 const sourcePage=state.categories.flatMap(c=>c.pages||[]).find(p=>p.type==='sheet'&&String(p.name||'').trim()==='Game List_Online');
 normalizeGameListCells(sourcePage);
 const source=firstSheet(sourcePage?.snapshot),target=firstSheet(targetPage?.snapshot);
