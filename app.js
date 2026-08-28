@@ -144,16 +144,15 @@ w.innerHTML='<div id="univerSheet" class="univer-sheet"></div>';
 try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet',disableTextFormatAlert:true,disableTextFormatMark:true})]});
 x.univerAPI.createWorkbook(p.snapshot||{name:p.name});
 currentUniver={univer:x.univer,api:x.univerAPI,page:p};currentUniver.autoSaveDisposable=x.univerAPI.addEvent?.(x.univerAPI.Event.CommandExecuted,()=>scheduleSheetSave());mountSheetCellTools();applyVisibleCellFixes(x.univerAPI,String(p.name||'').trim())}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
-function files(p){const w=$('#workspace');
+function files(p,folderId=null){const w=$('#workspace'),folder=(p.folders||[]).find(item=>item.id===folderId),target=folder||p;
 w.className='workspace';
-p.files||=[];
-w.innerHTML='<div class="notice">☁️ 檔案清單已同步；實際檔案內容的雲端儲存稍後接。</div><div class="file-panel"><div id="uploadZone" class="upload-zone"><strong>＋ 加入檔案</strong></div><div id="fileGrid" class="file-grid"></div></div>';
-$('#uploadZone').onclick=()=>$('#hiddenUpload').click();
-$('#hiddenUpload').onchange=e=>{[...e.target.files].forEach(f=>p.files.push({id:uid('file'),name:f.name,type:f.type,size:f.size}));
-save();
-files(p)};
-const g=$('#fileGrid');
-p.files.forEach(f=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div class="file-placeholder">📄</div><div class="file-name">${esc(f.name)}</div></div>`))}
+p.files||=[];p.folders||=[];target.files||=[];
+const folderCards=!folder?p.folders.map(item=>`<button type="button" class="file-card workspace-folder-card" data-folder-id="${esc(item.id)}"><div class="file-placeholder">${item.type==='photos'?'🖼️':'📁'}</div><div class="file-name">${esc(item.name)}</div><small>${item.type==='photos'?'圖片資料夾':'檔案資料夾'} · ${(item.files||[]).length} 項</small></button>`).join(''):'';
+w.innerHTML=`<div class="notice">☁️ ${folder?`<button type="button" class="secondary" id="folderBack">← 返回 ${esc(p.name)}</button>　<strong>${esc(folder.name)}</strong>`:'GAME ID 主資料夾；點選下方子資料夾管理個別檔案／圖片。'}</div><div class="file-panel">${folder||!p.folders.length?'<div id="uploadZone" class="upload-zone"><strong>＋ 加入檔案／圖片</strong></div>':''}<div id="fileGrid" class="file-grid">${folderCards}</div></div>`;
+if(folder)$('#folderBack').onclick=()=>files(p);
+w.querySelectorAll('[data-folder-id]').forEach(button=>button.onclick=()=>files(p,button.dataset.folderId));
+const upload=$('#uploadZone');if(upload){upload.onclick=()=>$('#hiddenUpload').click();$('#hiddenUpload').onchange=e=>{[...e.target.files].forEach(file=>target.files.push({id:uid('file'),name:file.name,type:file.type,size:file.size}));e.target.value='';save();files(p,folderId)}}
+const g=$('#fileGrid');target.files.forEach(file=>g.insertAdjacentHTML('beforeend',`<div class="file-card"><div class="file-placeholder">${file.type?.startsWith('image/')?'🖼️':'📄'}</div><div class="file-name">${esc(file.name)}</div></div>`))}
 function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id:p.id,name:p.name,cat:c.name,type:p.type})))}
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
