@@ -104,7 +104,7 @@ renderPage()}};
 ps.append(row)});
 r.append(b)});
 const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').disabled=!state.activeCategoryId||!adminView}
-async function renderPage(){dispose();rememberView('page');
+async function renderPage(){dispose();rememberView('page');$('#customerBtn').classList.remove('active');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
 if(isGameList&&typeof window.renderGameListOnlinePage!=='function')normalizeGameListCells(p);
@@ -153,7 +153,7 @@ function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
 function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
-function renderCustomers(){dispose();rememberView('customers');
+function renderCustomers(){dispose();rememberView('customers');$('#customerBtn').classList.add('active');document.querySelectorAll('.category-head.active').forEach(element=>element.classList.remove('active'));
 $('.topbar').classList.add('hidden');
 $('#emptyState').classList.add('hidden');
 const w=$('#workspace');
