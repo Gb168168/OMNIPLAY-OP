@@ -34,6 +34,7 @@ let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustome
 function isAdminWorkspaceView(){const params=new URLSearchParams(location.search);if(params.get('view')==='customer'||params.has('customer'))return false;try{if(localStorage.getItem('omniplay-customer-session')||sessionStorage.getItem('omniplay-customer-session'))return false}catch{}return true}
 function readSavedView(){try{const url=new URL(location.href),mode=url.searchParams.get('wsView'),categoryId=url.searchParams.get('wsCategory'),pageId=url.searchParams.get('wsPage');if(mode)return{mode,categoryId,pageId};return JSON.parse(sessionStorage.getItem(VIEW_KEY)||localStorage.getItem(VIEW_KEY)||'null')}catch{return null}}
 function rememberView(mode='page'){const view={mode,categoryId:state.activeCategoryId,pageId:state.activePageId};try{const value=JSON.stringify(view);localStorage.setItem(VIEW_KEY,value);sessionStorage.setItem(VIEW_KEY,value);const url=new URL(location.href);url.searchParams.set('wsView',mode);view.categoryId?url.searchParams.set('wsCategory',view.categoryId):url.searchParams.delete('wsCategory');view.pageId?url.searchParams.set('wsPage',view.pageId):url.searchParams.delete('wsPage');history.replaceState(history.state,'',url)}catch{}}
+function workspacePageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>!isLegacyGameAssetPage(category,page)).map(page=>page.id))}function newCustomerGroup(name){const pageIds=workspacePageIds();return{id:uid('grp'),name,allowedPages:[...pageIds],pageOrder:[...pageIds],permissionMode:'all'}}function initializeGroupPermissions(){const pageIds=workspacePageIds();let changed=false;for(const group of state.customerGroups||[]){if(group.permissionMode)continue;const allowed=group.allowedPages||[];if(!allowed.length){group.allowedPages=[...pageIds];group.pageOrder=[...pageIds];group.permissionMode='all'}else group.permissionMode='custom';changed=true}return changed}
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
 const SHEET_CHUNK_SIZE=240000;
@@ -50,6 +51,7 @@ else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}clo
 await saveNow()}await hydrateSheetSnapshots();state.customerGroups||=[];
 state.customers||=[];
 migrateGameAssetPages();
+initializeGroupPermissions();
 if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerCommAppOptions=[...DEFAULT_COMM_APPS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
 state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
 state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
@@ -152,7 +154,7 @@ function files(p,path=[]){const w=$('#workspace'),canEdit=isAdminWorkspaceView()
 function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id:p.id,name:p.name,cat:c.name,type:p.type})))}
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
-function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
+function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group=newCustomerGroup(value);state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
 function renderCustomers(){dispose();rememberView('customers');$('#customerBtn').classList.add('active');document.querySelectorAll('.category-head.active').forEach(element=>element.classList.remove('active'));
 $('.topbar').classList.add('hidden');
 $('#emptyState').classList.add('hidden');
@@ -227,6 +229,7 @@ $('#backGroup').onclick=renderCustomers;
 $('#savePerm').onclick=()=>{const rows=[...l.querySelectorAll('.permission-row')];
 g.pageOrder=rows.map(x=>x.dataset.pageId);
 g.allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId);
+g.permissionMode='custom';
 save();
 renderCustomers()}}
 $('#customerBtn').onclick=renderCustomers;
@@ -250,6 +253,7 @@ if(!c||!n)return;
 const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};
 if(t!=='sheet')p.files=[];
 c.pages.push(p);
+state.customerGroups.forEach(group=>{if(group.permissionMode==='all'){group.allowedPages=group.allowedPages||[];group.pageOrder=group.pageOrder||[];if(!group.allowedPages.includes(p.id))group.allowedPages.push(p.id);if(!group.pageOrder.includes(p.id))group.pageOrder.push(p.id)}});
 state.activePageId=p.id;
 save();
 $('#pageDialog').close();
@@ -258,14 +262,14 @@ renderPage()};
 $('#groupForm').onsubmit=e=>{e.preventDefault();
 const n=$('#groupName').value.trim();
 if(!n)return;
-state.customerGroups.push({id:uid('grp'),name:n,allowedPages:[],pageOrder:[]});
+state.customerGroups.push(newCustomerGroup(n));
 save();
 $('#groupDialog').close();
 renderCustomers()};
-$('#addManagedGroup').onclick=()=>{const name=prompt('新增群組分類名稱：')?.trim();if(!name)return;if(state.customerGroups.some(g=>g.name===name)){alert('已有相同名稱的群組');return}state.customerGroups.push({id:uid('grp'),name,allowedPages:[],pageOrder:[]});save();openGroupManager()};
+$('#addManagedGroup').onclick=()=>{const name=prompt('新增群組分類名稱：')?.trim();if(!name)return;if(state.customerGroups.some(g=>g.name===name)){alert('已有相同名稱的群組');return}state.customerGroups.push(newCustomerGroup(name));save();openGroupManager()};
 document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isCommApp=target==='customerCommApp',isGroup=target==='customerGroup',label=isType?'客戶群組':isCommApp?'通訊 APP':isGroup?'所屬群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
 if(!value)return;
-if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group={id:uid('grp'),name:value,allowedPages:[],pageOrder:[]};state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:isCommApp?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}
+if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group=newCustomerGroup(value);state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:isCommApp?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}
 save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
