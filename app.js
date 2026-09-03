@@ -196,11 +196,10 @@ $('#customerDialogTitle').textContent=customer?'編輯平台':'建立平台';
 $('#customerSubmitBtn').textContent=customer?'儲存變更':'建立平台';
 ['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
 fillCustomerOptionSelect('#customerType',state.customerTypeOptions,true);
-fillCustomerOptionSelect('#customerCommApp',state.customerCommAppOptions,true);
 fillCustomerOptionSelect('#customerProgress',state.customerProgressOptions,true);
 const sel=$('#customerGroup');
 sel.innerHTML='<option value="">未設定</option>'+state.customerGroups.map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${esc(g.name)}</option>`).join('');
-if(customer){$('#customerName').value=customer.name||'';$('#customerDomain').value=customer.domain||customer.username||'';$('#customerType').value=customer.customerType||'';$('#customerCommApp').value=customer.commApp||'';$('#customerProgress').value=customer.progress||'';$('#customerLaunchDate').value=/^\d{4}-\d{2}-\d{2}$/.test(customer.launchDate||'')?customer.launchDate:'';$('#customerNotes').value=customer.notes||'';sel.value=customer.groupId||''}
+if(customer){$('#customerName').value=customer.name||'';$('#customerDomain').value=customer.domain||customer.username||'';$('#customerType').value=customer.customerType||'';$('#customerProgress').value=customer.progress||'';$('#customerLaunchDate').value=/^\d{4}-\d{2}-\d{2}$/.test(customer.launchDate||'')?customer.launchDate:'';$('#customerNotes').value=customer.notes||'';sel.value=customer.groupId||''}
 const launchDate=$('#customerLaunchDate');
 launchDate.onclick=()=>launchDate.showPicker?.();
 $('#customerDialog').showModal();
@@ -268,7 +267,7 @@ save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name)return;
-const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,commApp:$('#customerCommApp').value.trim(),groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
+const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
 if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
 editingCustomerId=null;
 save();
