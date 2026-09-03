@@ -34,7 +34,7 @@ let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustome
 function isAdminWorkspaceView(){const params=new URLSearchParams(location.search);if(params.get('view')==='customer'||params.has('customer'))return false;try{if(localStorage.getItem('omniplay-customer-session')||sessionStorage.getItem('omniplay-customer-session'))return false}catch{}return true}
 function readSavedView(){try{const url=new URL(location.href),mode=url.searchParams.get('wsView'),categoryId=url.searchParams.get('wsCategory'),pageId=url.searchParams.get('wsPage');if(mode)return{mode,categoryId,pageId};return JSON.parse(sessionStorage.getItem(VIEW_KEY)||localStorage.getItem(VIEW_KEY)||'null')}catch{return null}}
 function rememberView(mode='page'){const view={mode,categoryId:state.activeCategoryId,pageId:state.activePageId};try{const value=JSON.stringify(view);localStorage.setItem(VIEW_KEY,value);sessionStorage.setItem(VIEW_KEY,value);const url=new URL(location.href);url.searchParams.set('wsView',mode);view.categoryId?url.searchParams.set('wsCategory',view.categoryId):url.searchParams.delete('wsCategory');view.pageId?url.searchParams.set('wsPage',view.pageId):url.searchParams.delete('wsPage');history.replaceState(history.state,'',url)}catch{}}
-function workspacePageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>!isLegacyGameAssetPage(category,page)).map(page=>page.id))}function newCustomerGroup(name){const pageIds=workspacePageIds();return{id:uid('grp'),name,allowedPages:[...pageIds],pageOrder:[...pageIds],permissionMode:'all'}}function initializeGroupPermissions(){const pageIds=workspacePageIds();let changed=false;for(const group of state.customerGroups||[]){if(group.permissionMode)continue;const allowed=group.allowedPages||[];if(!allowed.length){group.allowedPages=[...pageIds];group.pageOrder=[...pageIds];group.permissionMode='all'}else group.permissionMode='custom';changed=true}return changed}
+function isGroupPermissionPage(category,page){const name=String(category?.name||'').trim();return name!=='內部參考，請勿外流'&&name!=='所有平台列表'&&!isLegacyGameAssetPage(category,page)}function workspacePageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>isGroupPermissionPage(category,page)).map(page=>page.id))}function newCustomerGroup(name){const pageIds=workspacePageIds();return{id:uid('grp'),name,allowedPages:[...pageIds],pageOrder:[...pageIds],permissionMode:'all'}}function initializeGroupPermissions(){const pageIds=workspacePageIds(),eligible=new Set(pageIds);let changed=false;for(const group of state.customerGroups||[]){const allowed=group.allowedPages||[];if(!group.permissionMode)group.permissionMode=allowed.length?'custom':'all';const nextAllowed=group.permissionMode==='all'?[...pageIds]:allowed.filter(id=>eligible.has(id)),nextOrder=(group.permissionMode==='all'?[...pageIds]:(group.pageOrder||[]).filter(id=>eligible.has(id)));if(JSON.stringify(allowed)!==JSON.stringify(nextAllowed)||JSON.stringify(group.pageOrder||[])!==JSON.stringify(nextOrder))changed=true;group.allowedPages=nextAllowed;group.pageOrder=nextOrder}return changed}
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
 const SHEET_CHUNK_SIZE=240000;
@@ -214,9 +214,9 @@ function editGroupPermissions(g){g.allowedPages||=[];
 const w=$('#workspace');
 w.innerHTML=`<div class="permission-top"><button id="backGroup" class="secondary">← 返回 ${esc(g.name)}</button></div><div class="admin-card permission-card"><div class="modal-head"><div><div class="eyebrow">GROUP PAGE ACCESS</div><h2>${esc(g.name)} 的群組權限</h2><p>依照「分類 → 頁面」顯示，勾選要開放給此群組查看的頁面。</p></div><div class="group-icon">👥</div></div><div id="permissionList" class="permission-list"></div><div class="permission-footer"><span id="permCount">已選 ${g.allowedPages.length} 個頁面</span><button id="savePerm" class="primary">儲存群組權限</button></div></div>`;
 const l=$('#permissionList');
-const total=allPages().length;
+const total=workspacePageIds().length;
 if(!total)l.innerHTML='<div class="empty-mini"><strong>目前沒有可設定的頁面</strong></div>';
-state.categories.forEach(c=>{const pages=c.pages||[];
+state.categories.forEach(c=>{const pages=(c.pages||[]).filter(p=>isGroupPermissionPage(c,p));
 if(!pages.length)return;
 const section=document.createElement('section');
 section.className='permission-category';
@@ -253,7 +253,7 @@ if(!c||!n)return;
 const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};
 if(t!=='sheet')p.files=[];
 c.pages.push(p);
-state.customerGroups.forEach(group=>{if(group.permissionMode==='all'){group.allowedPages=group.allowedPages||[];group.pageOrder=group.pageOrder||[];if(!group.allowedPages.includes(p.id))group.allowedPages.push(p.id);if(!group.pageOrder.includes(p.id))group.pageOrder.push(p.id)}});
+state.customerGroups.forEach(group=>{if(group.permissionMode==='all'&&isGroupPermissionPage(c,p)){group.allowedPages=group.allowedPages||[];group.pageOrder=group.pageOrder||[];if(!group.allowedPages.includes(p.id))group.allowedPages.push(p.id);if(!group.pageOrder.includes(p.id))group.pageOrder.push(p.id)}});
 state.activePageId=p.id;
 save();
 $('#pageDialog').close();
