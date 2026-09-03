@@ -122,7 +122,7 @@ dialog.modal-xl{width:min(96vw,1180px)}
 .dialog-form textarea{width:100%;padding:12px 13px;border-radius:10px;border:1px solid #33445f;background:#0c131e;color:white;outline:none;resize:vertical;min-height:68px;font:inherit}
 .dialog-form textarea:focus{border-color:#568ef4;box-shadow:0 0 0 3px rgba(79,140,255,.13)}
 .customer-form-row{display:grid;gap:12px;align-items:start}
-.customer-form-row-first{grid-template-columns:1.1fr 1.1fr 1fr 1.25fr}
+.customer-form-row-first{grid-template-columns:1.1fr 1.1fr 1fr}
 .customer-form-row-second{grid-template-columns:1fr 1fr 1.6fr 1fr}
 .select-add{display:grid;grid-template-columns:minmax(0,1fr) 42px;gap:7px}
 .add-option{border:1px solid #36527a;border-radius:10px;background:#192a43;color:#8db4ff;font-size:20px;cursor:pointer}
