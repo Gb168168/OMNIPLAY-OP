@@ -146,6 +146,10 @@ try{document.documentElement.dataset.theme=localStorage.getItem('omniplay-theme'
 <label>備註說明<textarea id="customerNotes" rows="3" maxlength="1000" placeholder="輸入客戶備註"></textarea></label>
 <label>所屬群組<div class="select-add"><select id="customerGroup"></select><button type="button" class="add-option" data-target="customerGroup" aria-label="新增所屬群組選項">＋</button></div></label>
 </div>
+<div class="customer-form-row customer-form-row-login">
+<label>登入帳號<input id="customerLoginUsername" maxlength="80" autocomplete="off" placeholder="輸入此平台的登入帳號"/></label>
+<label>登入密碼<input id="customerLoginPassword" type="password" maxlength="120" autocomplete="new-password" placeholder="輸入此平台的登入密碼"/></label>
+</div>
 <div class="dialog-actions">
 <button type="button" class="secondary" data-close="customerDialog">取消</button>
 <button class="primary" id="customerSubmitBtn" value="default">建立平台</button>
