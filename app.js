@@ -108,7 +108,7 @@ renderNav();
 renderPage()}};
 ps.append(row)});
 r.append(b)});
-const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.toggle('hidden',!adminView);$('#customerBtn').classList.toggle('hidden',!canAccessPlatformList());$('#addPageBtn').disabled=!state.activeCategoryId||!adminView}
+const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.toggle('hidden',!adminView);$('#customerBtn').classList.toggle('hidden',!canAccessPlatformList());$('#addPageBtn').disabled=!state.activeCategoryId||!adminView;document.documentElement.classList.remove('access-loading')}
 async function renderPage(){dispose();rememberView('page');$('#customerBtn').classList.remove('active');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
