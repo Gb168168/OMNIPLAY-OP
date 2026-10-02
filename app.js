@@ -64,6 +64,8 @@ if(state.platformImportVersion!==PLATFORM_IMPORT_VERSION){const existing=new Map
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
 if(savedView?.categoryId){const savedCategory=state.categories.find(category=>category.id===savedView.categoryId),savedPage=savedCategory?.pages?.find(page=>page.id===savedView.pageId);if(savedCategory){state.activeCategoryId=savedCategory.id;state.activePageId=savedPage?.id||savedCategory.pages?.[0]?.id||null}}
+const initialCategory=state.categories.find(category=>category.id===state.activeCategoryId)||state.categories.find(category=>(category.pages||[]).some(page=>!isLegacyGameAssetPage(category,page)))||state.categories[0];
+if(initialCategory){state.activeCategoryId=initialCategory.id;const visiblePages=(initialCategory.pages||[]).filter(page=>!isLegacyGameAssetPage(initialCategory,page));if(!visiblePages.some(page=>page.id===state.activePageId))state.activePageId=visiblePages[0]?.id||null}
 cloud=true;
 await saveNow();
 $('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
