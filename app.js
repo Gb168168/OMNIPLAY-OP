@@ -120,7 +120,7 @@ $('#emptyState').classList.toggle('hidden',!!p||!!c);
 $('#workspace').classList.toggle('hidden',!p);
 $('#breadcrumb').textContent=c?`工作區 / ${c.name}`:'工作區';
 $('#pageTitle').textContent=p?p.name:(c?c.name:'歡迎使用 OMNIPLAY');
-if(!p){if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
+if(!p){if(!c)$('#emptyState').innerHTML='<div><h2>目前沒有分類</h2><p>按「新增分類」開始建立工作區。</p></div>';if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
 return}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state,page:p,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(p)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
 function cellValue(cell){let value=cell;for(let i=0;i<4&&value&&typeof value==='object'&&'v'in value;i++)value=value.v;return value&&typeof value==='object'?'':(value??'')}
