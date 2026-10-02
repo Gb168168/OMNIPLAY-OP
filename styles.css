@@ -194,3 +194,37 @@ html.needs-login #app{display:none}
 .login-error{min-height:18px;margin:-7px 0;color:#ff8f9d;font-size:12px}.login-submit{height:48px;border:0;border-radius:11px;background:linear-gradient(135deg,#4f8cff,#6d72ff);color:#fff;font-weight:800;cursor:pointer;box-shadow:0 10px 24px rgba(79,140,255,.25)}.login-submit:hover{filter:brightness(1.07)}.login-submit:disabled{opacity:.6;cursor:wait}.login-footer{margin-top:25px;padding-top:19px;border-top:1px solid #243148;text-align:center;color:#667993;font-size:11px}
 .session-controls{position:fixed;z-index:9000;right:14px;top:10px;display:flex;align-items:center;gap:8px;padding:8px;border:1px solid #30425e;border-radius:12px;background:rgba(13,20,31,.96);box-shadow:0 10px 32px rgba(0,0,0,.34);backdrop-filter:blur(10px)}.login-user{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 5px;color:#a9bad1;font-size:11px}.logout-btn,.change-password-btn{padding:8px 11px}html[data-theme="light"] .session-controls{background:rgba(255,255,255,.97);border-color:#c8d5e5;box-shadow:0 8px 24px rgba(35,57,86,.16)}
 html[data-theme="light"] .login-screen{background:radial-gradient(circle at 18% 18%,rgba(79,140,255,.15),transparent 36%),#edf3fb;color:#172033}html[data-theme="light"] .login-card{background:rgba(255,255,255,.97);border-color:#cad7e7;box-shadow:0 28px 70px rgba(40,62,91,.16)}html[data-theme="light"] #loginForm input{background:#fff;color:#172033;border-color:#b8c8dc}html[data-theme="light"] .login-password button{background:#edf3fb;color:#315b88}
+
+/* Keep account actions in the toolbar flow so they never cover navigation. */
+.sidebar{flex:0 0 auto;flex-wrap:wrap;min-width:0}
+.sidebar>.brand{order:0}
+.sidebar>#addCategoryBtn,.sidebar>#customerBtn{order:1}
+.sidebar>.session-controls{order:2;position:static;flex:0 0 auto;margin-left:auto;z-index:auto;box-shadow:none}
+.sidebar>.category-list{order:3;flex:1 1 100%;flex-wrap:wrap;min-width:0}
+@media(max-width:800px){
+ #app{height:100dvh}
+ .sidebar{padding:8px 12px;gap:8px;overflow:visible}
+ .sidebar>.brand{padding:4px 0;font-size:16px}
+ .sidebar>.session-controls{order:1;flex:1 1 auto;justify-content:flex-end;padding:4px 0;border:0;background:transparent;backdrop-filter:none;gap:6px}
+ .session-controls .secondary{padding:8px;font-size:12px;white-space:nowrap;min-height:36px}
+ .session-controls .login-user{padding:0 3px;max-width:50px}
+ .sidebar>#addCategoryBtn,.sidebar>#customerBtn{order:2;flex:1 1 140px;text-align:center;font-size:13px;min-height:40px;padding:9px 10px}
+ .sidebar>.category-list{order:3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .category{min-width:0;width:100%;max-width:100%}
+ .category-head{padding:9px 10px;font-size:12px;gap:4px;white-space:normal;min-height:40px}
+ .category-head>span{overflow-wrap:anywhere;white-space:normal}
+ .category-pages{position:static;width:100%;box-shadow:none;border:0;border-top:1px solid #2b3950;border-radius:0 0 9px 9px;padding:4px}
+ .category:hover .category-pages,.category:focus-within .category-pages{display:none}
+ .category:has(.category-head.active) .category-pages{display:grid}
+ .page-row{grid-template-columns:minmax(0,1fr) 24px}
+ .page-link{font-size:12px;overflow-wrap:anywhere;min-height:36px}
+ .topbar{padding:10px 12px;gap:8px}
+ .actions{width:100%;flex-wrap:wrap;gap:8px}
+ .actions .theme-switch{flex:0 0 auto}
+ .actions .status{flex:1;min-width:0}
+ .actions>#addPageBtn{padding:8px 10px;font-size:13px;min-height:36px}
+}
+@media(max-width:420px){
+ .sidebar>.brand{flex:1 1 100%}
+ .sidebar>.session-controls{flex:1 1 100%;justify-content:flex-end}
+}
