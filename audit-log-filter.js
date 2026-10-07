@@ -1,5 +1,6 @@
+import { getDoc } from './member-access.js';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
-import{getFirestore,collection,doc,getDoc,getDocs,query,orderBy,limit}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import{getFirestore,collection,doc,getDocs,query,orderBy,limit}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 const app=getApps().length?getApps()[0]:initializeApp(cfg),db=getFirestore(app);

@@ -1,6 +1,7 @@
+import { getDoc, setDoc } from './member-access.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
-import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import{getFirestore,doc}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 
@@ -32,7 +33,7 @@ const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[.
 let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,saveQueue=Promise.resolve();
 const PLATFORM_LIST_PERMISSION='system_all_platforms';
 
-function isAdminWorkspaceView(){const params=new URLSearchParams(location.search);if(params.get('view')==='customer'||params.has('customer'))return false;try{if(localStorage.getItem('omniplay-customer-session')||sessionStorage.getItem('omniplay-customer-session'))return false}catch{}return true}
+function isAdminWorkspaceView(){if(window.__omniplaySession)return !!window.__omniplayCanEdit;const params=new URLSearchParams(location.search);if(params.get('view')==='customer'||params.has('customer'))return false;try{if(localStorage.getItem('omniplay-customer-session')||sessionStorage.getItem('omniplay-customer-session'))return false}catch{}return true}
 function isInternalGroup(group){return['OMNIPLAY','OMNIPLAY Support'].includes(String(group?.name||'').trim())}
 function canAccessPlatformList(){const session=window.__omniplaySession;if(session?.superAdmin)return true;if(!session)return true;const group=state.customerGroups.find(item=>item.id===session.groupId);return!!(isInternalGroup(group)&&(group.allowedPages||[]).includes(PLATFORM_LIST_PERMISSION))}
 function readSavedView(){try{const url=new URL(location.href),mode=url.searchParams.get('wsView'),categoryId=url.searchParams.get('wsCategory'),pageId=url.searchParams.get('wsPage');if(mode)return{mode,categoryId,pageId};return JSON.parse(sessionStorage.getItem(VIEW_KEY)||localStorage.getItem(VIEW_KEY)||'null')}catch{return null}}
@@ -53,14 +54,13 @@ if(s.exists())Object.assign(state,s.data());
 else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
 await saveNow()}await hydrateSheetSnapshots();state.customerGroups||=[];
 state.customers||=[];
-migrateGameAssetPages();
-initializeGroupPermissions();
+if(window.__omniplayCanEdit){migrateGameAssetPages();initializeGroupPermissions();}
 if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerCommAppOptions=[...DEFAULT_COMM_APPS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
 state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
 state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
 state.customerCommAppOptions||=[...DEFAULT_COMM_APPS];
 state.customers.map(u=>u.commApp).filter(Boolean).forEach(value=>{if(!state.customerCommAppOptions.includes(value))state.customerCommAppOptions.push(value)});
-if(state.platformImportVersion!==PLATFORM_IMPORT_VERSION){const existing=new Map(state.customers.map(u=>[`${String(u.name||'').trim().toLowerCase()}|${String(u.domain||u.username||'').trim().toLowerCase()}`,u]));IMPORTED_PLATFORMS.forEach(([name,domain,customerType,progress,launchDate,notes])=>{const key=`${name.trim().toLowerCase()}|${domain.trim().toLowerCase()}`,found=existing.get(key),data={name,domain,customerType,progress,launchDate,notes};if(found){Object.entries(data).forEach(([field,value])=>{if(value&&!found[field])found[field]=value})}else{const customer={id:uid('usr'),...data,commApp:'',groupId:''};state.customers.push(customer);existing.set(key,customer)}});state.platformImportVersion=PLATFORM_IMPORT_VERSION}
+if(window.__omniplayCanEdit&&state.platformImportVersion!==PLATFORM_IMPORT_VERSION){const existing=new Map(state.customers.map(u=>[`${String(u.name||'').trim().toLowerCase()}|${String(u.domain||u.username||'').trim().toLowerCase()}`,u]));IMPORTED_PLATFORMS.forEach(([name,domain,customerType,progress,launchDate,notes])=>{const key=`${name.trim().toLowerCase()}|${domain.trim().toLowerCase()}`,found=existing.get(key),data={name,domain,customerType,progress,launchDate,notes};if(found){Object.entries(data).forEach(([field,value])=>{if(value&&!found[field])found[field]=value})}else{const customer={id:uid('usr'),...data,commApp:'',groupId:''};state.customers.push(customer);existing.set(key,customer)}});state.platformImportVersion=PLATFORM_IMPORT_VERSION}
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
 g.pageOrder||=[]});
 if(savedView?.categoryId){const savedCategory=state.categories.find(category=>category.id===savedView.categoryId),savedPage=savedCategory?.pages?.find(page=>page.id===savedView.pageId);if(savedCategory){state.activeCategoryId=savedCategory.id;state.activePageId=savedPage?.id||savedCategory.pages?.[0]?.id||null}}

@@ -27,7 +27,8 @@
     const fsMod=await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js');
     const app=appMod.getApps().length?appMod.getApps()[0]:appMod.initializeApp(firebaseConfig);
     const db=fsMod.getFirestore(app);
-    return {fsMod,ref:fsMod.doc(db,'omniplay','workspace')};
+    const access=await import('./member-access.js');
+    return {fsMod:{...fsMod,getDoc:access.getDoc,setDoc:access.setDoc},ref:fsMod.doc(db,'omniplay','workspace')};
   }
 
   function readSavedGroupOrder(){
@@ -88,6 +89,7 @@
   }
 
   async function setupGroupDragSort(){
+    if(!window.__omniplayCanEdit)return;
     if(groupSortBusy)return;
     const container=document.querySelector('#groups');
     if(!container||container.dataset.dragSortReady==='1')return;
