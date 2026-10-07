@@ -31,7 +31,7 @@ test('legacy members can sign in; password updates, renames, page revocation and
     .replaceAll('https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js', 'firebase/app')
     .replaceAll('https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js', 'firebase/auth')
     .replaceAll('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js', 'firebase/firestore')
-    .replace("'./member-model.js'", "'../member-model.js'")
+    .replace(/'\.\/member-model\.js(?:\?[^']*)?'/, "'../member-model.js'")
     .replace('const auth = getAuth(auxiliary);', "const auth = getAuth(auxiliary); if(!auth.emulatorConfig) connectAuthEmulator(auth,'http://127.0.0.1:9098',{disableWarnings:true});");
   const tmp = new URL('../tmp/', import.meta.url); await mkdir(tmp, { recursive: true });
   await writeFile(new URL('member-access.test.mjs', tmp), nodeSource);

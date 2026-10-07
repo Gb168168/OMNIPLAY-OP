@@ -1,4 +1,4 @@
-import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js';
+import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261007-startup-3';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,doc,getDoc,collection,addDoc,getDocs,query,orderBy,limit,serverTimestamp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import{getAuth,signInWithEmailAndPassword,signOut,setPersistence,browserLocalPersistence,browserSessionPersistence}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';

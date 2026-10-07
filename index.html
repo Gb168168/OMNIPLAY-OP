@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>html:not(.auth-ready) #app{visibility:hidden!important}</style>
+<style>html:not(.auth-ready) #app{visibility:hidden!important}#startupStatus{position:fixed;inset:0;display:grid;place-content:center;gap:12px;padding:24px;text-align:center;background:#f3f6fc;color:#172033;z-index:99999}html.auth-ready #startupStatus,html.needs-login #startupStatus{display:none}</style>
 <script>
 try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStorage.getItem('omniplay-login-session-v1')||sessionStorage.getItem('omniplay-login-session-v1')||'null');if(session&&!session.superAdmin)document.documentElement.classList.add('access-loading')}catch{}
 </script>
@@ -26,6 +26,7 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 <link rel="stylesheet" href="./styles.css?v=20261007-light-only-1"/>
 </head>
 <body>
+<div id="startupStatus" role="status"><p id="startupMessage">正在載入登入畫面…</p></div>
 <div id="app">
 <aside class="sidebar">
 <div class="brand">🔥 OMNIPLAY OP</div>
@@ -152,12 +153,12 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 </script>
 <script src="./sheet-freeze-cleanup.js?v=20260826-1">
 </script>
-<script type="module">await import('./login-auth.js?v=20261007-cia-admin-2');await import('./audit-log-filter.js?v=20261007-cia-admin-2');await import('./sheet-unifier-bootstrap.js?v=20261007-cia-admin-2');await import('./op-game-form.js?v=20261007-cia-admin-2');await import('./game-list-page.js?v=20261007-cia-admin-2');await import('./app.js?v=20261007-cia-admin-2');</script>
+<script type="module">try{await import('./login-auth.js?v=20261007-startup-3');await import('./audit-log-filter.js?v=20261007-startup-3');await import('./sheet-unifier-bootstrap.js?v=20261007-startup-3');await import('./op-game-form.js?v=20261007-startup-3');await import('./game-list-page.js?v=20261007-startup-3');await import('./app.js?v=20261007-startup-3');}catch(error){console.error("Workspace startup failed",error);document.documentElement.classList.remove("needs-login");document.querySelector("#startupMessage").textContent="登入畫面載入失敗，請重新載入。若持續失敗，請確認網路連線。";const button=document.createElement("button");button.type="button";button.textContent="重新載入";button.onclick=()=>location.reload();document.querySelector("#startupStatus").append(button);}</script>
 <script src="./sheet-shift-enter.js?v=20260825-3">
 </script>
 <script src="./sheet-ui-cleanup.js?v=20260829-2">
 </script>
-<script src="./customer-guard.js?v=20261007-cia-admin-2">
+<script src="./customer-guard.js?v=20261007-startup-3">
 </script>
 </body>
 </html>

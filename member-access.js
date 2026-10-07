@@ -4,7 +4,7 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, getDocs, getDoc as firebaseGetDoc,
   setDoc as firebaseSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials } from './member-model.js';
+  groupDocumentIds, withoutCredentials } from './member-model.js?v=20261007-startup-3';
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
 const written = new Map();
