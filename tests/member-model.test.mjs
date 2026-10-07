@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { memberCredentials, collectMembers, groupWorkspace, groupDocumentIds } from '../member-model.js';
+import { memberCredentials, collectMembers, groupWorkspace, groupDocumentIds, isReservedUsername } from '../member-model.js';
 const internal = { id: 'g1', name: 'OMNIPLAY Support', allowedPages: ['page_op_game'], members: [
   { id: 'm1', username: ' F ', password: 'short', name: 'F' },
   { id: 'm2', username: 'K', password: 'reserved' },
@@ -40,4 +40,13 @@ test('sheet and game documents are selected only for granted pages', () => {
   const ids = ['sheet-page_op_game', 'sheet-page_op_game-chunk-0', 'sheet-private', 'game-list-online-page', 'op-game-form-records', 'workspace'];
   assert.deepEqual(groupDocumentIds(workspace, external, ids), []);
   assert.deepEqual(groupDocumentIds(workspace, internal, ids).sort(), ids.filter(id => !['workspace', 'sheet-private'].includes(id)).sort());
+});
+
+test('Cia_Cia is reserved for the highest administrator, while K remains a member', () => {
+  assert.equal(isReservedUsername(' Cia_Cia '), true);
+  assert.equal(isReservedUsername('cia_cia'), true);
+  assert.equal(isReservedUsername('K'), false);
+  const copy = structuredClone(workspace);
+  copy.customerGroups[0].members.push({ id: 'admin-name', username: 'Cia_Cia', password: 'unused' });
+  assert.deepEqual(collectMembers(copy).map(item => item.username), ['F', 'K', 'client']);
 });

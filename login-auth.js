@@ -1,10 +1,10 @@
-import { memberCredentials } from './member-model.js';
+import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,doc,getDoc,collection,addDoc,getDocs,query,orderBy,limit,serverTimestamp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import{getAuth,signInWithEmailAndPassword,signOut,setPersistence,browserLocalPersistence,browserSessionPersistence}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 const SESSION_KEY='omniplay-login-session-v1',CUSTOMER_KEY='omniplay-customer-session',ADMIN_KEY='omniplay-admin-session';
-const ADMIN_UID='xqDN3vaLfufEkz4TZ1omSmGkQ2A2',ADMIN_EMAIL='goldbricks168@gmail.com',LOGIN_USERNAME='K';
+const LOGIN_USERNAME=ADMIN_USERNAME;
 const esc=(value='')=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 async function passwordHash(value){const bytes=new TextEncoder().encode(value),digest=await crypto.subtle.digest('SHA-256',bytes);return[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('')}
 function workspaceRef(){const app=getApps().length?getApps()[0]:initializeApp(cfg),db=getFirestore(app);return doc(db,'omniplay','workspace')}
@@ -23,10 +23,7 @@ function loginMarkup(){return`<main class="login-screen"><section class="login-c
 async function showLogin(){document.body.insertAdjacentHTML('beforeend',loginMarkup());const form=document.querySelector('#loginForm'),error=document.querySelector('#loginError'),submit=document.querySelector('#loginSubmit'),password=document.querySelector('#loginPassword');document.querySelector('#togglePassword').onclick=event=>{const show=password.type==='password';password.type=show?'text':'password';event.currentTarget.textContent=show?'隱藏':'顯示'};form.onsubmit=async event=>{event.preventDefault();error.textContent='';submit.disabled=true;submit.textContent='驗證中…';try{const auth=getAuth(),remember=document.querySelector('#loginRemember').checked;await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);const username=document.querySelector('#loginUsername').value.trim();const administrator=[LOGIN_USERNAME.toLowerCase(),ADMIN_EMAIL].includes(username.toLowerCase());
 let credential;
 if(administrator){
- try{credential=await signInWithEmailAndPassword(auth,ADMIN_EMAIL,password.value)}catch(error){
-  if(username.toLowerCase()!==LOGIN_USERNAME.toLowerCase()||!['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(error.code))throw error;
-  const bridge=await memberCredentials(username,password.value);credential=await signInWithEmailAndPassword(auth,bridge.email,bridge.password);
- }
+ credential=await signInWithEmailAndPassword(auth,ADMIN_EMAIL,password.value);
 }else{const bridge=await memberCredentials(username,password.value);credential=await signInWithEmailAndPassword(auth,bridge.email,bridge.password)}
 const session=await resolveSession(credential.user);
 if(!session){await signOut(auth);error.textContent='此帳號尚未同步工作區權限，請管理員登入後同步人員';return}
