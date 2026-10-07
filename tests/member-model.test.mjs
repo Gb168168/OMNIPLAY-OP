@@ -42,11 +42,11 @@ test('sheet and game documents are selected only for granted pages', () => {
   assert.deepEqual(groupDocumentIds(workspace, internal, ids).sort(), ids.filter(id => !['workspace', 'sheet-private'].includes(id)).sort());
 });
 
-test('Cia_Cia is reserved for the highest administrator, while K remains a member', () => {
-  assert.equal(isReservedUsername(' Cia_Cia '), true);
-  assert.equal(isReservedUsername('cia_cia'), true);
+test('Cia_Cia uses the same member credentials as K and F', () => {
+  assert.equal(isReservedUsername(' Cia_Cia '), false);
+  assert.equal(isReservedUsername('cia_cia'), false);
   assert.equal(isReservedUsername('K'), false);
   const copy = structuredClone(workspace);
   copy.customerGroups[0].members.push({ id: 'admin-name', username: 'Cia_Cia', password: 'unused' });
-  assert.deepEqual(collectMembers(copy).map(item => item.username), ['F', 'K', 'client']);
+  assert.deepEqual(collectMembers(copy).map(item => item.username), ['F', 'K', 'Cia_Cia', 'client']);
 });

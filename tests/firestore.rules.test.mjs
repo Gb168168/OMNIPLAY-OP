@@ -65,3 +65,23 @@ test('revocation takes effect even when a Firebase sign-in token remains valid',
 test('existing internal K member retains audit read access', async () => {
   await assertSucceeds(getDoc(doc(env.authenticatedContext('member-k').firestore(), 'omniplay-audit-events', 'valid')));
 });
+
+test('approved Cia_Cia has full access; username or role flag alone cannot grant it', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    for (const [uid, profile] of [
+      ['cia-admin', { username: 'Cia_Cia', superAdmin: true, enabled: true }],
+      ['cia-name-only', { username: 'Cia_Cia', enabled: true }],
+      ['k-role-only', { username: 'K', superAdmin: true, enabled: true }],
+      ['cia-disabled', { username: 'Cia_Cia', superAdmin: true, enabled: false }],
+    ]) await setDoc(doc(context.firestore(), 'omniplay-member-access', uid), profile);
+  });
+  const db = env.authenticatedContext('cia-admin').firestore();
+  await assertSucceeds(getDoc(doc(db, 'omniplay', 'workspace')));
+  await assertSucceeds(setDoc(doc(db, 'omniplay', 'cia-admin-write'), { test: true }));
+  await assertSucceeds(getDoc(doc(db, 'omniplay-member-bindings', 'private')));
+  for (const uid of ['cia-name-only', 'k-role-only', 'cia-disabled']) {
+    const denied = env.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(denied, 'omniplay', 'workspace')));
+    await assertFails(setDoc(doc(denied, 'omniplay-member-access', uid), { username: 'Cia_Cia', superAdmin: true, enabled: true }));
+  }
+});

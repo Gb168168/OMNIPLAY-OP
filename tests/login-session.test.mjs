@@ -40,12 +40,18 @@ test('highest administrator uses Cia_Cia and retains the authenticated admin UID
   assert.ok(!adminAliases.includes('k'));
 });
 
-test('K login only attempts its member credential, Cia_Cia only attempts admin credentials', async () => {
+test('Cia_Cia, K and F all use member credentials; original admin email remains bootstrap only', async () => {
   const route = source.slice(source.indexOf('const administrator='), source.indexOf('const session=await resolveSession(credential.user)'));
   const login = new AsyncFunction('username', 'LOGIN_USERNAME', 'ADMIN_EMAIL', 'password', 'auth', 'memberCredentials', 'signInWithEmailAndPassword', route);
-  for (const [username, expected] of [['K', 'member@example.invalid'], ['Cia_Cia', ADMIN_EMAIL]]) {
+  for (const username of ['K', 'F', 'Cia_Cia', ADMIN_EMAIL]) {
     const attempts = [];
     await login(username, ADMIN_USERNAME, ADMIN_EMAIL, { value: 'test-password' }, {}, async () => ({ email: 'member@example.invalid', password: 'bridge' }), async (_, email) => { attempts.push(email); return { user: {} }; });
-    assert.deepEqual(attempts, [expected]);
+    assert.deepEqual(attempts, [username === ADMIN_EMAIL ? ADMIN_EMAIL : 'member@example.invalid']);
   }
+});
+test('only an enabled server-approved Cia_Cia profile grants highest administrator privileges', async () => {
+  assert.equal((await resolve('cia-uid', { ...profile, username: 'Cia_Cia', superAdmin: true })).superAdmin, true);
+  assert.equal((await resolve('cia-uid', { ...profile, username: 'Cia_Cia' })).superAdmin, false);
+  assert.equal((await resolve('k-uid', { ...profile, username: 'K', superAdmin: true })).superAdmin, false);
+  assert.equal(await resolve('cia-uid', { ...profile, username: 'Cia_Cia', superAdmin: true, enabled: false }), null);
 });

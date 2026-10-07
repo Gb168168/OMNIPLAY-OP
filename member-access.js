@@ -3,12 +3,20 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDocs, getDoc as firebaseGetDoc,
   setDoc as firebaseSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { ADMIN_UID, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials } from './member-model.js?v=20261007-startup-3';
+import { ADMIN_UID, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
+  groupDocumentIds, withoutCredentials } from './member-model.js?v=20261007-cia-member-4';
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
 const written = new Map();
-const admin = () => window.__omniplaySession?.superAdmin === true && getAuth().currentUser?.uid === ADMIN_UID;
+async function admin() {
+  const user = getAuth().currentUser;
+  if (!user || window.__omniplaySession?.superAdmin !== true) return false;
+  if (user.uid === ADMIN_UID) return true;
+  const snapshot = await firebaseGetDoc(doc(getFirestore(), 'omniplay-member-access', user.uid));
+  const profile = snapshot.exists() ? snapshot.data() : null;
+  return profile?.enabled === true && profile.superAdmin === true
+    && normalizeUsername(profile.username) === normalizeUsername(ADMIN_USERNAME);
+}
 export function getDoc(ref) {
   const session = window.__omniplaySession;
   if (session && !session.superAdmin && ref.path.startsWith('omniplay/')) {
@@ -21,7 +29,7 @@ export function getDoc(ref) {
 }
 export async function setDoc(ref, data, options) {
   await firebaseSetDoc(ref, data, options);
-  if (!admin() || !ref.path.startsWith('omniplay/')) return;
+  if (!await admin() || !ref.path.startsWith('omniplay/')) return;
   if (sources) {
     const id = ref.path.slice('omniplay/'.length);
     sources.set(id, options?.merge ? { ...(sources.get(id) || {}), ...data } : data);
@@ -72,13 +80,13 @@ async function provision(db, member) {
     return user.uid;
   } finally { await signOut(auth); }
 }
-export function syncMembersAndViews(db, workspace) {
-  if (!admin()) return Promise.resolve();
+export async function syncMembersAndViews(db, workspace) {
+  if (!await admin()) return Promise.resolve();
   syncQueue = syncQueue.catch(() => {}).then(() => synchronize(db, workspace));
   return syncQueue;
 }
 async function synchronize(db, workspace) {
-  if (!admin()) throw new Error('請使用管理員登入以同步人員');
+  if (!await admin()) throw new Error('請使用管理員登入以同步人員');
   {
     const snapshot = await getDocs(collection(db, 'omniplay'));
     sources = new Map(snapshot.docs.map(item => [item.id, item.data()]));
@@ -126,7 +134,8 @@ async function synchronize(db, workspace) {
   for (const member of members) {
     try {
       const uid = await provision(db, member), { password, key, ...safe } = member;
-      const profile = { ...safe, memberKey: key, enabled: true };
+      const profile = { ...safe, memberKey: key, enabled: true,
+        superAdmin: normalizeUsername(member.username) === normalizeUsername(ADMIN_USERNAME) };
       if (JSON.stringify(previous.get(uid)) !== JSON.stringify(profile)) {
         await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), profile);
       }

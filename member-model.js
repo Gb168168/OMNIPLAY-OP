@@ -4,7 +4,7 @@ export const ADMIN_USERNAME = 'Cia_Cia';
 export const ADMIN_EMAIL = 'goldbricks168@gmail.com';
 export const PLATFORM_PERMISSION = 'system_all_platforms';
 export const normalizeUsername = value => String(value || '').trim().normalize('NFC').toLowerCase();
-export const isReservedUsername = value => [normalizeUsername(ADMIN_USERNAME), ADMIN_EMAIL].includes(normalizeUsername(value));
+export const isReservedUsername = value => normalizeUsername(value) === ADMIN_EMAIL;
 export async function digest(value) {
   const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');

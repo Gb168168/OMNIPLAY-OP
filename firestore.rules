@@ -3,7 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid == 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2';
+        && (request.auth.uid == 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2'
+          || (member().enabled == true && member().get('superAdmin', false) == true
+            && member().username.lower() == 'cia_cia'));
     }
     function member() {
       return get(/databases/$(database)/documents/omniplay-member-access/$(request.auth.uid)).data;

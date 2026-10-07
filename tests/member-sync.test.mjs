@@ -39,6 +39,7 @@ test('legacy members can sign in; password updates, renames, page revocation and
   const group = { id: 'g1', name: 'OMNIPLAY Support', allowedPages: ['page_op_game'], members: [
     { id: 'f-member', name: 'F', username: 'F', password: 'old' },
     { id: 'k-member', name: 'K', username: 'K', password: 'member-k' },
+    { id: 'cia-member', name: 'Cia_Cia', username: 'Cia_Cia', password: 'member-cia' },
   ] };
   const workspace = { categories: [{ id: 'cat', pages: [{ id: 'page_op_game', name: 'OP GAME', type: 'sheet' },
     { id: 'secret-page', name: 'Private', type: 'files', files: [{ password: 'never-expose' }] }] }],
@@ -94,5 +95,18 @@ test('legacy members can sign in; password updates, renames, page revocation and
   await signInWithEmailAndPassword(viewerAuth, readded.email, readded.password);
   await getDoc(doc(viewerDb, 'omniplay-group-views', 'g1'));
   assert.equal(auth.currentUser.uid, ADMIN_UID);
+  const cia = await memberCredentials('Cia_Cia', 'member-cia');
+  await signInWithEmailAndPassword(auth, cia.email, cia.password);
+  const ciaUid = auth.currentUser.uid;
+  assert.notEqual(ciaUid, ADMIN_UID);
+  const ciaProfile = (await getDoc(doc(db, 'omniplay-member-access', ciaUid))).data();
+  assert.equal(ciaProfile.superAdmin, true);
+  assert.equal(ciaProfile.username, 'Cia_Cia');
+  globalThis.window.__omniplaySession = { superAdmin: true, authUid: ciaUid };
+  await access.getDoc(doc(db, 'omniplay', 'workspace'));
+  workspace.ciaAdminTest = true;
+  await access.setDoc(doc(db, 'omniplay', 'workspace'), workspace);
+  assert.equal((await getDoc(doc(db, 'omniplay', 'workspace'))).data().ciaAdminTest, true);
+  assert.equal(auth.currentUser.uid, ciaUid);
   await deleteApp(viewer); await deleteApp(primary); await deleteAdmin(server); await env.cleanup();
 });
