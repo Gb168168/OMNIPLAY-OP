@@ -1,5 +1,5 @@
-import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-customer-op-1';
-import { getDoc, setDoc } from './member-access.js?v=20261008-sync-fix-1';
+import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-game-links-1';
+import { getDoc, setDoc } from './member-access.js?v=20261008-game-links-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
