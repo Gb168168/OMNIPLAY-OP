@@ -283,3 +283,9 @@ html[data-theme="light"] #groupManagerDialog .group-delete {
 .page-rename:hover{background:#edf4fd;color:#245b99;border-radius:5px}
 .workspace-item-menu{width:min(360px,calc(100vw - 32px));border:1px solid #cbd8e8;border-radius:14px;background:#fff;color:#172033}
 @media(max-width:800px){.page-row{grid-template-columns:minmax(0,1fr) 26px 24px}}
+
+/* Category menus stay open until explicitly closed, independent of pointer hover. */
+.category:not(.menu-open)>.category-pages{display:none!important}
+.category.menu-open>.category-pages{display:grid!important;max-height:min(65vh,560px);overflow-y:auto;overscroll-behavior:contain}
+.category.menu-open{z-index:100}
+.category-head:focus-visible{outline:2px solid #4f8cff;outline-offset:2px}
