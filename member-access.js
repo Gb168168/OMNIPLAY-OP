@@ -4,7 +4,7 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc,
   setDoc as rawSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261008-customer-op-1';
+  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261008-game-links-1';
 
 
 function databaseError(error, action, path) {
@@ -147,7 +147,7 @@ async function synchronize(db, workspace) {
     view.allowedDocumentIds = isOwner ? ids : (oldViews.docs.find(item => item.id === group.id)?.data().allowedDocumentIds || []);
     if (!isOwner && !oldViews.docs.some(item => item.id === group.id)) continue;
     const writes = [[doc(db, 'omniplay-group-views', group.id), view],
-      ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), id === CUSTOMER_OP_DOCUMENT ? customerGameCatalog(sources.get('game-list-online-page'), sources.get('op-game-form-records'), group) : withoutCredentials(sources.get(id))])];
+      ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), id === CUSTOMER_OP_DOCUMENT ? customerGameCatalog(sources.get('game-list-online-page'), sources.get('op-game-form-records'), group, data) : withoutCredentials(sources.get(id))])];
     // Commit the root allowlist last so a new page is never exposed before its data exists.
     const root = writes.shift(); writes.push(root);
     for (let i = 0; i < writes.length; i += 200) {
@@ -228,9 +228,10 @@ export async function transferToRondo(password, db = getFirestore()) {
 
 export async function getCustomerGameCatalog(db = getFirestore()) {
   if (await owner(db)) {
-    const [rows, records] = await Promise.all([firebaseGetDoc(doc(db,'omniplay','game-list-online-page')),firebaseGetDoc(doc(db,'omniplay','op-game-form-records'))]);
+    const [rows, records, workspace] = await Promise.all([firebaseGetDoc(doc(db,'omniplay','game-list-online-page')),firebaseGetDoc(doc(db,'omniplay','op-game-form-records')),firebaseGetDoc(doc(db,'omniplay','workspace'))]);
     const profile = await firebaseGetDoc(doc(db,'omniplay-member-access',getAuth().currentUser.uid));
-    return customerGameCatalog(rows.data(), records.data(), {id:profile.exists()?profile.data().groupId:'__admin__'});
+    const data=workspace.data()||{},groupId=profile.exists()?profile.data().groupId:'__admin__';
+    return customerGameCatalog(rows.data(), records.data(), (data.customerGroups||[]).find(group=>group.id===groupId)||{id:groupId},data);
   }
   const user = getAuth().currentUser;
   if (!user) throw new Error('請先登入');
@@ -240,3 +241,4 @@ export async function getCustomerGameCatalog(db = getFirestore()) {
   if (!snapshot.exists()) throw new Error('客戶版遊戲資料尚未同步，請聯絡管理員');
   return snapshot.data();
 }
+
