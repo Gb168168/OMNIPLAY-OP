@@ -241,3 +241,22 @@ html[data-theme="light"] .login-screen{background:radial-gradient(circle at 18% 
   order:4;flex:1 1 100%;
  }
 }
+
+/* Softer controls in the group manager. */
+html[data-theme="light"] #groupManagerDialog .group-icon {
+ background:#eaf2fc!important;color:#315b88!important;border:1px solid #d7e4f3!important;
+}
+html[data-theme="light"] #groupManagerDialog .group-members,
+html[data-theme="light"] #groupManagerDialog .group-permissions,
+html[data-theme="light"] #groupManagerDialog .group-edit {
+ background:#edf4fd!important;color:#315b88!important;border:1px solid #cbdcf0!important;
+ box-shadow:none!important;
+}
+html[data-theme="light"] #groupManagerDialog .group-members:hover,
+html[data-theme="light"] #groupManagerDialog .group-permissions:hover,
+html[data-theme="light"] #groupManagerDialog .group-edit:hover {
+ background:#deebfb!important;border-color:#aac7e8!important;
+}
+html[data-theme="light"] #groupManagerDialog .group-delete {
+ background:#fff5f6!important;color:#b94a5d!important;border:1px solid #f0ccd3!important;
+}
