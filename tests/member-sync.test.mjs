@@ -121,6 +121,9 @@ test('legacy members can sign in; password updates, renames, page revocation and
   const ownerUid = auth.currentUser.uid;
   globalThis.window.__omniplaySession = { superAdmin: true, canEdit: true, authUid: ownerUid };
   assert.equal((await getDoc(doc(db, 'omniplay-security', 'access'))).data().ownerUid, ownerUid);
+  await env.withSecurityRulesDisabled(async context => { await setDoc(doc(context.firestore(),'omniplay-member-access',ownerUid), {memberKey:'obsolete-owner-key'}, {merge:true}); });
+  await access.syncMembersAndViews(db);
+  assert.equal((await getDoc(doc(db,'omniplay-member-access',ownerUid))).data().enabled,true);
   const ownerCatalog = await access.getCustomerGameCatalog(db);
   assert.deepEqual(JSON.parse(ownerCatalog.rowsJson).map(row=>String(row[0])), ['100001']);
   const ownerWorkspace = (await access.getDoc(doc(db, 'omniplay', 'workspace'))).data();
