@@ -42,11 +42,41 @@ export function withoutCredentials(value) {
 export function isInternalReferenceCategory(category) {
   return String(category?.name || '').replace(/^\s*📁\s*/, '').trim() === '內部參考，請勿外流';
 }
+
+export const CUSTOMER_OP_PAGE = 'page_op_game_customer';
+export const CUSTOMER_OP_DOCUMENT = 'op-game-customer-records';
+export function ensureCustomerOpPage(workspace) {
+  workspace.categories ||= [];
+  const source = workspace.categories.filter(isInternalReferenceCategory).flatMap(category => category.pages || []).find(page => String(page.name || '').trim() === 'OP GAME');
+  if (!source) return false;
+  if (workspace.categories.some(category => (category.pages || []).some(page => page.id === CUSTOMER_OP_PAGE))) return false;
+  let category = workspace.categories.find(category => String(category.name || '').trim() === 'OMNIPLAY遊戲_客戶參考文件');
+  if (!category) { category = { id: 'cat_customer_game_reference', name: 'OMNIPLAY遊戲_客戶參考文件', pages: [] }; workspace.categories.push(category); }
+  category.pages ||= [];
+  category.pages.push({ id: CUSTOMER_OP_PAGE, name: 'OP GAME', type: 'sheet', customerOpGame: true });
+  return true;
+}
+export function customerGameCatalog(rowData = {}, recordData = {}, group = null) {
+  let rows = [];
+  try { rows = typeof rowData.rowsJson === 'string' ? JSON.parse(rowData.rowsJson) : rowData.rows || []; } catch {}
+  if (!Array.isArray(rows)) rows = [];
+  const source = recordData.records || {}, records = {}, fields = ['mandarinName', 'status', 'releaseDate', 'pagcor', 'freeSpin'];
+  const selected = rows.filter(row => Array.isArray(row) && String(row[0] ?? '').trim() && (
+    !group || (Array.isArray(source[String(row[0]).trim()]?.groupIds) && source[String(row[0]).trim()].groupIds.includes(group.id))
+  )).map(row => row.slice(0, 19).map(value => ['string', 'number', 'boolean'].includes(typeof value) ? value : ''));
+  for (const row of selected) {
+    const id = String(row[0]).trim(), sourceRecord = source[id] || {};
+    records[id] = Object.fromEntries(fields.filter(key => ['string','number','boolean'].includes(typeof sourceRecord[key])).map(key => [key, sourceRecord[key]]));
+  }
+  return { rowsJson: JSON.stringify(selected), records };
+}
+
 export function effectiveGroupPages(workspace, group) {
   const internal = ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim());
   const privateIds = new Set((workspace.categories || []).filter(isInternalReferenceCategory).flatMap(category => (category.pages || []).map(page => page.id)));
   const allowed = new Set((group.allowedPages || []).filter(id => internal || !privateIds.has(id)));
   if (internal) for (const id of privateIds) allowed.add(id);
+  if ((workspace.categories || []).some(category => (category.pages || []).some(page => page.id === CUSTOMER_OP_PAGE))) allowed.add(CUSTOMER_OP_PAGE);
   return allowed;
 }
 export function groupWorkspace(workspace, group) {
@@ -68,15 +98,17 @@ export function groupDocumentIds(workspace, group, sourceIds) {
   const allowed = effectiveGroupPages(workspace, group);
   const pages = (workspace.categories || []).flatMap(category => category.pages || []).filter(page => allowed.has(page.id));
   const ids = new Set();
-  for (const page of pages.filter(page => page.type === 'sheet')) {
+  for (const page of pages.filter(page => page.type === 'sheet' && !page.customerOpGame)) {
     const base = 'sheet-' + page.id;
     for (const id of sourceIds) if (id === base || id.startsWith(base + '-chunk-')) ids.add(id);
   }
-  if (pages.some(page => ['op game', 'game list_online'].includes(String(page.name || '').trim().toLowerCase()))) {
+  if (pages.some(page => !page.customerOpGame && ['op game', 'game list_online'].includes(String(page.name || '').trim().toLowerCase()))) {
     ids.add('game-list-online-page');
   }
-  if (pages.some(page => String(page.name || '').trim().toLowerCase() === 'op game')) ids.add('op-game-form-records');
-  return [...ids].filter(id => sourceIds.includes(id));
+  if (pages.some(page => !page.customerOpGame && String(page.name || '').trim().toLowerCase() === 'op game')) ids.add('op-game-form-records');
+    const result = [...ids].filter(id => sourceIds.includes(id));
+  if (pages.some(page => page.customerOpGame)) result.push(CUSTOMER_OP_DOCUMENT);
+  return result;
 }
 
 // Keep account metadata public, but only the owner may hydrate passwords.
