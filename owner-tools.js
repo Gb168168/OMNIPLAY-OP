@@ -6,8 +6,8 @@ if (session?.superAdmin) {
   const button = document.createElement('button');
   button.className = 'secondary'; button.type = 'button';
   button.textContent = session.bootstrap ? '建立 Rondo 並交接' : '管理員權限';
-  controls.append(button);
-  const resync = document.createElement('button'); resync.className = 'secondary'; resync.type = 'button'; resync.textContent = '重新同步人員登入'; controls.append(resync);
+  const audit=controls.querySelector('.audit-log-btn,.logout-btn');controls.insertBefore(button,audit);
+  const resync = document.createElement('button'); resync.className = 'secondary'; resync.type = 'button'; resync.textContent = '重新同步人員登入'; controls.insertBefore(resync,controls.querySelector('.audit-log-btn,.logout-btn'));
   resync.onclick = async () => {
     resync.disabled = true; const status = document.querySelector('#cloudStatus');
     status.textContent = '☁️ 正在驗證並同步人員登入…';
