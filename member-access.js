@@ -219,7 +219,8 @@ export async function transferToRondo(password, db = getFirestore()) {
 export async function getCustomerGameCatalog(db = getFirestore()) {
   if (await owner(db)) {
     const [rows, records] = await Promise.all([firebaseGetDoc(doc(db,'omniplay','game-list-online-page')),firebaseGetDoc(doc(db,'omniplay','op-game-form-records'))]);
-    return customerGameCatalog(rows.data(), records.data());
+    const profile = await firebaseGetDoc(doc(db,'omniplay-member-access',getAuth().currentUser.uid));
+    return customerGameCatalog(rows.data(), records.data(), {id:profile.exists()?profile.data().groupId:'__admin__'});
   }
   const user = getAuth().currentUser;
   if (!user) throw new Error('請先登入');
