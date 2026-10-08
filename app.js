@@ -136,7 +136,7 @@ renderNav();
 renderPage()}};
 ps.append(row)});
 r.append(b)});
-const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.toggle('hidden',!adminView);$('#customerBtn').classList.toggle('hidden',!canAccessPlatformList());$('#addPageBtn').disabled=!state.activeCategoryId||!adminView;document.documentElement.classList.remove('access-loading');if(canManageResources())renderCustomerNav(true)}
+const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.add('hidden');$('#customerBtn').classList.toggle('hidden',!canAccessPlatformList());$('#addPageBtn').disabled=!state.activeCategoryId||!adminView;document.documentElement.classList.remove('access-loading');if(canManageResources())renderCustomerNav(true)}
 async function renderPage(){$('#resourceGameEditor')?.remove();dispose();rememberView('page');$('#customerBtn').classList.remove('active');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
@@ -274,32 +274,16 @@ g.permissionMode='custom';
 save();
 renderCustomers()}}
 $('#customerBtn').onclick=renderCustomers;
-$('#addCategoryBtn').onclick=()=>{$('#categoryName').value='';
-$('#categoryDialog').showModal()};
-$('#categoryForm').onsubmit=e=>{e.preventDefault();
-const n=$('#categoryName').value.trim();
-if(!n)return;
-const c={id:uid('cat'),name:n,pages:[]};
-state.categories.push(c);
-state.activeCategoryId=c.id;
-save();
-$('#categoryDialog').close();
-renderNav();
-renderPage()};
-$('#addPageBtn').onclick=()=>{$('#pageName').value='';
-$('#pageDialog').showModal()};
-$('#pageForm').onsubmit=e=>{e.preventDefault();
-const c=cat(),n=$('#pageName').value.trim(),t=$('#pageType').value;
-if(!c||!n)return;
-const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};
-if(t!=='sheet')p.files=[];
-c.pages.push(p);
-state.customerGroups.forEach(group=>{if(window.__omniplaySession?.superAdmin&&group.permissionMode==='all'&&isDefaultGroupPermissionPage(c,p)){group.allowedPages=group.allowedPages||[];group.pageOrder=group.pageOrder||[];if(!group.allowedPages.includes(p.id))group.allowedPages.push(p.id);if(!group.pageOrder.includes(p.id))group.pageOrder.push(p.id)}});
-state.activePageId=p.id;
-save();
-$('#pageDialog').close();
-renderNav();
-renderPage()};
+function updateNewItemFields(){const createCategory=$('#newItemCategory').value==='__new__',createPage=!createCategory||$('#newItemCreatePage').checked;$('#newItemCategoryField').classList.toggle('hidden',!createCategory);$('#newItemCategoryName').required=createCategory;$('#newItemCategoryName').disabled=!createCategory;$('#newItemPageChoice').classList.toggle('hidden',!createCategory);$('#newItemPageFields').classList.toggle('hidden',!createPage);$('#pageName').required=createPage;$('#pageName').disabled=!createPage;$('#pageType').disabled=!createPage;}
+function openNewItem(){if(!isAdminWorkspaceView())return;$('#newItemCategory').innerHTML=state.categories.map(category=>`<option value="${esc(category.id)}">${esc(category.name)}</option>`).join('')+'<option value="__new__">＋ 新增分類…</option>';$('#newItemCategory').value=state.categories.some(c=>c.id===state.activeCategoryId)?state.activeCategoryId:(state.categories[0]?.id||'__new__');$('#pageName').value='';$('#newItemCategoryName').value='';$('#newItemCreatePage').checked=true;updateNewItemFields();$('#pageDialog').showModal();}
+$('#addCategoryBtn').onclick=openNewItem;
+$('#addPageBtn').onclick=openNewItem;
+$('#newItemCategory').onchange=updateNewItemFields;
+$('#newItemCreatePage').onchange=updateNewItemFields;
+$('#pageForm').onsubmit=e=>{e.preventDefault();if(!isAdminWorkspaceView())return;const createCategory=$('#newItemCategory').value==='__new__',createPage=!createCategory||$('#newItemCreatePage').checked;const name=$('#newItemCategoryName').value.trim(),n=$('#pageName').value.trim(),t=$('#pageType').value;if(createCategory&&!name||createPage&&!n)return;
+let c=state.categories.find(category=>category.id===$('#newItemCategory').value);if(createCategory){c=state.categories.find(category=>category.name.trim()===name);if(!c){c={id:uid('cat'),name,pages:[]};state.categories.push(c)}}if(!c)return;c.pages||=[];state.activeCategoryId=c.id;state.activePageId=null;
+if(createPage){const p={id:uid('page'),name:n,type:t,createdAt:new Date().toISOString()};if(t!=='sheet'){p.files=[];p.folders=[]}c.pages.push(p);state.customerGroups.forEach(group=>{if(window.__omniplaySession?.superAdmin&&group.permissionMode==='all'&&isDefaultGroupPermissionPage(c,p)){group.allowedPages||=[];group.pageOrder||=[];if(!group.allowedPages.includes(p.id))group.allowedPages.push(p.id);if(!group.pageOrder.includes(p.id))group.pageOrder.push(p.id)}});state.activePageId=p.id}
+save();$('#pageDialog').close();renderNav();renderPage()};
 $('#groupForm').onsubmit=e=>{e.preventDefault();
 const n=$('#groupName').value.trim();
 if(!n)return;
@@ -328,5 +312,6 @@ delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
 saveNow()});
 load();
+
 
 
