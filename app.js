@@ -67,6 +67,7 @@ g.pageOrder||=[]});
 if(savedView?.categoryId){const savedCategory=state.categories.find(category=>category.id===savedView.categoryId),savedPage=savedCategory?.pages?.find(page=>page.id===savedView.pageId);if(savedCategory){state.activeCategoryId=savedCategory.id;state.activePageId=savedPage?.id||savedCategory.pages?.[0]?.id||null}}
 const initialCategory=state.categories.find(category=>category.id===state.activeCategoryId)||state.categories.find(category=>(category.pages||[]).some(page=>!isLegacyGameAssetPage(category,page)))||state.categories[0];
 if(initialCategory){state.activeCategoryId=initialCategory.id;const visiblePages=(initialCategory.pages||[]).filter(page=>!isLegacyGameAssetPage(initialCategory,page));if(!visiblePages.some(page=>page.id===state.activePageId))state.activePageId=visiblePages[0]?.id||null}
+if(isCustomerPortal()){const entries=customerSectionPages();if(!entries.some(entry=>entry.page?.id===state.activePageId)){const first=entries.find(entry=>entry.page);if(first){state.activeCategoryId=first.category.id;state.activePageId=first.page.id}}}
 cloud=true;
 await saveNow();
 if(!$('#cloudStatus').textContent.startsWith('⚠️'))$('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
@@ -80,7 +81,28 @@ const data=payload();saveQueue=saveQueue.catch(()=>{}).then(()=>setDoc(ref,data)
 $('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`});return saveQueue}function scheduleSheetSave(){if(!window.__omniplayCanEdit)return;if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';const context=currentUniver;sheetSaveTimer=setTimeout(()=>captureCurrentSheet(context),900)}function workbookSnapshot(workbook){try{const snapshot=workbook?.getSnapshot?.();if(snapshot)return snapshot}catch(e){console.warn('get sheet snapshot',e)}return workbook?.save?.()}async function captureCurrentSheet(context=currentUniver){if(!context)return false;try{const workbook=context.api.getActiveWorkbook(),snapshot=await Promise.resolve(workbookSnapshot(workbook));if(!snapshot)return false;await persistSheetSnapshot(context.page,snapshot);localStorage.setItem(KEY,JSON.stringify(state.categories));await saveNow();return true}catch(e){console.warn('sheet autosave',e);$('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`;return false}}function dispose(){$('#sheetCellTools')?.remove();window.disposeGameListOnlinePage?.();if(!currentUniver)return;
 const context=currentUniver;clearTimeout(sheetSaveTimer);context.autoSaveDisposable?.dispose?.();
 captureCurrentSheet(context);try{context.univer.dispose()}catch{}currentUniver=null}
-function renderNav(){const r=$('#categoryList');
+
+const CUSTOMER_SECTIONS=[
+ {en:'Game List',zh:'遊戲清單',icon:'📋',match:p=>!!p.customerOpGame},
+ {en:'Game Assets',zh:'遊戲素材',icon:'🎮',match:p=>/^game assets?$/i.test(p.name?.trim())},
+ {en:'BMM Report',zh:'認證報告',icon:'📄',match:p=>/bmm/i.test(p.name||'')},
+ {en:'RNG Certificate',zh:'RNG報告',icon:'📄',match:p=>/rng/i.test(p.name||'')},
+ {en:'RTP Certificate',zh:'RTP報告',icon:'📄',match:p=>/rtp/i.test(p.name||'')},
+ {en:'Game Description',zh:'遊戲說明',icon:'📖',match:p=>/^game description$/i.test(p.name?.trim())},
+ {en:'Marketing Resources',zh:'行銷資源',icon:'📣',match:p=>/marketing resources?|行銷資源/i.test(p.name||'')}
+];
+let customerLanguage='zh';try{customerLanguage=localStorage.getItem('omniplay-customer-language')==='en'?'en':'zh'}catch{}
+function isCustomerPortal(){const session=window.__omniplaySession;if(!session||session.superAdmin)return false;const group=state.customerGroups.find(g=>g.id===session.groupId);return !['OMNIPLAY','OMNIPLAY Support'].includes(String(group?.name||session.groupName||'').trim())}
+function customerSectionLabel(section){return customerLanguage==='en'?section.en:section.zh}
+function customerSectionPages(){const category=state.categories.find(c=>String(c.name||'').replace(/^📁\s*/,'').trim()==='OMNIPLAY遊戲_客戶參考文件');return CUSTOMER_SECTIONS.map(section=>({section,category,page:category?.pages?.find(section.match)}))}
+function renderCustomerNav(){const root=$('#categoryList');root.innerHTML='';document.documentElement.classList.add('customer-portal');
+ for(const {section,category,page:p} of customerSectionPages()){const button=document.createElement('button');button.type='button';button.className='customer-section'+(p?.id===state.activePageId?' active':'');button.textContent=section.icon+' '+customerSectionLabel(section);button.disabled=!p;button.title=p?'':(customerLanguage==='en'?'Not available for this group':'此群組尚未開放');if(p)button.onclick=()=>{state.activeCategoryId=category.id;state.activePageId=p.id;renderNav();renderPage()};root.append(button)}
+ for(const id of ['addCategoryBtn','addPageBtn','customerBtn'])$('#'+id).classList.add('hidden');
+ let language=$('#customerLanguage');if(!language){language=document.createElement('button');language.id='customerLanguage';language.type='button';language.className='secondary customer-language';const controls=document.querySelector('.session-controls')||document.querySelector('.sidebar');controls.prepend(language);language.onclick=()=>{customerLanguage=customerLanguage==='zh'?'en':'zh';try{localStorage.setItem('omniplay-customer-language',customerLanguage)}catch{}renderNav();renderPage()}}
+ for(const [selector,zh,en] of [['.logout-btn','登出','Log out'],['.change-password-btn','修改密碼','Change password']]){const control=document.querySelector(selector);if(control)control.textContent=customerLanguage==='en'?en:zh}
+ language.textContent='🌐 '+(customerLanguage==='zh'?'English':'中文');language.setAttribute('aria-label',customerLanguage==='zh'?'切換英文':'Switch to Chinese');document.documentElement.lang=customerLanguage==='en'?'en':'zh-Hant';document.documentElement.classList.remove('access-loading');}
+
+function renderNav(){if(isCustomerPortal())return renderCustomerNav();const r=$('#categoryList');
 r.innerHTML='';
 state.categories.forEach(c=>{const b=document.createElement('div');
 b.className='category';
@@ -121,6 +143,7 @@ $('#emptyState').classList.toggle('hidden',!!p||!!c);
 $('#workspace').classList.toggle('hidden',!p);
 $('#breadcrumb').textContent=c?`工作區 / ${c.name}`:'工作區';
 $('#pageTitle').textContent=p?p.name:(c?c.name:'歡迎使用 OMNIPLAY');
+if(isCustomerPortal()){const entry=customerSectionPages().find(entry=>entry.page?.id===p?.id);$('#breadcrumb').textContent=customerLanguage==='en'?'OMNIPLAY / Customer Resources':'OMNIPLAY / 客戶參考文件';if(entry)$('#pageTitle').textContent=customerSectionLabel(entry.section);}
 if(!p){if(!c)$('#emptyState').innerHTML='<div><h2>目前沒有分類</h2><p>按「新增分類」開始建立工作區。</p></div>';if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
 return}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state,page:p,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(p)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
@@ -294,3 +317,4 @@ delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
 saveNow()});
 load();
+
