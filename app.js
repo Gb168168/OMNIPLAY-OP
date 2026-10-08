@@ -1,5 +1,5 @@
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-customer-op-1';
-import { getDoc, setDoc } from './member-access.js?v=20261008-customer-op-1';
+import { getDoc, setDoc } from './member-access.js?v=20261008-sync-fix-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -43,7 +43,7 @@ const GROUP_PERMISSION_DEFAULT_VERSION=2;function isVisibleGroupPermissionPage(c
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
 const SHEET_CHUNK_SIZE=240000;
-function firebaseError(e){return String(e?.code||e?.message||'未知錯誤').replace(/^FirebaseError:\s*/,'').slice(0,100)}
+function firebaseError(e){return String(e?.message||e?.code||'未知錯誤').replace(/^FirebaseError:\s*/,'').slice(0,100)}
 function cleanSnapshot(snapshot){try{return JSON.parse(JSON.stringify(snapshot))}catch(e){console.warn('clean sheet snapshot',e);return null}}
 async function readStoredSheet(page){const stored=await getDoc(sheetRef(page.id));if(!stored.exists())return null;const data=stored.data()||{};if(data.format==='json-chunks-v1'&&Number(data.chunkCount)>0){const pieces=[];for(let i=0;i<Number(data.chunkCount);i++){const part=await getDoc(sheetChunkRef(page.id,i));if(!part.exists()||typeof part.data()?.data!=='string')throw new Error(`缺少試算表分段 ${i+1}/${data.chunkCount}`);pieces.push(part.data().data)}return JSON.parse(pieces.join(''))}if(typeof data.snapshotJson==='string')return JSON.parse(data.snapshotJson);return data.snapshot||null}
 async function hydrateSheetSnapshots(){for(const category of state.categories||[]){for(const page of category.pages||[]){if(page.type!=='sheet'||!page.id)continue;try{const snapshot=await readStoredSheet(page);if(snapshot)page.snapshot=snapshot;else if(page.snapshot)await persistSheetSnapshot(page,page.snapshot)}catch(e){console.warn('load sheet snapshot',page.id,e);$('#cloudStatus').textContent=`⚠️ 讀取失敗：${firebaseError(e)}`}}}}
