@@ -44,9 +44,10 @@ test('legacy members can sign in; password updates, renames, page revocation and
   const workspace = { categories: [{ id: 'cat', pages: [{ id: 'page_op_game', name: 'OP GAME', type: 'sheet' },
     { id: 'secret-page', name: 'Private', type: 'files', files: [{ password: 'never-expose' }] }] }],
     customerGroups: [group], customers: [], adminAuth: { passwordHash: 'administrator-only' } };
+  workspace.categories.push({id:'private-cat',name:'內部參考，請勿外流',pages:[{id:'private-op',name:'OP GAME',type:'sheet'}]});
   await setDoc(doc(db, 'omniplay', 'workspace'), workspace);
   await setDoc(doc(db, 'omniplay', 'game-list-online-page'), { rowsJson: '[[100001,"1.0","Power Dragon"]]' });
-  await setDoc(doc(db, 'omniplay', 'op-game-form-records'), { records: {} });
+  await setDoc(doc(db, 'omniplay', 'op-game-form-records'), { records: { '100001': {groupIds:['g1'],mandarinName:'Power',assetIds:['private-file']}, '100002': {groupIds:['other']} } });
   await env.withSecurityRulesDisabled(async context => {
     await setDoc(doc(context.firestore(), 'omniplay-member-access', 'legacy-orphan'), { username: 'Old User', memberKey: 'removed-member', enabled: true, superAdmin: true });
   });
@@ -59,6 +60,10 @@ test('legacy members can sign in; password updates, renames, page revocation and
   await signInWithEmailAndPassword(viewerAuth, before.email, before.password);
   const initialUid = viewerAuth.currentUser.uid;
   const view = (await getDoc(doc(viewerDb, 'omniplay-group-views', 'g1'))).data();
+  const catalog=(await getDoc(doc(viewerDb,'omniplay-group-views','g1','documents','op-game-customer-records'))).data();
+  assert.deepEqual(JSON.parse(catalog.rowsJson).map(row=>String(row[0])),['100001']);
+  assert.doesNotMatch(JSON.stringify(catalog),/groupIds|assetIds|private-file/);
+  assert(view.allowedPages.includes('page_op_game_customer'));
   globalThis.window.__omniplaySession = { superAdmin: false, groupId: 'g1' };
   assert.deepEqual((await access.getDoc(doc(viewerDb, 'omniplay', 'workspace'))).data(), view);
   await access.getDoc(doc(viewerDb, 'omniplay', 'game-list-online-page'));
@@ -79,7 +84,7 @@ test('legacy members can sign in; password updates, renames, page revocation and
   group.allowedPages = [];
   await access.setDoc(doc(db, 'omniplay', 'workspace'), workspace);
   const revoked = (await getDoc(doc(viewerDb, 'omniplay-group-views', 'g1'))).data();
-  assert.deepEqual(revoked.categories, []);
+  assert.deepEqual(revoked.categories.flatMap(category=>category.pages).map(page=>page.id), ['page_op_game_customer']);
   await assert.rejects(getDoc(doc(viewerDb, 'omniplay-group-views', 'g1', 'documents', 'game-list-online-page')), error => error.code === 'permission-denied');
 
   group.members[0].username = 'Renamed F';
