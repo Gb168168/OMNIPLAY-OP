@@ -289,3 +289,10 @@ html[data-theme="light"] #groupManagerDialog .group-delete {
 .category.menu-open>.category-pages{display:grid!important;max-height:min(65vh,560px);overflow-y:auto;overscroll-behavior:contain}
 .category.menu-open{z-index:100}
 .category-head:focus-visible{outline:2px solid #4f8cff;outline-offset:2px}
+
+.op-game-table th.op-admin-column:first-child,
+.op-game-table td:has(>.op-edit-btn){
+ min-width:0!important;width:64px!important;max-width:64px!important;
+ padding-left:8px!important;padding-right:8px!important;text-align:center;
+}
+.op-game-table td>.op-edit-btn{padding:5px 8px;font-size:12px}
