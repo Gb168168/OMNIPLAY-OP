@@ -4,7 +4,7 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, getDocs, getDoc as firebaseGetDoc,
   setDoc as firebaseSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords } from './member-model.js?v=20261008-rondo-1';
+  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords } from './member-model.js?v=20261008-groups-1';
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
 const written = new Map();
@@ -22,7 +22,7 @@ async function editable(db = getFirestore()) {
   const user = getAuth().currentUser;
   if (!user) return false;
   const config = await configuration(db), snap = await firebaseGetDoc(doc(db, 'omniplay-member-access', user.uid));
-  return config?.credentialsMigrated === true && snap.exists() && snap.data().enabled === true && snap.data().role === 'admin';
+  return config?.credentialsMigrated === true && snap.exists() && snap.data().enabled === true && ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(snap.data().groupName || '').trim());
 }
 async function passwordSecrets(db) {
   const result = new Map();
@@ -176,6 +176,7 @@ export async function setMemberRole(uid, role, db = getFirestore()) {
   if (!['admin', 'member'].includes(role)) throw new Error('無效的管理員權限');
   const ref = doc(db, 'omniplay-member-access', uid), snap = await firebaseGetDoc(ref);
   if (!snap.exists() || snap.data().enabled !== true) throw new Error('此人員尚未啟用');
+  if (role === 'admin' && !['OMNIPLAY', 'OMNIPLAY Support'].includes(String(snap.data().groupName || '').trim())) throw new Error('其他群組只能查看與下載，不能設為管理員');
   await firebaseSetDoc(ref, { role, superAdmin: false }, { merge: true });
 }
 export async function transferToRondo(password, db = getFirestore()) {
