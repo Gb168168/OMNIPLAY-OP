@@ -30,7 +30,7 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 <div id="app">
 <aside class="sidebar">
 <div class="brand">OMNIPLAY ASSETS</div>
-<button id="addCategoryBtn" class="primary">＋ 新增分類</button>
+<button id="addCategoryBtn" class="primary">＋ 新增</button>
 <button id="customerBtn" class="side-action">🏢 所有平台列表</button>
 <div id="categoryList" class="category-list">
 </div>
@@ -43,7 +43,7 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 </div>
 <div class="actions">
 <span id="cloudStatus" class="status">連接雲端中…</span>
-<button id="addPageBtn" class="primary" disabled>＋ 新增頁面</button>
+<button id="addPageBtn" class="primary hidden" hidden disabled>＋ 新增頁面</button>
 </div>
 </header>
 <section id="emptyState" class="empty-state">
@@ -78,10 +78,14 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 <div class="modal-head">
 <div>
 <div class="eyebrow">PAGE</div>
-<h3>新增頁面</h3>
+<h3>新增分類／頁面</h3>
 </div>
 <button type="button" class="icon-close" data-close="pageDialog">×</button>
 </div>
+<label>分類<select id="newItemCategory" required></select></label>
+<label id="newItemCategoryField" class="hidden">新分類名稱<input id="newItemCategoryName" maxlength="60" placeholder="輸入要新增的分類"/></label>
+<label id="newItemPageChoice" class="hidden"><span><input id="newItemCreatePage" type="checkbox" checked style="width:auto"/> 同時新增頁面</span></label>
+<div id="newItemPageFields">
 <label>頁面名稱<input id="pageName" required maxlength="80" placeholder="輸入頁面名稱"/>
 </label>
 <label>頁面類型<select id="pageType">
@@ -91,9 +95,10 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 <option value="videos">🎬 影片</option>
 </select>
 </label>
+</div>
 <div class="dialog-actions">
 <button type="button" class="secondary" data-close="pageDialog">取消</button>
-<button class="primary" value="default">建立頁面</button>
+<button id="newItemSubmit" class="primary" value="default">建立</button>
 </div>
 </form>
 </dialog>
@@ -153,7 +158,7 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 </script>
 <script src="./sheet-freeze-cleanup.js?v=20260826-1">
 </script>
-<script type="module">try{await import('./login-auth.js?v=20261008-customer-op-1');await import('./audit-log-filter.js?v=20261008-customer-op-1');await import('./sheet-unifier-bootstrap.js?v=20261008-customer-op-1');await import('./op-game-form.js?v=20261008-admin-resources-1');await import('./game-list-page.js?v=20261008-customer-op-1');await import('./app.js?v=20261008-admin-resources-1');await import('./owner-tools.js?v=20261008-game-links-1');}catch(error){console.error("Workspace startup failed",error);document.documentElement.classList.remove("needs-login");document.querySelector("#startupMessage").textContent="登入畫面載入失敗，請重新載入。若持續失敗，請確認網路連線。";const button=document.createElement("button");button.type="button";button.textContent="重新載入";button.onclick=()=>location.reload();document.querySelector("#startupStatus").append(button);}</script>
+<script type="module">try{await import('./login-auth.js?v=20261008-customer-op-1');await import('./audit-log-filter.js?v=20261008-customer-op-1');await import('./sheet-unifier-bootstrap.js?v=20261008-customer-op-1');await import('./op-game-form.js?v=20261008-admin-resources-1');await import('./game-list-page.js?v=20261008-customer-op-1');await import('./app.js?v=20261008-unified-add-1');await import('./owner-tools.js?v=20261008-game-links-1');}catch(error){console.error("Workspace startup failed",error);document.documentElement.classList.remove("needs-login");document.querySelector("#startupMessage").textContent="登入畫面載入失敗，請重新載入。若持續失敗，請確認網路連線。";const button=document.createElement("button");button.type="button";button.textContent="重新載入";button.onclick=()=>location.reload();document.querySelector("#startupStatus").append(button);}</script>
 <script src="./sheet-shift-enter.js?v=20260825-3">
 </script>
 <script src="./sheet-ui-cleanup.js?v=20260829-2">
@@ -162,6 +167,7 @@ try{localStorage.removeItem('omniplay-theme');const session=JSON.parse(localStor
 </script>
 </body>
 </html>
+
 
 
 
