@@ -60,3 +60,22 @@ test('shared workspace retains member metadata without passwords, owner can hydr
   assert.equal(hydrated.customerGroups[0].members[0].password, 'owner-private');
   assert.equal(shared.customerGroups[0].members[0].password, undefined);
 });
+
+test('internal reference pages are automatic for internal groups and excluded from external stale grants', () => {
+  const workspace = { categories: [
+    { id: 'private', name: '內部參考，請勿外流', pages: [{ id: 'private-sheet', name: 'OP GAME', type: 'sheet', files: [{ name: 'confidential.pdf' }] }] },
+    { id: 'public', name: '客戶資料', pages: [{ id: 'public-page', name: 'Game Asset', type: 'files' }] }
+  ], customerGroups: [], customers: [] };
+  const ids = ['sheet-private-sheet', 'sheet-private-sheet-chunk-0', 'op-game-form-records', 'game-list-online-page'];
+  const external = { id: 'client', name: 'Client', allowedPages: ['private-sheet', 'public-page'] };
+  const externalView = groupWorkspace(workspace, external);
+  assert.deepEqual(externalView.categories.map(category => category.id), ['public']);
+  assert.deepEqual(externalView.allowedPages, ['public-page']);
+  assert.deepEqual(groupDocumentIds(workspace, external, ids), []);
+  assert.doesNotMatch(JSON.stringify(externalView.categories), /confidential|private-sheet/);
+  for (const name of ['OMNIPLAY', 'OMNIPLAY Support']) {
+    const group = { id: 'internal', name, allowedPages: ['public-page'] };
+    assert.equal(groupWorkspace(workspace, group).categories.length, 2);
+    assert(groupDocumentIds(workspace, group, ids).includes('op-game-form-records'));
+  }
+});
