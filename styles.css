@@ -277,3 +277,9 @@ html[data-theme="light"] #groupManagerDialog .group-delete {
 .session-controls>.login-user{order:0;color:#334155!important;font-size:13px;font-weight:600;max-width:150px}
 .session-controls>.customer-language{order:1;display:grid;place-items:center;width:40px;height:40px;padding:0;font-size:20px}
 .session-controls>.account-settings{order:2}
+
+.page-row{grid-template-columns:minmax(0,1fr) 26px 24px}
+.page-rename{border:0;background:transparent;color:#54708f;cursor:pointer;padding:4px;font-size:15px}
+.page-rename:hover{background:#edf4fd;color:#245b99;border-radius:5px}
+.workspace-item-menu{width:min(360px,calc(100vw - 32px));border:1px solid #cbd8e8;border-radius:14px;background:#fff;color:#172033}
+@media(max-width:800px){.page-row{grid-template-columns:minmax(0,1fr) 26px 24px}}
