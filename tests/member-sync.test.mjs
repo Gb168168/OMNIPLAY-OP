@@ -47,6 +47,9 @@ test('legacy members can sign in; password updates, renames, page revocation and
   await setDoc(doc(db, 'omniplay', 'workspace'), workspace);
   await setDoc(doc(db, 'omniplay', 'game-list-online-page'), { rowsJson: '[[100001,"1.0","Power Dragon"]]' });
   await setDoc(doc(db, 'omniplay', 'op-game-form-records'), { records: {} });
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'omniplay-member-access', 'legacy-orphan'), { username: 'Old User', memberKey: 'removed-member', enabled: true, superAdmin: true });
+  });
   await access.syncMembersAndViews(db, workspace);
   assert.equal(auth.currentUser.uid, ADMIN_UID);
   const viewer = initializeApp(cfg, 'test-viewer'), viewerAuth = getAuth(viewer);
