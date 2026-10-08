@@ -260,3 +260,13 @@ html[data-theme="light"] #groupManagerDialog .group-edit:hover {
 html[data-theme="light"] #groupManagerDialog .group-delete {
  background:#fff5f6!important;color:#b94a5d!important;border:1px solid #f0ccd3!important;
 }
+
+.account-settings{position:relative}
+.account-settings>summary{display:grid;place-items:center;width:40px;height:40px;border:1px solid #cbd8e8;border-radius:10px;background:#f8fbff;cursor:pointer;font-size:20px;list-style:none}
+.account-settings>summary::-webkit-details-marker{display:none}
+.account-settings[open]>summary{background:#eaf2ff;border-color:#91b7eb}
+.account-settings-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:10000;display:grid;gap:5px;min-width:210px;padding:8px;border:1px solid #cbd8e8;border-radius:12px;background:#fff;box-shadow:0 10px 30px rgba(35,57,86,.16)}
+.account-settings:not([open])>.account-settings-menu{display:none}
+.account-settings-menu>button{width:100%;text-align:left;white-space:nowrap;background:#fff;border-color:transparent;padding:11px 12px}
+.account-settings-menu>button:hover{background:#edf4fd;border-color:#d8e5f5}
+@media(max-width:420px){.account-settings-menu{min-width:190px}}
