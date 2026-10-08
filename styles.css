@@ -316,3 +316,8 @@ table th,table td{padding:8px 7px!important}
 
 /* Center column headings without changing data-cell alignment. */
 table thead th{ text-align:center!important;vertical-align:middle!important }
+
+/* Align game data beneath centered column headings, including multiline jackpots. */
+.op-game-table tbody td{text-align:center!important;vertical-align:middle!important}
+.op-game-table td>span[style*="white-space:pre-line"]{text-align:center}
+.op-game-table .op-value-pill{max-width:100%;box-sizing:border-box}
