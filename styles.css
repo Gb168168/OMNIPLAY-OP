@@ -324,4 +324,4 @@ table thead th{ text-align:center!important;vertical-align:middle!important }
 
 /* Center table content; Grand/Major pairs remain left aligned within their cell. */
 table th,table td{text-align:center!important;vertical-align:middle!important}
-.op-game-table td>span[style*="white-space:pre-line"]{display:block!important;text-align:left!important}
+.op-game-table td>span[style*="white-space:pre-line"]{display:inline-block!important;text-align:left!important;max-width:100%;vertical-align:middle}
