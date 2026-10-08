@@ -56,7 +56,7 @@ export function ensureCustomerOpPage(workspace) {
   category.pages.push({ id: CUSTOMER_OP_PAGE, name: 'OP GAME', type: 'sheet', customerOpGame: true });
   return true;
 }
-export function customerGameCatalog(rowData = {}, recordData = {}, group = null) {
+export function customerGameCatalog(rowData = {}, recordData = {}, group = null, workspace = {}) {
   let rows = [];
   try { rows = typeof rowData.rowsJson === 'string' ? JSON.parse(rowData.rowsJson) : rowData.rows || []; } catch {}
   if (!Array.isArray(rows)) rows = [];
@@ -68,7 +68,18 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null)
     const id = String(row[0]).trim(), sourceRecord = source[id] || {};
     records[id] = Object.fromEntries(fields.filter(key => ['string','number','boolean'].includes(typeof sourceRecord[key])).map(key => [key, sourceRecord[key]]));
   }
-  return { rowsJson: JSON.stringify(selected), records };
+  const assetLinks = {}, allowed = group ? effectiveGroupPages(workspace, group) : new Set();
+  const pages = (workspace.categories || []).filter(category => !isInternalReferenceCategory(category)).flatMap(category => category.pages || []).filter(page => allowed.has(page.id) && ['files','photos'].includes(page.type));
+  const findFolder = (folders, id) => { for (const folder of folders || []) { if (folder.id === id) return folder; const nested = findFolder(folder.folders,id); if (nested) return nested; } return null; };
+  for (const id of Object.keys(records)) {
+    const links = [], seen = new Set(), sourceRecord = source[id] || {};
+    const add = (page, folder, name) => { const key = page.id + '::' + folder.id; if (seen.has(key)) return; seen.add(key); links.push({id:key,pageId:page.id,workspaceFolderId:folder.id,name:String(name || folder.name || 'Files'),type:folder.type === 'photos' ? 'photos' : 'files'}); };
+    for (const link of sourceRecord.folders || []) { const page = pages.find(page => page.id === link.pageId), folder = page && findFolder(page.folders,link.workspaceFolderId); if (folder) add(page,folder,link.name); }
+    for (const page of pages) for (const folder of page.folders || []) if (String(folder.gameAssetGameId || '') === id || String(folder.name || '').match(/^\d+/)?.[0] === id) add(page,folder);
+    const assetIds = (sourceRecord.assetIds || sourceRecord.resourceIds || []).filter(key => typeof key === 'string' && pages.some(page => page.id === key.split('::')[0]));
+    if (links.length || assetIds.length) assetLinks[id] = {folders:links,assetIds};
+  }
+  return { rowsJson: JSON.stringify(selected), records, ...(Object.keys(assetLinks).length ? {assetLinks} : {}) };
 }
 
 export function effectiveGroupPages(workspace, group) {
@@ -131,3 +142,4 @@ export function hydratePasswords(workspace, secrets) {
   }
   return result;
 }
+
