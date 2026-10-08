@@ -1,10 +1,19 @@
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
-import { getFirestore, collection, doc, getDocs, getDoc as firebaseGetDoc,
-  setDoc as firebaseSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc,
+  setDoc as rawSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
   groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261008-customer-op-1';
+
+
+function databaseError(error, action, path) {
+  const result = new Error(action + '失敗：' + path + '（' + (error.code || error.message || '連線異常') + '）');
+  result.code = error.code; return result;
+}
+async function firebaseGetDoc(ref) { try { return await rawGetDoc(ref); } catch (error) { throw databaseError(error,'讀取',ref.path); } }
+async function firebaseSetDoc(ref, data, options) { try { return await rawSetDoc(ref,data,options); } catch (error) { throw databaseError(error,'寫入',ref.path); } }
+async function getDocs(ref) { try { return await rawGetDocs(ref); } catch (error) { throw databaseError(error,'讀取',ref.path); } }
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
 const written = new Map();
@@ -122,6 +131,7 @@ async function synchronize(db, workspace) {
   // Revoke deleted/renamed members before publishing any new view.
   const memberKeys = new Set(members.map(member => member.key));
   for (const [uid, profile] of previous) {
+    if (uid === getAuth().currentUser.uid) continue;
     const member = members.find(item => item.key === profile.memberKey);
     if (!memberKeys.has(profile.memberKey) || member.username !== profile.username) {
       await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), { ...profile, enabled: false, superAdmin: false, role: profile.role === 'admin' && getAuth().currentUser.uid !== ADMIN_UID ? 'admin' : 'member' });
@@ -147,7 +157,7 @@ async function synchronize(db, workspace) {
         if (written.get(ref.path) === serialized) continue;
         batch.set(ref, value); changed.push([ref.path, serialized]);
       }
-      if (changed.length) { await batch.commit(); for (const [path, value] of changed) written.set(path, value); }
+      if (changed.length) { try { await batch.commit(); } catch (error) { throw databaseError(error, '同步群組「' + group.name + '」', changed.map(([path])=>path).slice(0,2).join('、')); } for (const [path, value] of changed) written.set(path, value); }
     }
   }
   const failures = [];
