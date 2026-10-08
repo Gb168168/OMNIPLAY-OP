@@ -102,3 +102,23 @@ test('customer catalog filters each game by assigned group and strips all intern
  assert.equal(JSON.parse(customerGameCatalog(rows,records,{id:'none'}).rowsJson).length,0);
  assert.equal(JSON.parse(customerGameCatalog({rowsJson:'invalid'},records,{id:'client'}).rowsJson).length,0);
 });
+
+test('customer Game ID links include allowed public folders and files only', () => {
+ const group={id:'g',name:'Client',allowedPages:['assets','private']};
+ const workspace={categories:[
+  {name:'OMNIPLAY遊戲_客戶參考文件',pages:[{id:'assets',type:'files',folders:[{id:'folder',name:'100_Game',gameAssetGameId:'100',files:[{id:'file',name:'image.png'}]}]}]},
+  {name:'內部參考，請勿外流',pages:[{id:'private',type:'files',folders:[{id:'secret',name:'100_Internal'}]}]},
+  {name:'Other',pages:[{id:'blocked',type:'files',folders:[{id:'blocked-folder',name:'100_Report'}]}]}
+ ]};
+ const catalog=customerGameCatalog({rows:[['100','1','Allowed'],['200','1','Denied']]},{records:{
+  '100':{groupIds:['g'],notes:'Internal note',folders:[{id:'a',pageId:'assets',workspaceFolderId:'folder',name:'Game assets'},{pageId:'private',workspaceFolderId:'secret',name:'Secret'},{pageId:'blocked',workspaceFolderId:'blocked-folder',name:'Blocked'}],assetIds:['assets::folder::file','private::secret::file','blocked::file']},
+  '200':{groupIds:['other'],folders:[{pageId:'assets',workspaceFolderId:'folder'}]}
+ }},group,workspace);
+ assert.equal(catalog.assetLinks['100'].folders.length,1);
+ assert.equal(catalog.assetLinks['100'].folders[0].workspaceFolderId,'folder');
+ assert.deepEqual(catalog.assetLinks['100'].assetIds,['assets::folder::file']);
+ assert.equal(catalog.assetLinks['200'],undefined);
+ assert.doesNotMatch(JSON.stringify(catalog),/Secret|Blocked|Internal note|groupIds/);
+ assert.equal(catalog.records['100'].folders,undefined);
+});
+
