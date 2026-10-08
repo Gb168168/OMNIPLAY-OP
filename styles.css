@@ -296,3 +296,20 @@ html[data-theme="light"] #groupManagerDialog .group-delete {
  padding-left:8px!important;padding-right:8px!important;text-align:center;
 }
 .op-game-table td>.op-edit-btn{padding:5px 8px;font-size:12px}
+
+/* Compact columns consistently across workspace and management tables. */
+table th,table td{padding:8px 7px!important}
+.platform-table{min-width:1000px}
+.platform-table th:nth-child(1){width:105px}
+.platform-table th:nth-child(2),.platform-table th:nth-child(3){width:120px}
+.platform-table th:nth-child(4){width:145px}
+.platform-table th:nth-child(5){width:85px}
+.platform-table th:nth-child(6){width:155px}
+.platform-table th:nth-child(7){width:125px}
+.platform-table th:nth-child(8){width:185px}
+.platform-table select{padding:6px}
+.op-game-table{min-width:0!important;width:max-content!important}
+.op-game-table th{min-width:105px!important;max-width:180px;white-space:normal!important}
+.op-game-table td{max-width:220px!important;white-space:normal!important;overflow-wrap:anywhere;line-height:1.4}
+.op-game-table th.op-admin-column:first-child,
+.op-game-table td:has(>.op-edit-btn){min-width:0!important;width:64px!important;max-width:64px!important}
