@@ -128,7 +128,7 @@ renderPage()}};b.querySelector('.mini').title='分類操作';b.querySelector('.m
 const ps=b.querySelector('.category-pages');
 (c.pages||[]).filter(p=>!isLegacyGameAssetPage(c,p)).forEach(p=>{const row=document.createElement('div');
 row.className=`page-row ${p.id===state.activePageId?'active':''}`;
-row.innerHTML=`<button class="page-link">${icon(p.type)} ${esc(p.displayName||p.name)}</button><button class="page-rename" title="重新命名頁面">✎</button><button class="page-delete" title="刪除頁面">×</button>`;
+row.innerHTML=`<button class="page-link"><span class="page-nav-icon" aria-hidden="true">${icon(p.type)}</span><span class="page-nav-name">${esc(p.displayName||p.name)}</span></button><button class="page-rename" title="重新命名頁面">✎</button><button class="page-delete" title="刪除頁面">×</button>`;
 row.querySelector('.page-link').onclick=()=>{openCategoryId=null;state.activeCategoryId=c.id;
 state.activePageId=p.id;
 renderNav();
