@@ -225,3 +225,6 @@ html[data-theme="light"] .login-screen{background:radial-gradient(circle at 18% 
 .customer-section:disabled{opacity:.5;cursor:not-allowed}
 .customer-language{white-space:nowrap}
 @media(max-width:800px){.customer-portal .sidebar>.category-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.customer-section{white-space:normal;text-align:left;padding:12px}}
+
+
+.resource-navigation{order:4;flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;border-top:1px solid #dbe3ee}.resource-entry{display:flex;align-items:center}.resource-preview{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:10px;max-width:100%}.resource-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
