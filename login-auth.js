@@ -1,5 +1,5 @@
-import { accessSession, BOOTSTRAP_UID, BOOTSTRAP_EMAIL } from './access-model.js?v=20261008-rondo-1';
-import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261008-rondo-1';
+import { accessSession, BOOTSTRAP_UID, BOOTSTRAP_EMAIL } from './access-model.js?v=20261008-groups-1';
+import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261008-groups-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,doc,getDoc,collection,addDoc,getDocs,query,orderBy,limit,serverTimestamp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import{getAuth,signInWithEmailAndPassword,signOut,setPersistence,browserLocalPersistence,browserSessionPersistence}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
@@ -39,7 +39,7 @@ async function resolveSession(user){
  if(user.uid===BOOTSTRAP_UID&&ownerUid!==BOOTSTRAP_UID)return null;
  let profile=null,view=null;
  if(user.uid!==BOOTSTRAP_UID){const snap=await getDoc(doc(db,'omniplay-member-access',user.uid));if(snap.exists())profile=snap.data();}
- if(profile?.enabled&&user.uid!==ownerUid&&!(config?.credentialsMigrated&&profile.role==='admin')){const snap=await getDoc(doc(db,'omniplay-group-views',profile.groupId));if(snap.exists())view=snap.data();}
+ if(profile?.enabled&&user.uid!==ownerUid&&!(config?.credentialsMigrated&&['OMNIPLAY','OMNIPLAY Support'].includes(String(profile.groupName||'').trim()))){const snap=await getDoc(doc(db,'omniplay-group-views',profile.groupId));if(snap.exists())view=snap.data();}
  const session=accessSession(user,config,profile,view);
  if(session)session.loginAt=readSession()?.authUid===user.uid?readSession().loginAt:new Date().toISOString();
  return session;
