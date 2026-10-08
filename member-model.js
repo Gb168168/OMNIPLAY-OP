@@ -1,6 +1,6 @@
 // No Firebase or DOM dependencies: the same model is used by login and sync.
 export const ADMIN_UID = 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2';
-export const ADMIN_USERNAME = 'Cia_Cia';
+export const ADMIN_USERNAME = 'Rondo';
 export const ADMIN_EMAIL = 'goldbricks168@gmail.com';
 export const PLATFORM_PERMISSION = 'system_all_platforms';
 export const normalizeUsername = value => String(value || '').trim().normalize('NFC').toLowerCase();
@@ -67,4 +67,25 @@ export function groupDocumentIds(workspace, group, sourceIds) {
   }
   if (pages.some(page => String(page.name || '').trim().toLowerCase() === 'op game')) ids.add('op-game-form-records');
   return [...ids].filter(id => sourceIds.includes(id));
+}
+
+// Keep account metadata public, but only the owner may hydrate passwords.
+export function publicWorkspace(value) {
+  if (Array.isArray(value)) return value.map(publicWorkspace);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !/^(password|passwordHash|adminAuth|authUid|firebaseUid|accessToken|refreshToken|idToken)$/i.test(key))
+    .map(([key, item]) => [key, publicWorkspace(item)]));
+}
+export function hydratePasswords(workspace, secrets) {
+  const result = structuredClone(workspace);
+  for (const group of result.customerGroups || []) for (const member of group.members || []) {
+    const secret = secrets.get(`member:${group.id}:${member.id}`);
+    if (secret) member.password = secret.password;
+  }
+  for (const customer of result.customers || []) {
+    const secret = secrets.get(`customer:${customer.groupId}:${customer.id}`);
+    if (secret) customer.password = secret.password;
+  }
+  return result;
 }

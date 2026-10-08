@@ -50,3 +50,13 @@ test('Cia_Cia uses the same member credentials as K and F', () => {
   copy.customerGroups[0].members.push({ id: 'admin-name', username: 'Cia_Cia', password: 'unused' });
   assert.deepEqual(collectMembers(copy).map(item => item.username), ['F', 'K', 'Cia_Cia', 'client']);
 });
+
+test('shared workspace retains member metadata without passwords, owner can hydrate them', async () => {
+  const { publicWorkspace, hydratePasswords } = await import('../member-model.js');
+  const shared = publicWorkspace(workspace);
+  assert.doesNotMatch(JSON.stringify(shared), /password|adminAuth|secret/);
+  assert.equal(shared.customerGroups[0].members[0].username, ' F ');
+  const hydrated = hydratePasswords(shared, new Map([['member:g1:m1', { password: 'owner-private' }]]));
+  assert.equal(hydrated.customerGroups[0].members[0].password, 'owner-private');
+  assert.equal(shared.customerGroups[0].members[0].password, undefined);
+});

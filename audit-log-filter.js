@@ -1,4 +1,4 @@
-import { getDoc } from './member-access.js?v=20261007-cia-member-4';
+import { getDoc } from './member-access.js?v=20261008-rondo-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,collection,doc,getDocs,query,orderBy,limit}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 

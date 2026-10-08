@@ -1,15 +1,16 @@
-import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261007-cia-member-4';
+import { accessSession, BOOTSTRAP_UID, BOOTSTRAP_EMAIL } from './access-model.js?v=20261008-rondo-1';
+import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261008-rondo-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,doc,getDoc,collection,addDoc,getDocs,query,orderBy,limit,serverTimestamp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import{getAuth,signInWithEmailAndPassword,signOut,setPersistence,browserLocalPersistence,browserSessionPersistence}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 const SESSION_KEY='omniplay-login-session-v1',CUSTOMER_KEY='omniplay-customer-session',ADMIN_KEY='omniplay-admin-session';
-const LOGIN_USERNAME=ADMIN_USERNAME;
+const LOGIN_USERNAME=ADMIN_EMAIL;
 const esc=(value='')=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 async function passwordHash(value){const bytes=new TextEncoder().encode(value),digest=await crypto.subtle.digest('SHA-256',bytes);return[...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,'0')).join('')}
 function workspaceRef(){const app=getApps().length?getApps()[0]:initializeApp(cfg),db=getFirestore(app);return doc(db,'omniplay','workspace')}
 function auditRef(){const app=getApps().length?getApps()[0]:initializeApp(cfg);return collection(getFirestore(app),'omniplay-audit-events')}
-function canViewAudit(session=window.__omniplaySession){return!!session&&(session.superAdmin||(session.internal&&String(session.username||'').trim().toLowerCase()==='k'))}
+function canViewAudit(session=window.__omniplaySession){return!!session&&(session.canEdit||(session.internal&&String(session.username||'').trim().toLowerCase()==='k'))}
 async function recordAudit(account,action,item=''){try{await addDoc(auditRef(),{authUid:account.authUid||'',username:account.username||'',name:account.name||account.username||'',groupName:account.groupName||'',action,item:String(item||''),createdAt:serverTimestamp(),createdAtIso:new Date().toISOString()})}catch(error){console.warn('audit log',error)}}
 function auditTime(value){const date=value?.toDate?.()||new Date(value||0);return Number.isNaN(date.getTime())?'—':date.toLocaleString('zh-TW',{hour12:false})}
 async function showAuditLog(){let dialog=document.querySelector('#auditLogDialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='auditLogDialog';dialog.style.cssText='width:min(900px,calc(100vw - 32px));max-height:82vh;border:1px solid #cbd5e1;border-radius:14px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.3)';dialog.innerHTML='<section style="padding:20px;background:#fff;color:#172033"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px"><div><h2 style="margin:0 0 4px">登入／下載紀錄</h2><small style="color:#64748b">最多顯示最近 500 筆</small></div><div style="display:flex;gap:8px"><button type="button" id="auditExport" class="secondary">下載 CSV</button><button type="button" data-audit-close class="secondary">關閉</button></div></div><div id="auditLogBody" style="overflow:auto;max-height:62vh">載入中…</div></section>';document.body.append(dialog);dialog.querySelector('[data-audit-close]').onclick=()=>dialog.close()}const body=dialog.querySelector('#auditLogBody');body.textContent='載入中…';dialog.showModal();try{const snap=await getDocs(query(auditRef(),orderBy('createdAt','desc'),limit(500))),rows=snap.docs.map(item=>item.data()).filter(row=>!(row.action==='download' && String(row.item||'').includes('登入／下載紀錄')));dialog._auditRows=rows;body.innerHTML=rows.length?'<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr><th>時間</th><th>人員</th><th>帳號</th><th>群組</th><th>動作</th><th>項目</th></tr></thead><tbody>'+rows.map(row=>`<tr><td>${esc(auditTime(row.createdAt||row.createdAtIso))}</td><td>${esc(row.name||'—')}</td><td>${esc(row.username||'—')}</td><td>${esc(row.groupName||'—')}</td><td>${row.action==='login'?'登入':'下載'}</td><td>${esc(row.item||'—')}</td></tr>`).join('')+'</tbody></table>':'尚無紀錄';body.querySelectorAll('th,td').forEach(cell=>cell.style.cssText='padding:9px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap')}catch(error){console.error(error);body.textContent='紀錄載入失敗'}dialog.querySelector('#auditExport').onclick=()=>{const rows=dialog._auditRows||[],csv=[['時間','人員','帳號','群組','動作','項目'],...rows.map(row=>[auditTime(row.createdAt||row.createdAtIso),row.name,row.username,row.groupName,row.action==='login'?'登入':'下載',row.item])].map(cols=>cols.map(value=>'"'+String(value||'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`OMNIPLAY登入下載紀錄_${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url)}}
@@ -26,28 +27,31 @@ if(administrator){
  credential=await signInWithEmailAndPassword(auth,ADMIN_EMAIL,password.value);
 }else{const bridge=await memberCredentials(username,password.value);credential=await signInWithEmailAndPassword(auth,bridge.email,bridge.password)}
 const session=await resolveSession(credential.user);
-if(!session){await signOut(auth);error.textContent='此帳號尚未同步工作區權限，請管理員登入後同步人員';return}
-saveSession(session,remember);await recordAudit(session,'login');location.reload()}catch(err){console.error(err);error.textContent=['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(err.code)?'帳號或密碼錯誤':err.code==='auth/too-many-requests'?'登入嘗試過多，請稍後再試':err.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':'登入失敗：'+String(err.code||'連線異常')}finally{submit.disabled=false;submit.textContent='登入'}};requestAnimationFrame(()=>document.querySelector('#loginUsername')?.focus())}
+if(!session){await signOut(auth);error.textContent='此帳號沒有工作區權限；若已完成交接，請使用 Rondo 登入';return}
+saveSession(session,remember);await recordAudit(session,'login');location.reload()}catch(err){console.error(err);error.textContent=['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(err.code)?'帳號或密碼錯誤':err.code==='auth/too-many-requests'?'登入嘗試過多，請稍後再試':err.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':'登入失敗：'+String(err.message||err.code||'連線異常')}finally{submit.disabled=false;submit.textContent='登入'}};requestAnimationFrame(()=>document.querySelector('#loginUsername')?.focus())}
 
 async function resolveSession(user){
  if(!user)return null;
- const saved=readSession();
- if(user.uid===ADMIN_UID)return{username:LOGIN_USERNAME,name:LOGIN_USERNAME,groupId:'__admin__',groupName:'系統管理員',internal:true,superAdmin:true,allowedPages:[],loginAt:saved?.authUid===user.uid?saved.loginAt:new Date().toISOString(),authUid:user.uid};
- const db=getFirestore(),profileSnap=await getDoc(doc(db,'omniplay-member-access',user.uid));
- if(!profileSnap.exists()||profileSnap.data().enabled!==true)return null;
- const profile=profileSnap.data();
- if(profile.superAdmin===true&&String(profile.username||'').trim().toLowerCase()===LOGIN_USERNAME.toLowerCase())return{username:profile.username,name:profile.name||profile.username,groupId:profile.groupId,groupName:profile.groupName,internal:true,superAdmin:true,allowedPages:[],loginAt:saved?.authUid===user.uid?saved.loginAt:new Date().toISOString(),authUid:user.uid};
- const view=await getDoc(doc(db,'omniplay-group-views',profile.groupId));
- if(!view.exists()||view.data().enabled!==true)return null;
- return{username:profile.username,name:profile.name,groupId:profile.groupId,groupName:profile.groupName,internal:!!profile.internal,superAdmin:false,allowedPages:view.data().allowedPages||[],loginAt:saved?.authUid===user.uid?saved.loginAt:new Date().toISOString(),authUid:user.uid};
+ const db=getFirestore();
+ let config=null;
+ try{const snap=await getDoc(doc(db,'omniplay-security','access'));if(snap.exists())config=snap.data()}catch(error){if(user.uid!==BOOTSTRAP_UID)throw new Error('請先發布新版 Firebase 規則，才能啟用人員登入');}
+ const ownerUid=config?.ownerUid||BOOTSTRAP_UID;
+ if(user.uid===BOOTSTRAP_UID&&ownerUid!==BOOTSTRAP_UID)return null;
+ let profile=null,view=null;
+ if(user.uid!==BOOTSTRAP_UID){const snap=await getDoc(doc(db,'omniplay-member-access',user.uid));if(snap.exists())profile=snap.data();}
+ if(profile?.enabled&&user.uid!==ownerUid&&!(config?.credentialsMigrated&&profile.role==='admin')){const snap=await getDoc(doc(db,'omniplay-group-views',profile.groupId));if(snap.exists())view=snap.data();}
+ const session=accessSession(user,config,profile,view);
+ if(session)session.loginAt=readSession()?.authUid===user.uid?readSession().loginAt:new Date().toISOString();
+ return session;
 }
 const auth=getAuth(getApps().length?getApps().find(app=>app.name==='[DEFAULT]'):initializeApp(cfg));
 await auth.authStateReady();
 let session=null,accessError='';
-try{session=await resolveSession(auth.currentUser)}catch(error){accessError=error.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':'無法讀取人員權限，請稍後再試'}
+try{session=await resolveSession(auth.currentUser)}catch(error){accessError=error.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':String(error.message||'無法讀取人員權限，請稍後再試')}
 if(session){
- document.documentElement.classList.add('is-authenticated','auth-ready');window.__omniplaySession=session;window.__omniplayCanEdit=!!session.superAdmin;
- if(!session.superAdmin)installReadOnlyMode();
+ document.documentElement.classList.add('is-authenticated','auth-ready');window.__omniplaySession=session;window.__omniplayCanEdit=!!session.canEdit;
+ if(!session.canEdit)installReadOnlyMode();
+ if(session.role==='admin'){document.documentElement.classList.add('regular-admin');const style=document.createElement('style');style.textContent='.regular-admin #groupManagerBtn,.regular-admin #addManagedGroup,.regular-admin .add-option[data-target="customerGroup"]{display:none!important}';document.head.append(style);}
  installDownloadAudit(session);
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>addLogout(session),{once:true});else addLogout(session);
 }else{

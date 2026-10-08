@@ -27,7 +27,7 @@
     const fsMod=await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js');
     const app=appMod.getApps().length?appMod.getApps()[0]:appMod.initializeApp(firebaseConfig);
     const db=fsMod.getFirestore(app);
-    const access=await import('./member-access.js?v=20261007-cia-member-4');
+    const access=await import('./member-access.js?v=20261008-rondo-1');
     return {fsMod:{...fsMod,getDoc:access.getDoc,setDoc:access.setDoc},ref:fsMod.doc(db,'omniplay','workspace')};
   }
 
@@ -89,7 +89,7 @@
   }
 
   async function setupGroupDragSort(){
-    if(!window.__omniplayCanEdit)return;
+    if(!window.__omniplaySession?.superAdmin)return;
     if(groupSortBusy)return;
     const container=document.querySelector('#groups');
     if(!container||container.dataset.dragSortReady==='1')return;

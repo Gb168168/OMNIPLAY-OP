@@ -66,22 +66,43 @@ test('existing internal K member retains audit read access', async () => {
   await assertSucceeds(getDoc(doc(env.authenticatedContext('member-k').firestore(), 'omniplay-audit-events', 'valid')));
 });
 
-test('approved Cia_Cia has full access; username or role flag alone cannot grant it', async () => {
+test('old Cia_Cia superAdmin flag cannot grant highest permissions', async () => {
   await env.withSecurityRulesDisabled(async context => {
-    for (const [uid, profile] of [
-      ['cia-admin', { username: 'Cia_Cia', superAdmin: true, enabled: true }],
-      ['cia-name-only', { username: 'Cia_Cia', enabled: true }],
-      ['k-role-only', { username: 'K', superAdmin: true, enabled: true }],
-      ['cia-disabled', { username: 'Cia_Cia', superAdmin: true, enabled: false }],
-    ]) await setDoc(doc(context.firestore(), 'omniplay-member-access', uid), profile);
+    await setDoc(doc(context.firestore(), 'omniplay-member-access', 'cia-old'), { username: 'Cia_Cia', enabled: true, superAdmin: true, role: 'member' });
   });
-  const db = env.authenticatedContext('cia-admin').firestore();
-  await assertSucceeds(getDoc(doc(db, 'omniplay', 'workspace')));
-  await assertSucceeds(setDoc(doc(db, 'omniplay', 'cia-admin-write'), { test: true }));
-  await assertSucceeds(getDoc(doc(db, 'omniplay-member-bindings', 'private')));
-  for (const uid of ['cia-name-only', 'k-role-only', 'cia-disabled']) {
-    const denied = env.authenticatedContext(uid).firestore();
-    await assertFails(getDoc(doc(denied, 'omniplay', 'workspace')));
-    await assertFails(setDoc(doc(denied, 'omniplay-member-access', uid), { username: 'Cia_Cia', superAdmin: true, enabled: true }));
-  }
+  await assertFails(getDoc(doc(env.authenticatedContext('cia-old').firestore(), 'omniplay', 'workspace')));
+});
+test('Rondo may appoint admins; admins cannot appoint, read passwords, or replace the owner', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    await setDoc(doc(db, 'omniplay-security', 'access'), { ownerUid: 'rondo', ownerUsername: 'Rondo', credentialsMigrated: true });
+    await setDoc(doc(db, 'omniplay-member-access', 'rondo'), { username: 'Rondo', enabled: true, role: 'member', groupId: 'g1' });
+    await setDoc(doc(db, 'omniplay-member-access', 'appointed'), { username: 'F', enabled: true, role: 'admin', groupId: 'g1' });
+    await setDoc(doc(db, 'omniplay-member-access', 'normal'), { username: 'User', enabled: true, role: 'member', groupId: 'g1' });
+    await setDoc(doc(db, 'omniplay-group-views', 'g1'), { enabled: true, allowedDocumentIds: [], allowedPages: ['page_allowed'] });
+    await setDoc(doc(db, 'omniplay-member-secrets', 'owner'), { password: 'private-owner' });
+    await setDoc(doc(db, 'omniplay', 'workspace'), { categories: [], customerGroups: [{ id: 'g1', members: [{ id: 'r', username: 'Rondo' }] }] });
+  });
+  const owner = env.authenticatedContext('rondo').firestore(), admin = env.authenticatedContext('appointed').firestore();
+  await assertSucceeds(getDoc(doc(owner, 'omniplay-member-secrets', 'owner')));
+  await assertSucceeds(setDoc(doc(owner, 'omniplay-member-access', 'normal'), { role: 'admin' }, { merge: true }));
+  await assertSucceeds(setDoc(doc(owner, 'omniplay-member-access', 'normal'), { role: 'member' }, { merge: true }));
+  await assertSucceeds(getDoc(doc(admin, 'omniplay', 'workspace')));
+  await assertSucceeds(setDoc(doc(admin, 'omniplay-group-views', 'g1', 'documents', 'sheet-page_allowed-chunk-2'), { data: 'new chunk' }));
+  await assertFails(setDoc(doc(admin, 'omniplay-group-views', 'g1', 'documents', 'sheet-private-chunk-2'), { data: 'private' }));
+  await assertSucceeds(getDoc(doc(env.authenticatedContext('normal').firestore(), 'omniplay-group-views', 'g1', 'documents', 'sheet-page_allowed-chunk-2')));
+  await assertSucceeds(setDoc(doc(admin, 'omniplay', 'administrator-sheet'), { rows: [] }));
+  await assertSucceeds(setDoc(doc(admin, 'omniplay', 'workspace'), { categories: [{ id: 'edited' }] }, { merge: true }));
+  await assertFails(getDoc(doc(admin, 'omniplay-member-secrets', 'owner')));
+  await assertFails(getDoc(doc(admin, 'omniplay-member-bindings', 'private')));
+  await assertFails(setDoc(doc(admin, 'omniplay-member-access', 'normal'), { role: 'admin' }, { merge: true }));
+  await assertFails(setDoc(doc(admin, 'omniplay-member-access', 'appointed'), { role: 'owner' }, { merge: true }));
+  await assertFails(setDoc(doc(admin, 'omniplay-security', 'access'), { ownerUid: 'appointed', ownerUsername: 'Rondo', credentialsMigrated: true }));
+  await assertFails(setDoc(doc(admin, 'omniplay', 'workspace'), { customerGroups: [] }, { merge: true }));
+  await assertFails(getDoc(doc(env.authenticatedContext('xqDN3vaLfufEkz4TZ1omSmGkQ2A2').firestore(), 'omniplay', 'workspace')));
+  await assertFails(setDoc(doc(owner, 'omniplay-security', 'access'), { ownerUid: 'appointed', ownerUsername: 'Rondo', credentialsMigrated: true }));
+  await assertFails(deleteDoc(doc(owner, 'omniplay-member-access', 'rondo')));
+  await assertFails(setDoc(doc(owner, 'omniplay-member-access', 'rondo'), { enabled: false }, { merge: true }));
+  await assertSucceeds(getDoc(doc(owner, 'omniplay-audit-events', 'valid')));
+  await assertSucceeds(getDoc(doc(admin, 'omniplay-audit-events', 'valid')));
 });

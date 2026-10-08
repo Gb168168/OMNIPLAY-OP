@@ -1,34 +1,81 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function configExists() { return exists(/databases/$(database)/documents/omniplay-security/access); }
+    function config() { return get(/databases/$(database)/documents/omniplay-security/access).data; }
+    function ownerUid() { return configExists() ? config().ownerUid : 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2'; }
+    function isOwner() { return signedIn() && request.auth.uid == ownerUid(); }
+    function isRondo() { return isOwner() && ownerUid() != 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2'; }
+    function member() { return get(/databases/$(database)/documents/omniplay-member-access/$(request.auth.uid)).data; }
     function isAdmin() {
-      return request.auth != null
-        && (request.auth.uid == 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2'
-          || (member().enabled == true && member().get('superAdmin', false) == true
-            && member().username.lower() == 'cia_cia'));
-    }
-    function member() {
-      return get(/databases/$(database)/documents/omniplay-member-access/$(request.auth.uid)).data;
+      return isOwner() || (signedIn() && configExists() && config().credentialsMigrated == true
+        && member().enabled == true && member().get('role', 'member') == 'admin');
     }
     function canViewGroup(groupId) {
-      return request.auth != null && member().enabled == true
-        && member().groupId == groupId
+      return signedIn() && member().enabled == true && member().groupId == groupId
         && get(/databases/$(database)/documents/omniplay-group-views/$(groupId)).data.enabled == true;
     }
+    function allowedDocument(groupId, documentId) {
+      let view = get(/databases/$(database)/documents/omniplay-group-views/$(groupId)).data;
+      return documentId in view.allowedDocumentIds
+        || (documentId.matches('sheet-.+')
+          && documentId.replace('^sheet-', '').replace('-chunk-[0-9]+$', '') in view.get('allowedPages', []));
+    }
+    function validTransfer() {
+      let uid = request.resource.data.ownerUid;
+      return uid == 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2'
+        || (get(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.enabled == true
+          && get(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.username.lower() == 'rondo');
+    }
+    match /omniplay-security/access {
+      allow get: if signedIn();
+      allow create: if isOwner() && request.resource.data.keys().hasOnly(['ownerUid', 'ownerUsername', 'credentialsMigrated'])
+        && request.resource.data.credentialsMigrated == true && validTransfer();
+      allow update: if isOwner() && request.resource.data.keys().hasOnly(['ownerUid', 'ownerUsername', 'credentialsMigrated'])
+        && request.resource.data.credentialsMigrated == true
+        && (isRondo() ? request.resource.data.ownerUid == resource.data.ownerUid : validTransfer());
+    }
     match /omniplay-member-access/{uid} {
-      allow get: if request.auth != null && request.auth.uid == uid;
+      allow get: if isOwner() || (signedIn() && request.auth.uid == uid);
+      allow list: if isOwner();
+      allow create, update: if isOwner()
+        && request.resource.data.role in ['member', 'admin']
+        && (request.resource.data.role == 'member' || isRondo())
+        && (uid != ownerUid() || (request.resource.data.enabled == true && request.resource.data.username.lower() == 'rondo'));
+      allow delete: if isOwner() && uid != ownerUid();
+    }
+    match /omniplay-member-bindings/{id} { allow read, write: if isOwner(); }
+    match /omniplay-member-secrets/{id} { allow read, write: if isOwner(); }
+    match /omniplay/{documentId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if isOwner();
+      allow create, update, delete: if isAdmin() && documentId != 'workspace';
+      allow update: if isAdmin() && documentId == 'workspace'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'categories', 'customers', 'customerTypeOptions', 'customerProgressOptions',
+          'customerCommAppOptions', 'customerOptionVersion', 'platformImportVersion', 'updatedAt'
+        ]);
     }
     match /omniplay-group-views/{groupId} {
+      allow read: if isAdmin();
       allow get: if canViewGroup(groupId);
+      allow write: if isOwner();
+      allow update: if isAdmin() && request.resource.data.allowedPages == resource.data.allowedPages
+        && request.resource.data.allowedDocumentIds == resource.data.allowedDocumentIds
+        && request.resource.data.enabled == resource.data.enabled;
       match /documents/{documentId} {
+        allow read: if isAdmin();
         allow get: if canViewGroup(groupId)
-          && documentId in get(/databases/$(database)/documents/omniplay-group-views/$(groupId)).data.allowedDocumentIds;
+          && allowedDocument(groupId, documentId);
+        allow write: if isOwner() || (isAdmin()
+          && allowedDocument(groupId, documentId));
       }
     }
     match /omniplay-audit-events/{eventId} {
-      allow read: if request.auth != null && member().enabled == true
-        && member().internal == true && member().username.lower() == 'k';
-      allow create: if request.auth != null && member().enabled == true
+      allow read: if isAdmin() || (signedIn() && member().enabled == true
+        && member().internal == true && member().username.lower() == 'k');
+      allow create: if signedIn() && member().enabled == true
         && request.resource.data.keys().hasOnly(['authUid', 'username', 'name', 'groupName', 'action', 'item', 'createdAt', 'createdAtIso'])
         && request.resource.data.authUid == request.auth.uid
         && request.resource.data.username == member().username
@@ -36,11 +83,9 @@ service cloud.firestore {
         && request.resource.data.groupName == member().groupName
         && request.resource.data.action in ['login', 'download']
         && request.resource.data.item is string && request.resource.data.item.size() <= 180
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.createdAtIso is string;
-    }
-    match /{document=**} {
-      allow read, write: if isAdmin();
+        && request.resource.data.createdAt == request.time && request.resource.data.createdAtIso is string;
+      allow create: if isOwner() && request.resource.data.authUid == request.auth.uid
+        && request.resource.data.action in ['login', 'download'] && request.resource.data.createdAt == request.time;
     }
   }
 }

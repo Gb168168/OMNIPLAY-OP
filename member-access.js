@@ -3,40 +3,57 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDocs, getDoc as firebaseGetDoc,
   setDoc as firebaseSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { ADMIN_UID, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials } from './member-model.js?v=20261007-cia-member-4';
+import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
+  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords } from './member-model.js?v=20261008-rondo-1';
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
 const written = new Map();
-async function admin() {
-  const user = getAuth().currentUser;
-  if (!user || window.__omniplaySession?.superAdmin !== true) return false;
-  if (user.uid === ADMIN_UID) return true;
-  const snapshot = await firebaseGetDoc(doc(getFirestore(), 'omniplay-member-access', user.uid));
-  const profile = snapshot.exists() ? snapshot.data() : null;
-  return profile?.enabled === true && profile.superAdmin === true
-    && normalizeUsername(profile.username) === normalizeUsername(ADMIN_USERNAME);
+async function configuration(db = getFirestore()) {
+  const snap = await firebaseGetDoc(doc(db, 'omniplay-security', 'access'));
+  return snap.exists() ? snap.data() : null;
 }
-export function getDoc(ref) {
+async function owner(db = getFirestore()) {
+  const user = getAuth().currentUser;
+  if (!user) return false;
+  return user.uid === ((await configuration(db))?.ownerUid || ADMIN_UID);
+}
+async function editable(db = getFirestore()) {
+  if (await owner(db)) return true;
+  const user = getAuth().currentUser;
+  if (!user) return false;
+  const config = await configuration(db), snap = await firebaseGetDoc(doc(db, 'omniplay-member-access', user.uid));
+  return config?.credentialsMigrated === true && snap.exists() && snap.data().enabled === true && snap.data().role === 'admin';
+}
+async function passwordSecrets(db) {
+  const result = new Map();
+  const snap = await getDocs(collection(db, 'omniplay-member-secrets'));
+  for (const item of snap.docs) result.set(item.data().key, item.data());
+  return result;
+}
+async function storePasswords(db, workspace) {
+  for (const member of collectMembers(workspace)) await firebaseSetDoc(doc(db, 'omniplay-member-secrets', await digest(member.key)), { key: member.key, password: member.password });
+}
+export async function getDoc(ref) {
   const session = window.__omniplaySession;
-  if (session && !session.superAdmin && ref.path.startsWith('omniplay/')) {
+  if (session && !session.canEdit && !session.superAdmin && ref.path.startsWith('omniplay/')) {
     const id = ref.path.slice('omniplay/'.length);
     return firebaseGetDoc(id === 'workspace'
       ? doc(ref.firestore, 'omniplay-group-views', session.groupId)
       : doc(ref.firestore, 'omniplay-group-views', session.groupId, 'documents', id));
   }
-  return firebaseGetDoc(ref);
+  const snap = await firebaseGetDoc(ref);
+  if (ref.path !== 'omniplay/workspace' || !snap.exists() || !await owner(ref.firestore)) return snap;
+  const data = hydratePasswords(snap.data(), await passwordSecrets(ref.firestore));
+  return { exists: () => true, data: () => data, id: snap.id, ref: snap.ref };
 }
 export async function setDoc(ref, data, options) {
-  await firebaseSetDoc(ref, data, options);
-  if (!await admin() || !ref.path.startsWith('omniplay/')) return;
-  if (sources) {
-    const id = ref.path.slice('omniplay/'.length);
-    sources.set(id, options?.merge ? { ...(sources.get(id) || {}), ...data } : data);
-  }
+  if (ref.path === 'omniplay/workspace') {
+    if (await owner(ref.firestore)) await storePasswords(ref.firestore, data);
+    await firebaseSetDoc(ref, publicWorkspace(data), options);
+  } else await firebaseSetDoc(ref, data, options);
+  if (!await editable(ref.firestore) || !ref.path.startsWith('omniplay/')) return;
   clearTimeout(refreshTimer);
   if (ref.path === 'omniplay/workspace') return syncMembersAndViews(ref.firestore, data);
-  // Sheet chunks may be written in parallel. Publish after those writes settle.
   refreshTimer = setTimeout(() => syncMembersAndViews(ref.firestore).catch(showSyncError), 600);
 }
 function showSyncError(error) {
@@ -47,13 +64,6 @@ async function provision(db, member) {
   const key = await digest(member.key), credentials = await memberCredentials(member.username, member.password);
   const aliasKey = 'alias-' + await digest(credentials.email);
   const previous = bindings.get(key)?.email === credentials.email ? bindings.get(key) : bindings.get(aliasKey);
-  if (previous?.password === credentials.password) {
-    if (!bindings.has(key)) {
-      await firebaseSetDoc(doc(db, 'omniplay-member-bindings', key), previous);
-      bindings.set(key, previous);
-    }
-    return previous.uid;
-  }
   const primary = getApps().find(app => app.name === '[DEFAULT]');
   const auxiliary = getApps().find(app => app.name === 'member-provisioning') || initializeApp(primary.options, 'member-provisioning');
   const auth = getAuth(auxiliary);
@@ -62,7 +72,7 @@ async function provision(db, member) {
     let user;
     if (previous?.email === credentials.email) {
       user = (await signInWithEmailAndPassword(auth, previous.email, previous.password)).user;
-      await updatePassword(user, credentials.password);
+      if (previous.password !== credentials.password) await updatePassword(user, credentials.password);
     } else {
       try { user = (await createUserWithEmailAndPassword(auth, credentials.email, credentials.password)).user; }
       catch (error) {
@@ -81,25 +91,33 @@ async function provision(db, member) {
   } finally { await signOut(auth); }
 }
 export async function syncMembersAndViews(db, workspace) {
-  if (!await admin()) return Promise.resolve();
+  if (!await editable(db)) return;
   syncQueue = syncQueue.catch(() => {}).then(() => synchronize(db, workspace));
   return syncQueue;
 }
 async function synchronize(db, workspace) {
-  if (!await admin()) throw new Error('請使用管理員登入以同步人員');
+  if (!await editable(db)) throw new Error('請使用管理員登入');
+  const isOwner = await owner(db);
   {
     const snapshot = await getDocs(collection(db, 'omniplay'));
     sources = new Map(snapshot.docs.map(item => [item.id, item.data()]));
   }
-  if (!bindings) {
+  if (isOwner && !bindings) {
     const snapshot = await getDocs(collection(db, 'omniplay-member-bindings'));
     bindings = new Map(snapshot.docs.map(item => [item.id, item.data()]));
   }
-  const data = workspace || sources.get('workspace');
+  let data = workspace || sources.get('workspace');
+  if (isOwner && data) data = hydratePasswords(data, await passwordSecrets(db));
   if (!data) throw new Error('找不到工作區資料');
+  if (isOwner) {
+    await storePasswords(db, data);
+    await firebaseSetDoc(doc(db, 'omniplay', 'workspace'), publicWorkspace(data));
+    const config = await configuration(db);
+    if (!config?.credentialsMigrated) await firebaseSetDoc(doc(db, 'omniplay-security', 'access'), { ownerUid: config?.ownerUid || ADMIN_UID, ownerUsername: config?.ownerUsername || ADMIN_EMAIL, credentialsMigrated: true });
+  }
   sources.set('workspace', data);
-  const members = collectMembers(data), profiles = await getDocs(collection(db, 'omniplay-member-access'));
-  const previous = new Map(profiles.docs.map(item => [item.id, item.data()]));
+  const members = isOwner ? collectMembers(data) : [], profiles = isOwner ? await getDocs(collection(db, 'omniplay-member-access')) : null;
+  const previous = new Map(profiles ? profiles.docs.map(item => [item.id, item.data()]) : []);
   // Revoke deleted/renamed members before publishing any new view.
   const memberKeys = new Set(members.map(member => member.key));
   for (const [uid, profile] of previous) {
@@ -109,13 +127,14 @@ async function synchronize(db, workspace) {
     }
   }
   const groups = data.customerGroups || [], oldViews = await getDocs(collection(db, 'omniplay-group-views'));
-  for (const view of oldViews.docs) if (!groups.some(group => group.id === view.id)) {
+  for (const view of oldViews.docs) if (isOwner && !groups.some(group => group.id === view.id)) {
     await firebaseSetDoc(view.ref, { enabled: false });
     written.delete(view.ref.path);
   }
   for (const group of groups) {
     const view = groupWorkspace(data, group), ids = groupDocumentIds(data, group, [...sources.keys()]);
-    view.allowedDocumentIds = ids;
+    view.allowedDocumentIds = isOwner ? ids : (oldViews.docs.find(item => item.id === group.id)?.data().allowedDocumentIds || []);
+    if (!isOwner && !oldViews.docs.some(item => item.id === group.id)) continue;
     const writes = [[doc(db, 'omniplay-group-views', group.id), view],
       ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), withoutCredentials(sources.get(id))])];
     // Commit the root allowlist last so a new page is never exposed before its data exists.
@@ -135,11 +154,62 @@ async function synchronize(db, workspace) {
     try {
       const uid = await provision(db, member), { password, key, ...safe } = member;
       const profile = { ...safe, memberKey: key, enabled: true,
-        superAdmin: normalizeUsername(member.username) === normalizeUsername(ADMIN_USERNAME) };
+        superAdmin: false, role: previous.get(uid)?.role === 'admin' ? 'admin' : 'member' };
       if (JSON.stringify(previous.get(uid)) !== JSON.stringify(profile)) {
         await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), profile);
       }
     } catch (error) { failures.push(`${member.username} (${error.code || '同步失敗'})`); }
   }
-  if (failures.length) throw new Error('未完成：' + failures.join('、'));
+  if (failures.length) throw new Error('人員登入未完成：' + failures.join('、'));
+
+}
+
+export async function listMemberProfiles(db = getFirestore()) {
+  if (!await owner(db)) throw new Error('只有最高管理者可以管理權限');
+  const config = await configuration(db), snap = await getDocs(collection(db, 'omniplay-member-access'));
+  return snap.docs.map(item => ({ uid: item.id, ...item.data(), owner: item.id === config?.ownerUid }));
+}
+export async function setMemberRole(uid, role, db = getFirestore()) {
+  const config = await configuration(db);
+  if (!await owner(db) || config?.ownerUid === ADMIN_UID) throw new Error('只有 Rondo 可以任免管理員');
+  if (uid === config.ownerUid) throw new Error('不能變更 Rondo 的最高管理者身分');
+  if (!['admin', 'member'].includes(role)) throw new Error('無效的管理員權限');
+  const ref = doc(db, 'omniplay-member-access', uid), snap = await firebaseGetDoc(ref);
+  if (!snap.exists() || snap.data().enabled !== true) throw new Error('此人員尚未啟用');
+  await firebaseSetDoc(ref, { role, superAdmin: false }, { merge: true });
+}
+export async function transferToRondo(password, db = getFirestore()) {
+  const config = await configuration(db);
+  if (!await owner(db) || (config?.ownerUid || ADMIN_UID) !== ADMIN_UID) throw new Error('此工作區已完成最高管理者交接');
+  if (!password) throw new Error('請設定 Rondo 的登入密碼');
+  const snap = await getDoc(doc(db, 'omniplay', 'workspace'));
+  if (!snap.exists()) throw new Error('找不到工作區');
+  const workspace = snap.data();
+  workspace.customerGroups ||= [];
+  let group = (workspace.customerGroups || []).find(item => (item.members || []).some(member => normalizeUsername(member.username) === 'rondo'));
+  if (!group) group = (workspace.customerGroups || []).find(item => ['OMNIPLAY', 'OMNIPLAY Support'].includes(item.name));
+  if (!group) { group = { id: 'rondo-owner-group', name: 'OMNIPLAY', members: [], allowedPages: [], pageOrder: [] }; workspace.customerGroups.push(group); }
+  group.members ||= [];
+  let member = group.members.find(item => normalizeUsername(item.username) === 'rondo');
+  if (!member) { member = { id: 'rondo-owner', name: 'Rondo', username: 'Rondo' }; group.members.push(member); }
+  member.password = password;
+  let syncError;
+  try { await setDoc(doc(db, 'omniplay', 'workspace'), workspace); } catch (error) { syncError = error; }
+  if (!(await configuration(db))?.credentialsMigrated) throw syncError || new Error('人員密碼尚未完成移轉');
+  const profiles = await listMemberProfiles(db), candidate = profiles.find(item => normalizeUsername(item.username) === 'rondo' && item.enabled);
+  if (!candidate) throw syncError || new Error('Rondo 的登入帳號尚未同步完成');
+  const auxiliary = getApps().find(app => app.name === 'member-provisioning'), auth = getAuth(auxiliary);
+  const credentials = await memberCredentials('Rondo', password);
+  try {
+    await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+    // A member can read this harmless config only under the new rules. This
+    // prevents handing off while the old administrator-only rules are active.
+    try { await firebaseGetDoc(doc(getFirestore(auxiliary), 'omniplay-security', 'access')); }
+    catch { throw new Error('請先發布新版 Firebase 規則，再按「建立 Rondo 並交接」'); }
+    if (auth.currentUser.uid !== candidate.uid) throw new Error('Rondo 的登入身分驗證失敗');
+    await firebaseSetDoc(doc(db, 'omniplay-security', 'access'), {
+      ownerUid: candidate.uid, ownerUsername: 'Rondo', credentialsMigrated: true,
+    });
+  } finally { await signOut(auth); }
+  await signOut(getAuth());
 }

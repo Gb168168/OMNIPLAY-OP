@@ -1,4 +1,4 @@
-import { getDoc, setDoc } from './member-access.js?v=20261007-cia-member-4';
+import { getDoc, setDoc } from './member-access.js?v=20261008-rondo-1';
 import'./game-list-data-1.js';import'./game-list-data-2.js';import'./game-list-data-3.js';import'./game-list-data-4.js';import'./game-list-data-5.js';import'./game-list-data-6.js';import'./game-list-data-7.js';import'./game-list-data-8.js';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';import{getFirestore,doc}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
