@@ -325,3 +325,20 @@ table thead th{ text-align:center!important;vertical-align:middle!important }
 /* Center table content; Grand/Major pairs remain left aligned within their cell. */
 table th,table td{text-align:center!important;vertical-align:middle!important}
 .op-game-table td>span[style*="white-space:pre-line"]{display:inline-block!important;text-align:left!important;max-width:100%;vertical-align:middle}
+
+/* Folder tiles keep names inside the card and tuck management actions away. */
+.file-card.resource-folder-card{position:relative;padding:0;min-width:0;overflow:visible;background:#fff;border:1px solid #d5e1ef;border-radius:14px;box-shadow:0 2px 7px rgba(35,57,86,.04)}
+.resource-folder-open{display:flex;flex-direction:column;align-items:flex-start;gap:10px;width:100%;min-height:145px;padding:20px;border:0;border-radius:14px;background:transparent;text-align:left;color:#253b56;cursor:pointer}
+.resource-folder-open:hover{background:#f5f9ff}
+.resource-folder-icon{font-size:32px;line-height:1}
+.resource-folder-name{width:100%;font-size:14px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.resource-folder-hint{font-size:11px;color:#7b8ba0}
+.resource-folder-menu{position:absolute;top:10px;right:10px;z-index:5}
+.resource-folder-menu[open]{z-index:20}
+.resource-folder-menu summary{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;color:#64748b;cursor:pointer;list-style:none;font-size:20px}
+.resource-folder-menu summary::-webkit-details-marker{display:none}
+.resource-folder-menu summary:hover{background:#eaf1fb}
+.resource-folder-menu-items{position:absolute;right:0;top:32px;display:grid;min-width:130px;padding:5px;background:#fff;border:1px solid #d5e1ef;border-radius:9px;box-shadow:0 6px 20px rgba(35,57,86,.12)}
+.resource-folder-menu-items button{border:0;background:transparent;text-align:left;padding:9px 12px;color:#334155;cursor:pointer;border-radius:5px;white-space:nowrap}
+.resource-folder-menu-items button:hover{background:#eef4fc}
+.resource-folder-menu-items [data-remove-folder]{color:#b43a49}
