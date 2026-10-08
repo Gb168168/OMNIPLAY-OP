@@ -123,7 +123,7 @@ async function synchronize(db, workspace) {
   for (const [uid, profile] of previous) {
     const member = members.find(item => item.key === profile.memberKey);
     if (!memberKeys.has(profile.memberKey) || member.username !== profile.username) {
-      await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), { ...profile, enabled: false });
+      await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), { ...profile, enabled: false, superAdmin: false, role: profile.role === 'admin' && getAuth().currentUser.uid !== ADMIN_UID ? 'admin' : 'member' });
     }
   }
   const groups = data.customerGroups || [], oldViews = await getDocs(collection(db, 'omniplay-group-views'));
@@ -154,7 +154,7 @@ async function synchronize(db, workspace) {
     try {
       const uid = await provision(db, member), { password, key, ...safe } = member;
       const profile = { ...safe, memberKey: key, enabled: true,
-        superAdmin: false, role: previous.get(uid)?.role === 'admin' ? 'admin' : 'member' };
+        superAdmin: false, role: previous.get(uid)?.role === 'admin' && getAuth().currentUser.uid !== ADMIN_UID ? 'admin' : 'member' };
       if (JSON.stringify(previous.get(uid)) !== JSON.stringify(profile)) {
         await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), profile);
       }
