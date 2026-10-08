@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/member-model.test.mjs tests/login-session.test.mjs",
+    "test": "node --test tests/member-model.test.mjs tests/login-session.test.mjs tests/customer-op-renderer.test.mjs",
     "test:firebase": "firebase emulators:exec --only auth,firestore --project demo-omniplay-members --config firebase.emulator.json \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/member-sync.test.mjs tests/group-editor.test.mjs\""
   },
   "devDependencies": {
