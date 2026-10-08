@@ -66,12 +66,13 @@ async function resolveSession(user){
  if(session)session.loginAt=readSession()?.authUid===user.uid?readSession().loginAt:new Date().toISOString();
  return session;
 }
+function loginStep(promise,label,milliseconds=15000){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error(label+'連線逾時，請重新載入後再試')),milliseconds);promise.then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})})}
 const auth=getAuth(getApps().length?getApps().find(app=>app.name==='[DEFAULT]'):initializeApp(cfg));
-await auth.authStateReady();
+await loginStep(auth.authStateReady(),'登入狀態檢查');
 let session=null,accessError='';
-try{session=await resolveSession(auth.currentUser)}catch(error){accessError=error.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':String(error.message||'無法讀取人員權限，請稍後再試')}
+try{session=await loginStep(resolveSession(auth.currentUser),'讀取帳號權限')}catch(error){accessError=error.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':String(error.message||'無法讀取人員權限，請稍後再試')}
 if(session){ void flushPendingLoginAudit();
- await startPresence(session);
+ void startPresence(session);
  document.documentElement.classList.add('is-authenticated','auth-ready');window.__omniplaySession=session;window.__omniplayCanEdit=!!session.canEdit;
  if(!session.canEdit)installReadOnlyMode();
  if(session.role==='admin'){document.documentElement.classList.add('regular-admin');const style=document.createElement('style');style.textContent='.regular-admin #groupManagerBtn,.regular-admin #addManagedGroup,.regular-admin .add-option[data-target="customerGroup"]{display:none!important}';document.head.append(style);}
