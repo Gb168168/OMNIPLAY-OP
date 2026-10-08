@@ -12,7 +12,7 @@ export function accessSession(user, config, profile, view) {
       role: 'owner', superAdmin: true, canEdit: true, bootstrap: ownerUid === BOOTSTRAP_UID, allowedPages: [] };
   }
   if (user.uid === BOOTSTRAP_UID || !profile?.enabled) return null;
-  const administrator = config?.credentialsMigrated === true && profile.role === 'admin';
+  const administrator = config?.credentialsMigrated === true && ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(profile.groupName || '').trim());
   if (!administrator && !view?.enabled) return null;
   return { authUid: user.uid, username: profile.username, name: profile.name || profile.username,
     groupId: profile.groupId, groupName: profile.groupName, internal: !!profile.internal,
