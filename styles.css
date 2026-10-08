@@ -228,3 +228,16 @@ html[data-theme="light"] .login-screen{background:radial-gradient(circle at 18% 
 
 
 .resource-navigation{order:4;flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;padding:8px 0;border-top:1px solid #dbe3ee}.resource-entry{display:flex;align-items:center}.resource-preview{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:10px;max-width:100%}.resource-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+
+/* Internal category shortcuts share the first toolbar row. */
+@media (min-width: 801px) {
+ .sidebar:has(>#resourceNavigation)>.category-list {
+  order:1;flex:1 1 420px;align-items:center;padding:0;
+ }
+ .sidebar:has(>#resourceNavigation)>.session-controls {
+  order:2;flex:0 0 auto;margin-left:auto;
+ }
+ .sidebar:has(>#resourceNavigation)>.resource-navigation {
+  order:4;flex:1 1 100%;
+ }
+}
