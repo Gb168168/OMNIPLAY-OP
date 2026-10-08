@@ -216,3 +216,12 @@ html[data-theme="light"] .login-screen{background:radial-gradient(circle at 18% 
  .sidebar>.brand{flex:1 1 100%}
  .sidebar>.session-controls{flex:1 1 100%;justify-content:flex-end}
 }
+
+
+/* Customer groups open their resources directly, without category dropdowns. */
+.customer-portal .sidebar>.category-list{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}
+.customer-section{padding:12px 16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-size:14px;cursor:pointer;white-space:nowrap}
+.customer-section:hover,.customer-section.active{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.customer-section:disabled{opacity:.5;cursor:not-allowed}
+.customer-language{white-space:nowrap}
+@media(max-width:800px){.customer-portal .sidebar>.category-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.customer-section{white-space:normal;text-align:left;padding:12px}}
