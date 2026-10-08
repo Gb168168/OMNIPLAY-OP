@@ -4,7 +4,7 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, getDocs, getDoc as firebaseGetDoc,
   setDoc as firebaseSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords } from './member-model.js?v=20261008-internal-1';
+  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261008-customer-op-1';
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
 const written = new Map();
@@ -109,6 +109,7 @@ async function synchronize(db, workspace) {
   let data = workspace || sources.get('workspace');
   if (isOwner && data) data = hydratePasswords(data, await passwordSecrets(db));
   if (!data) throw new Error('找不到工作區資料');
+  if (isOwner) ensureCustomerOpPage(data);
   if (isOwner) {
     await storePasswords(db, data);
     await firebaseSetDoc(doc(db, 'omniplay', 'workspace'), publicWorkspace(data));
@@ -136,7 +137,7 @@ async function synchronize(db, workspace) {
     view.allowedDocumentIds = isOwner ? ids : (oldViews.docs.find(item => item.id === group.id)?.data().allowedDocumentIds || []);
     if (!isOwner && !oldViews.docs.some(item => item.id === group.id)) continue;
     const writes = [[doc(db, 'omniplay-group-views', group.id), view],
-      ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), withoutCredentials(sources.get(id))])];
+      ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), id === CUSTOMER_OP_DOCUMENT ? customerGameCatalog(sources.get('game-list-online-page'), sources.get('op-game-form-records'), group) : withoutCredentials(sources.get(id))])];
     // Commit the root allowlist last so a new page is never exposed before its data exists.
     const root = writes.shift(); writes.push(root);
     for (let i = 0; i < writes.length; i += 200) {
@@ -213,4 +214,18 @@ export async function transferToRondo(password, db = getFirestore()) {
     });
   } finally { await signOut(auth); }
   await signOut(getAuth());
+}
+
+export async function getCustomerGameCatalog(db = getFirestore()) {
+  if (await owner(db)) {
+    const [rows, records] = await Promise.all([firebaseGetDoc(doc(db,'omniplay','game-list-online-page')),firebaseGetDoc(doc(db,'omniplay','op-game-form-records'))]);
+    return customerGameCatalog(rows.data(), records.data());
+  }
+  const user = getAuth().currentUser;
+  if (!user) throw new Error('請先登入');
+  const profile = await firebaseGetDoc(doc(db,'omniplay-member-access',user.uid));
+  if (!profile.exists() || !profile.data().enabled) throw new Error('帳號尚未啟用');
+  const snapshot = await firebaseGetDoc(doc(db,'omniplay-group-views',profile.data().groupId,'documents',CUSTOMER_OP_DOCUMENT));
+  if (!snapshot.exists()) throw new Error('客戶版遊戲資料尚未同步，請聯絡管理員');
+  return snapshot.data();
 }
