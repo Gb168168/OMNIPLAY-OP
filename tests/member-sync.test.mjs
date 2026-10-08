@@ -36,7 +36,7 @@ test('legacy members can sign in; password updates, renames, page revocation and
   const tmp = new URL('../tmp/', import.meta.url); await mkdir(tmp, { recursive: true });
   await writeFile(new URL('member-access.test.mjs', tmp), nodeSource);
   const access = await import(new URL('member-access.test.mjs', tmp));
-  const group = { id: 'g1', name: 'OMNIPLAY Support', allowedPages: ['page_op_game'], members: [
+  const group = { id: 'g1', name: 'Client', allowedPages: ['page_op_game'], members: [
     { id: 'f-member', name: 'F', username: 'F', password: 'old' },
     { id: 'k-member', name: 'K', username: 'K', password: 'member-k' },
     { id: 'cia-member', name: 'Cia_Cia', username: 'Cia_Cia', password: 'member-cia' },
@@ -103,6 +103,8 @@ test('legacy members can sign in; password updates, renames, page revocation and
   assert.equal((await access.getDoc(doc(db, 'omniplay', 'workspace'))).data().customerGroups[0].members.find(member => member.username === 'K').password, 'member-k');
   const auxiliary = getApps().find(app => app.name === 'member-provisioning');
   const auxiliaryDb = getFirestore(auxiliary); connectFirestoreEmulator(auxiliaryDb, '127.0.0.1', 8088);
+  group.name = 'OMNIPLAY Support';
+  await access.setDoc(doc(db, 'omniplay', 'workspace'), workspace);
   const oldK = (await access.listMemberProfiles(db)).find(item => item.username === 'K');
   await adminAuth(server).updateUser(oldK.uid, { password: 'out-of-sync-test-only' });
   await access.transferToRondo('rondo-login');
@@ -132,7 +134,7 @@ test('legacy members can sign in; password updates, renames, page revocation and
   globalThis.window.__omniplaySession = { superAdmin: true, canEdit: true, authUid: ownerUid };
   await access.setMemberRole(k.uid, 'member', db);
   await signInWithEmailAndPassword(auth, kLogin.email, kLogin.password);
-  await assert.rejects(getDoc(doc(db, 'omniplay', 'workspace')), error => error.code === 'permission-denied');
+  await getDoc(doc(db, 'omniplay', 'workspace')); // Internal group editing is independent of appointment.
   await signInWithEmailAndPassword(auth, 'goldbricks168@gmail.com', 'test-administrator-password');
   await assert.rejects(getDoc(doc(db, 'omniplay', 'workspace')), error => error.code === 'permission-denied');
   await deleteApp(viewer); await deleteApp(primary); await deleteAdmin(server); await env.cleanup();
