@@ -77,7 +77,7 @@ test('Rondo may appoint admins; admins cannot appoint, read passwords, or replac
     const db = context.firestore();
     await setDoc(doc(db, 'omniplay-security', 'access'), { ownerUid: 'rondo', ownerUsername: 'Rondo', credentialsMigrated: true });
     await setDoc(doc(db, 'omniplay-member-access', 'rondo'), { username: 'Rondo', enabled: true, role: 'member', groupId: 'g1' });
-    await setDoc(doc(db, 'omniplay-member-access', 'appointed'), { username: 'F', enabled: true, role: 'admin', groupId: 'g1' });
+    await setDoc(doc(db, 'omniplay-member-access', 'appointed'), { username: 'F', enabled: true, role: 'admin', groupId: 'g1', groupName: 'OMNIPLAY Support' });
     await setDoc(doc(db, 'omniplay-member-access', 'normal'), { username: 'User', enabled: true, role: 'member', groupId: 'g1' });
     await setDoc(doc(db, 'omniplay-group-views', 'g1'), { enabled: true, allowedDocumentIds: [], allowedPages: ['page_allowed'] });
     await setDoc(doc(db, 'omniplay-member-secrets', 'owner'), { password: 'private-owner' });
