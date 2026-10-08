@@ -28,6 +28,16 @@ async function logout(){clearInterval(presenceTimer);presenceUnsubscribe?.();if(
 function addLogout(session){if(document.querySelector('.session-controls'))return;const controls=document.createElement('div');controls.className='session-controls';const name=document.createElement('span');name.className='login-user';name.textContent=session.name||session.username;const logoutButton=document.createElement('button');logoutButton.type='button';logoutButton.className='secondary logout-btn';logoutButton.textContent='登出';logoutButton.onclick=logout;controls.append(name);if(canViewAudit(session)){const auditButton=document.createElement('button');auditButton.type='button';auditButton.className='secondary audit-log-btn';auditButton.textContent='操作紀錄';auditButton.onclick=showAuditLog;controls.append(auditButton)}controls.append(logoutButton);const settings=document.createElement('details');settings.className='account-settings';const summary=document.createElement('summary');summary.textContent='⚙️';summary.title='帳號與管理設定';summary.setAttribute('aria-label','帳號與管理設定');const menu=document.createElement('div');menu.className='account-settings-menu';for(const button of [...controls.querySelectorAll('button')])menu.append(button);settings.append(summary,menu);controls.append(settings);menu.addEventListener('click',event=>{if(event.target.closest('button'))settings.open=false});document.addEventListener('click',event=>{if(!settings.contains(event.target))settings.open=false});settings.addEventListener('keydown',event=>{if(event.key==='Escape'){settings.open=false;summary.focus()}});(document.querySelector('.sidebar')||document.body).append(controls)}
 function installReadOnlyMode(){window.__omniplayCanEdit=false;document.documentElement.classList.add('viewer-mode');const style=document.createElement('style');style.textContent='.viewer-mode .admin-only,.viewer-mode .platform-actions,.viewer-mode .group-manager-actions,.viewer-mode #addCategoryBtn,.viewer-mode #addPageBtn,.viewer-mode [data-edit-action]{display:none!important}.viewer-mode [contenteditable="true"]{cursor:default!important}.viewer-mode .sheet-workspace button:not(#glNativeSearch button){pointer-events:none!important;opacity:.55}.viewer-mode #glNativeSearch button{pointer-events:auto!important;opacity:1!important}';document.head.appendChild(style);const safe=target=>!!target?.closest?.('.session-controls,#glNativeSearch,#glSearch,#opGameSearch,[data-viewer-control]'),lockFields=()=>document.querySelectorAll('#workspace input,#workspace textarea,#workspace select,[contenteditable="true"]').forEach(el=>{if(safe(el))return;if(el.matches('[contenteditable]'))el.contentEditable='false';else el.disabled=true});new MutationObserver(lockFields).observe(document.documentElement,{childList:true,subtree:true});lockFields();for(const type of['beforeinput','paste','cut','drop'])document.addEventListener(type,e=>{if(!safe(e.target))e.preventDefault()},true);document.addEventListener('contextmenu',e=>{if(e.target.closest?.('#workspace')&&!safe(e.target)){e.preventDefault();e.stopImmediatePropagation()}},true);document.addEventListener('keydown',e=>{if(safe(e.target))return;const sheet=e.target.closest?.('.sheet-workspace')||document.querySelector('.sheet-workspace:hover');if(!sheet)return;const blocked=e.key.length===1&&!e.ctrlKey&&!e.metaKey||['Backspace','Delete','Enter','F2'].includes(e.key)||(e.ctrlKey||e.metaKey)&&['v','x'].includes(e.key.toLowerCase());if(blocked){e.preventDefault();e.stopImmediatePropagation()}},true);document.addEventListener('click',e=>{if(safe(e.target))return;const button=e.target.closest?.('button,[role="button"]');if(!button)return;const label=`${button.textContent||''} ${button.title||''} ${button.getAttribute('aria-label')||''}`;if(button.closest('.sheet-workspace')||/(新增|建立|編輯|修改|刪除|移除|儲存|上傳|設定權限)/.test(label)){e.preventDefault();e.stopImmediatePropagation()}},true)}
 function loginMarkup(){return`<main class="login-screen"><section class="login-card"><div class="login-brand"><span>🔥</span><div><strong>OMNIPLAY ASSETS</strong><small>Game Information &amp; Marketing Resources</small></div></div><div class="login-heading"><h1>登入工作區</h1><p>請輸入帳號與密碼</p></div><form id="loginForm"><label>登入帳號<input id="loginUsername" autocomplete="username" required placeholder="請輸入登入帳號"></label><label>登入密碼<div class="login-password"><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="請輸入密碼"><button type="button" id="togglePassword" aria-label="顯示密碼">顯示</button></div></label><div class="login-options"><label><input id="loginRemember" type="checkbox"> 記住我的登入</label></div><p id="loginError" class="login-error" role="alert"></p><button id="loginSubmit" class="login-submit" type="submit">登入</button></form><div class="login-footer">請使用人員管理中設定的帳號與密碼</div></section></main>`}
+async function flushPendingLoginAudit(){
+ let pending;try{pending=JSON.parse(sessionStorage.getItem('omniplay-pending-login-audit')||'null')}catch{return}
+ if(!pending||pending.authUid!==getAuth().currentUser?.uid)return;
+ try{await setDoc(doc(getFirestore(),'omniplay-audit-events',pending.id),{...pending.data,createdAt:serverTimestamp()});if(JSON.parse(sessionStorage.getItem('omniplay-pending-login-audit')||'null')?.id===pending.id)sessionStorage.removeItem('omniplay-pending-login-audit')}catch(error){console.warn('pending login audit',error)}
+}
+async function saveLoginAudit(session){
+ const pending={id:crypto.randomUUID(),authUid:session.authUid,data:{authUid:session.authUid||'',username:session.username||'',name:session.name||session.username||'',groupName:session.groupName||'',action:'login',item:'',createdAtIso:new Date().toISOString()}};
+ sessionStorage.setItem('omniplay-pending-login-audit',JSON.stringify(pending));
+ await Promise.race([flushPendingLoginAudit(),new Promise(resolve=>setTimeout(resolve,1500))]);
+}
 async function showLogin(){document.body.insertAdjacentHTML('beforeend',loginMarkup());const form=document.querySelector('#loginForm'),error=document.querySelector('#loginError'),submit=document.querySelector('#loginSubmit'),password=document.querySelector('#loginPassword');document.querySelector('#togglePassword').onclick=event=>{const show=password.type==='password';password.type=show?'text':'password';event.currentTarget.textContent=show?'隱藏':'顯示'};form.onsubmit=async event=>{event.preventDefault();error.textContent='';submit.disabled=true;submit.textContent='驗證中…';try{const auth=getAuth(),remember=document.querySelector('#loginRemember').checked;await setPersistence(auth,remember?browserLocalPersistence:browserSessionPersistence);const username=document.querySelector('#loginUsername').value.trim();const administrator=ADMIN_EMAIL===username.toLowerCase();
 let credential;
 if(administrator){
@@ -35,17 +45,22 @@ if(administrator){
 }else{const bridge=await memberCredentials(username,password.value);credential=await signInWithEmailAndPassword(auth,bridge.email,bridge.password)}
 const session=await resolveSession(credential.user);
 if(!session){await signOut(auth);error.textContent='此帳號沒有工作區權限；若已完成交接，請使用 Rondo 登入';return}
-sessionStorage.removeItem(PRESENCE_KEY);saveSession(session,remember);await recordAudit(session,'login');location.reload()}catch(err){console.error(err);error.textContent=['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(err.code)?'帳號或密碼錯誤':err.code==='auth/too-many-requests'?'登入嘗試過多，請稍後再試':err.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':'登入失敗：'+String(err.message||err.code||'連線異常')}finally{submit.disabled=false;submit.textContent='登入'}};requestAnimationFrame(()=>document.querySelector('#loginUsername')?.focus())}
+sessionStorage.removeItem(PRESENCE_KEY);saveSession(session,remember);await saveLoginAudit(session);location.reload()}catch(err){console.error(err);error.textContent=['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(err.code)?'帳號或密碼錯誤':err.code==='auth/too-many-requests'?'登入嘗試過多，請稍後再試':err.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':'登入失敗：'+String(err.message||err.code||'連線異常')}finally{submit.disabled=false;submit.textContent='登入'}};requestAnimationFrame(()=>document.querySelector('#loginUsername')?.focus())}
 
 async function resolveSession(user){
  if(!user)return null;
  const db=getFirestore();
- let config=null;
- try{const snap=await getDoc(doc(db,'omniplay-security','access'));if(snap.exists())config=snap.data()}catch(error){if(user.uid!==BOOTSTRAP_UID)throw new Error('請先發布新版 Firebase 規則，才能啟用人員登入');}
+ const [configResult,profileResult]=await Promise.allSettled([
+  getDoc(doc(db,'omniplay-security','access')),
+  user.uid===BOOTSTRAP_UID?Promise.resolve(null):getDoc(doc(db,'omniplay-member-access',user.uid))
+ ]);
+ let config=null,profile=null,view=null;
+ if(configResult.status==='fulfilled'){const snap=configResult.value;if(snap.exists())config=snap.data()}
+ else if(user.uid!==BOOTSTRAP_UID)throw new Error('請先發布新版 Firebase 規則，才能啟用人員登入');
  const ownerUid=config?.ownerUid||BOOTSTRAP_UID;
  if(user.uid===BOOTSTRAP_UID&&ownerUid!==BOOTSTRAP_UID)return null;
- let profile=null,view=null;
- if(user.uid!==BOOTSTRAP_UID){const snap=await getDoc(doc(db,'omniplay-member-access',user.uid));if(snap.exists())profile=snap.data();}
+ if(profileResult.status==='rejected')throw profileResult.reason;
+ if(profileResult.value?.exists())profile=profileResult.value.data();
  if(profile?.enabled&&user.uid!==ownerUid&&!(config?.credentialsMigrated&&['OMNIPLAY','OMNIPLAY Support'].includes(String(profile.groupName||'').trim()))){const snap=await getDoc(doc(db,'omniplay-group-views',profile.groupId));if(snap.exists())view=snap.data();}
  const session=accessSession(user,config,profile,view);
  if(session)session.loginAt=readSession()?.authUid===user.uid?readSession().loginAt:new Date().toISOString();
@@ -55,7 +70,7 @@ const auth=getAuth(getApps().length?getApps().find(app=>app.name==='[DEFAULT]'):
 await auth.authStateReady();
 let session=null,accessError='';
 try{session=await resolveSession(auth.currentUser)}catch(error){accessError=error.code==='permission-denied'?'此帳號的群組權限尚未啟用，請聯絡管理員':String(error.message||'無法讀取人員權限，請稍後再試')}
-if(session){
+if(session){ void flushPendingLoginAudit();
  await startPresence(session);
  document.documentElement.classList.add('is-authenticated','auth-ready');window.__omniplaySession=session;window.__omniplayCanEdit=!!session.canEdit;
  if(!session.canEdit)installReadOnlyMode();
