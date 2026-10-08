@@ -270,3 +270,6 @@ html[data-theme="light"] #groupManagerDialog .group-delete {
 .account-settings-menu>button{width:100%;text-align:left;white-space:nowrap;background:#fff;border-color:transparent;padding:11px 12px}
 .account-settings-menu>button:hover{background:#edf4fd;border-color:#d8e5f5}
 @media(max-width:420px){.account-settings-menu{min-width:190px}}
+
+.account-sync-tooltip{position:fixed;z-index:11000;width:340px;max-width:calc(100vw - 24px);padding:15px 17px;border:1px solid #cbdcf0;border-radius:12px;background:#f8fbff;color:#334155;box-shadow:0 8px 28px rgba(35,57,86,.16);font:13px/1.7 Arial,sans-serif;white-space:pre-line;pointer-events:none}
+.account-sync-tooltip[hidden]{display:none}
