@@ -2,7 +2,7 @@ import { getFirestore } from 'https://www.gstatic.com/firebasejs/12.18.0/firebas
 import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=20261008-game-links-1';
 const session = window.__omniplaySession;
 if (session?.superAdmin) {
-  const controls = document.querySelector('.session-controls') || document.querySelector('.sidebar');
+  const controls = document.querySelector('.account-settings-menu') || document.querySelector('.session-controls') || document.querySelector('.sidebar');
   const button = document.createElement('button');
   button.className = 'secondary'; button.type = 'button';
   button.textContent = session.bootstrap ? '建立 Rondo 並交接' : '管理員權限';
