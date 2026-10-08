@@ -1,5 +1,5 @@
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=20261008-internal-1';
+import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=20261008-customer-op-1';
 const session = window.__omniplaySession;
 if (session?.superAdmin) {
   const controls = document.querySelector('.session-controls') || document.querySelector('.sidebar');
