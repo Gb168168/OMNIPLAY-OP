@@ -109,16 +109,18 @@ function renderCustomerNav(internal=false){let root=$('#categoryList');if(intern
 function renameWorkspaceItem(item,kind){if(!isAdminWorkspaceView())return;const name=prompt('重新命名'+kind+'：',item.displayName||item.name)?.trim();if(!name||name===(item.displayName||item.name))return;item.displayName=name;save();renderNav();renderPage()}
 function openWorkspaceItemMenu(item,kind,remove){if(!isAdminWorkspaceView())return;let dialog=$('#workspaceItemMenu');if(!dialog){dialog=document.createElement('dialog');dialog.id='workspaceItemMenu';dialog.className='workspace-item-menu';document.body.append(dialog)}dialog.innerHTML='<div class="dialog-form"><h3>'+esc(item.displayName||item.name)+'</h3><button type="button" class="secondary" data-rename>重新命名'+kind+'</button><button type="button" class="secondary" data-remove>刪除'+kind+'</button><button type="button" class="secondary" data-close-menu>取消</button></div>';dialog.querySelector('[data-rename]').onclick=()=>{dialog.close();renameWorkspaceItem(item,kind)};dialog.querySelector('[data-remove]').onclick=()=>{dialog.close();remove()};dialog.querySelector('[data-close-menu]').onclick=()=>dialog.close();dialog.showModal()}
 
+let openCategoryId=null;
+function closeCategoryMenu(){openCategoryId=null;document.querySelectorAll('.category.menu-open').forEach(element=>{element.classList.remove('menu-open');element.querySelector('.category-head')?.setAttribute('aria-expanded','false')})}
+document.addEventListener('click',event=>{if(!event.target.closest('.category'))closeCategoryMenu()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeCategoryMenu()});
 function renderNav(){$('#resourceNavigation')?.remove();if(isCustomerPortal())return renderCustomerNav();const r=$('#categoryList');
 r.innerHTML='';
 state.categories.forEach(c=>{const b=document.createElement('div');
-b.className='category';
+b.className='category'+(openCategoryId===c.id?' menu-open':'');
 b.innerHTML=`<div class="category-head ${c.id===state.activeCategoryId?'active':''}"><span>📁 ${esc(c.displayName||c.name)}</span><button class="mini">⋯</button></div><div class="category-pages"></div>`;
-b.querySelector('.category-head').onclick=e=>{if(e.target.classList.contains('mini'))return;
-state.activeCategoryId=c.id;
-state.activePageId=c.pages?.[0]?.id||null;
-renderNav();
-renderPage()};
+const head=b.querySelector('.category-head');head.setAttribute('role','button');head.tabIndex=0;head.setAttribute('aria-expanded',String(openCategoryId===c.id));
+head.onclick=e=>{if(e.target.closest('.mini'))return;const opening=openCategoryId!==c.id;closeCategoryMenu();if(opening){openCategoryId=c.id;b.classList.add('menu-open');head.setAttribute('aria-expanded','true')}};
+head.onkeydown=e=>{if(e.target.closest('.mini'))return;if(e.key==='Enter'||e.key===' '){e.preventDefault();head.click()}};
 const deleteCategory=()=>{if(confirm(`刪除分類「${c.name}」？`)){state.categories=state.categories.filter(x=>x.id!==c.id);
 save();
 renderNav();
@@ -127,7 +129,7 @@ const ps=b.querySelector('.category-pages');
 (c.pages||[]).filter(p=>!isLegacyGameAssetPage(c,p)).forEach(p=>{const row=document.createElement('div');
 row.className=`page-row ${p.id===state.activePageId?'active':''}`;
 row.innerHTML=`<button class="page-link">${icon(p.type)} ${esc(p.displayName||p.name)}</button><button class="page-rename" title="重新命名頁面">✎</button><button class="page-delete" title="刪除頁面">×</button>`;
-row.querySelector('.page-link').onclick=()=>{state.activeCategoryId=c.id;
+row.querySelector('.page-link').onclick=()=>{openCategoryId=null;state.activeCategoryId=c.id;
 state.activePageId=p.id;
 renderNav();
 renderPage()};
