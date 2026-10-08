@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { memberCredentials, collectMembers, groupWorkspace, groupDocumentIds, isReservedUsername } from '../member-model.js';
+import { memberCredentials, collectMembers, groupWorkspace, groupDocumentIds, isReservedUsername, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_PAGE, CUSTOMER_OP_DOCUMENT } from '../member-model.js';
 const internal = { id: 'g1', name: 'OMNIPLAY Support', allowedPages: ['page_op_game'], members: [
   { id: 'm1', username: ' F ', password: 'short', name: 'F' },
   { id: 'm2', username: 'K', password: 'reserved' },
@@ -78,4 +78,27 @@ test('internal reference pages are automatic for internal groups and excluded fr
     assert.equal(groupWorkspace(workspace, group).categories.length, 2);
     assert(groupDocumentIds(workspace, group, ids).includes('op-game-form-records'));
   }
+});
+
+test('customer OP GAME is available to every group without exposing original records',()=>{
+ const workspace={categories:[{id:'internal',name:'內部參考，請勿外流',pages:[{id:'original-op',name:'OP GAME',type:'sheet',snapshot:{secret:'not-copied'}}]}]};
+ assert.equal(ensureCustomerOpPage(workspace),true);assert.equal(ensureCustomerOpPage(workspace),false);
+ const group={id:'client',name:'Client',allowedPages:[]};
+ const view=groupWorkspace(workspace,group);
+ assert(view.allowedPages.includes(CUSTOMER_OP_PAGE));
+ assert.equal(view.categories.length,1);
+ assert.equal(view.categories[0].pages[0].customerOpGame,true);
+ assert.doesNotMatch(JSON.stringify(view),/not-copied|original-op/);
+ assert.deepEqual(groupDocumentIds(workspace,group,['op-game-form-records','game-list-online-page','sheet-original-op']),[CUSTOMER_OP_DOCUMENT]);
+});
+test('customer catalog filters each game by assigned group and strips all internal fields',()=>{
+ const rows={rowsJson:JSON.stringify([['100','1','Allowed'],['100','2','Allowed'],['200','1','Other'],['300','1','Unassigned']])};
+ const records={records:{'100':{groupIds:['client'],mandarinName:'中文',status:'上線',assetIds:['secret'],folders:[{name:'private'}],notes:'private note'},'200':{groupIds:['other']},'300':{groupIds:[]}}};
+ const catalog=customerGameCatalog(rows,records,{id:'client'});
+ assert.deepEqual(JSON.parse(catalog.rowsJson).map(row=>row[0]),['100','100']);
+ assert.deepEqual(Object.keys(catalog.records),['100']);
+ assert.deepEqual(catalog.records['100'],{mandarinName:'中文',status:'上線'});
+ assert.doesNotMatch(JSON.stringify(catalog),/groupIds|assetIds|folders|private|Other|Unassigned/);
+ assert.equal(JSON.parse(customerGameCatalog(rows,records,{id:'none'}).rowsJson).length,0);
+ assert.equal(JSON.parse(customerGameCatalog({rowsJson:'invalid'},records,{id:'client'}).rowsJson).length,0);
 });
