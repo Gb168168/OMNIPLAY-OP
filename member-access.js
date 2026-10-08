@@ -226,7 +226,15 @@ export async function transferToRondo(password, db = getFirestore()) {
   await signOut(getAuth());
 }
 
-export async function getCustomerGameCatalog(db = getFirestore()) {
+export async function getCustomerGameCatalog(db = getFirestore(), previewGroupId = null) {
+  if (previewGroupId) {
+    if (!await editable(db)) throw new Error('只有內部管理者可以預覽群組畫面');
+    const root = await firebaseGetDoc(doc(db,'omniplay-group-views',previewGroupId));
+    if (!root.exists() || root.data().enabled !== true) throw new Error('此群組尚未同步');
+    const snap = await firebaseGetDoc(doc(db,'omniplay-group-views',previewGroupId,'documents',CUSTOMER_OP_DOCUMENT));
+    if (!snap.exists()) throw new Error('此群組的遊戲資料尚未同步');
+    return snap.data();
+  }
   if (await owner(db)) {
     const [rows, records, workspace] = await Promise.all([firebaseGetDoc(doc(db,'omniplay','game-list-online-page')),firebaseGetDoc(doc(db,'omniplay','op-game-form-records')),firebaseGetDoc(doc(db,'omniplay','workspace'))]);
     const profile = await firebaseGetDoc(doc(db,'omniplay-member-access',getAuth().currentUser.uid));
