@@ -313,3 +313,6 @@ table th,table td{padding:8px 7px!important}
 .op-game-table td{max-width:220px!important;white-space:normal!important;overflow-wrap:anywhere;line-height:1.4}
 .op-game-table th.op-admin-column:first-child,
 .op-game-table td:has(>.op-edit-btn){min-width:0!important;width:64px!important;max-width:64px!important}
+
+/* Center column headings without changing data-cell alignment. */
+table thead th{ text-align:center!important;vertical-align:middle!important }
