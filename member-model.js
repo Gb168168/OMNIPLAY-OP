@@ -39,8 +39,18 @@ export function withoutCredentials(value) {
     .filter(([key]) => !/^(password|passwordHash|adminAuth|members|authUid|firebaseUid|accessToken|refreshToken|idToken)$/i.test(key))
     .map(([key, item]) => [key, withoutCredentials(item)]));
 }
+export function isInternalReferenceCategory(category) {
+  return String(category?.name || '').replace(/^\s*📁\s*/, '').trim() === '內部參考，請勿外流';
+}
+export function effectiveGroupPages(workspace, group) {
+  const internal = ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim());
+  const privateIds = new Set((workspace.categories || []).filter(isInternalReferenceCategory).flatMap(category => (category.pages || []).map(page => page.id)));
+  const allowed = new Set((group.allowedPages || []).filter(id => internal || !privateIds.has(id)));
+  if (internal) for (const id of privateIds) allowed.add(id);
+  return allowed;
+}
 export function groupWorkspace(workspace, group) {
-  const allowed = new Set(group.allowedPages || []), platformAccess =
+  const allowed = effectiveGroupPages(workspace, group), platformAccess =
     ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) && allowed.has(PLATFORM_PERMISSION);
   const categories = (workspace.categories || []).map(category => ({ ...category,
     pages: (category.pages || []).filter(page => allowed.has(page.id)) })).filter(category => category.pages.length);
@@ -55,7 +65,7 @@ export function groupWorkspace(workspace, group) {
   return withoutCredentials(result);
 }
 export function groupDocumentIds(workspace, group, sourceIds) {
-  const allowed = new Set(group.allowedPages || []);
+  const allowed = effectiveGroupPages(workspace, group);
   const pages = (workspace.categories || []).flatMap(category => category.pages || []).filter(page => allowed.has(page.id));
   const ids = new Set();
   for (const page of pages.filter(page => page.type === 'sheet')) {
