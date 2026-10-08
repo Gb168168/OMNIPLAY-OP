@@ -10,7 +10,7 @@ service cloud.firestore {
     function member() { return get(/databases/$(database)/documents/omniplay-member-access/$(request.auth.uid)).data; }
     function isAdmin() {
       return isOwner() || (signedIn() && configExists() && config().credentialsMigrated == true
-        && member().enabled == true && member().get('role', 'member') == 'admin');
+        && member().enabled == true && member().groupName in ['OMNIPLAY', 'OMNIPLAY Support']);
     }
     function canViewGroup(groupId) {
       return signedIn() && member().enabled == true && member().groupId == groupId
