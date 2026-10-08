@@ -7,11 +7,32 @@ if (session?.superAdmin) {
   button.className = 'secondary'; button.type = 'button';
   button.textContent = session.bootstrap ? '建立 Rondo 並交接' : '管理員權限';
   const audit=controls.querySelector('.audit-log-btn,.logout-btn');controls.insertBefore(button,audit);
-  const resync = document.createElement('button'); resync.className = 'secondary'; resync.type = 'button'; resync.textContent = '重新同步人員登入'; controls.insertBefore(resync,controls.querySelector('.audit-log-btn,.logout-btn'));
+  const resync = document.createElement('button'); resync.className = 'secondary'; resync.type = 'button'; resync.textContent = '同步帳號與權限'; controls.insertBefore(resync,controls.querySelector('.audit-log-btn,.logout-btn'));
+
+  const syncHelp = document.createElement('div');
+  syncHelp.id = 'accountSyncHelp'; syncHelp.className = 'account-sync-tooltip';
+  syncHelp.setAttribute('role', 'tooltip'); syncHelp.hidden = true;
+  syncHelp.textContent = '主要用在：\n\n• 新增使用者後，讓帳號可以登入。\n• 修改帳號或密碼後，更新登入資料。\n• 移除使用者後，停用舊帳號。\n• 更新群組權限、遊戲和檔案後，重新產生客戶可查看的資料。\n\n平常不用一直按。系統已有自動同步，這顆按鈕是同步失敗或資料沒更新時的手動補救。';
+  document.body.append(syncHelp); resync.setAttribute('aria-describedby', syncHelp.id);
+  const hideSyncHelp = () => { syncHelp.hidden = true; };
+  const showSyncHelp = () => {
+    syncHelp.hidden = false;
+    const rect = resync.getBoundingClientRect(), box = syncHelp.getBoundingClientRect();
+    syncHelp.style.left = Math.max(12, Math.min(rect.left - box.width - 12, innerWidth - box.width - 12)) + 'px';
+    syncHelp.style.top = Math.max(12, Math.min(rect.top, innerHeight - box.height - 12)) + 'px';
+  };
+  resync.addEventListener('mouseenter', showSyncHelp);
+  resync.addEventListener('mouseleave', hideSyncHelp);
+  resync.addEventListener('focus', showSyncHelp);
+  resync.addEventListener('blur', hideSyncHelp);
+  resync.addEventListener('click', hideSyncHelp);
+  resync.addEventListener('keydown', event => { if (event.key === 'Escape') hideSyncHelp(); });
+  window.addEventListener('resize', hideSyncHelp);
+  document.querySelector('.account-settings')?.addEventListener('toggle', event => { if (!event.target.open) hideSyncHelp(); });
   resync.onclick = async () => {
     resync.disabled = true; const status = document.querySelector('#cloudStatus');
-    status.textContent = '☁️ 正在驗證並同步人員登入…';
-    try { await syncMembersAndViews(getFirestore()); status.textContent = '☁️ 人員登入已同步'; }
+    status.textContent = '☁️ 正在同步帳號與權限…';
+    try { await syncMembersAndViews(getFirestore()); status.textContent = '☁️ 帳號與權限已同步'; }
     catch (error) { status.textContent = '⚠️ ' + error.message; }
     finally { resync.disabled = false; }
   };
