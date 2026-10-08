@@ -72,6 +72,23 @@ service cloud.firestore {
           && allowedDocument(groupId, documentId));
       }
     }
+    match /omniplay-active-sessions/{sessionId} {
+      allow get: if isAdmin() || (signedIn() && (!exists(/databases/$(database)/documents/omniplay-active-sessions/$(sessionId)) || resource.data.authUid == request.auth.uid));
+      allow list: if isAdmin();
+      allow create: if signedIn() && (isOwner() || member().enabled == true)
+        && request.resource.data.keys().hasOnly(['authUid','username','name','groupName','startedAt','lastSeen','active','revoked'])
+        && request.resource.data.authUid == request.auth.uid
+        && (isOwner() || (request.resource.data.username == member().username && request.resource.data.groupName == member().groupName))
+        && request.resource.data.startedAt == request.time && request.resource.data.lastSeen == request.time
+        && request.resource.data.active == true && request.resource.data.revoked == false;
+      allow update: if signedIn() && resource.data.authUid == request.auth.uid && resource.data.revoked == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen','active'])
+        && request.resource.data.lastSeen == request.time && request.resource.data.active is bool;
+      allow update: if isAdmin() && resource.data.authUid != ownerUid() && resource.data.authUid != request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked','active','kickedAt','kickedBy'])
+        && request.resource.data.revoked == true && request.resource.data.active == false
+        && request.resource.data.kickedAt == request.time && request.resource.data.kickedBy == request.auth.uid;
+    }
     match /omniplay-audit-events/{eventId} {
       allow read: if isAdmin() || (signedIn() && member().enabled == true
         && member().internal == true && member().username.lower() == 'k');
@@ -89,3 +106,4 @@ service cloud.firestore {
     }
   }
 }
+
