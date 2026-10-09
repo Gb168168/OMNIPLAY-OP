@@ -1,7 +1,8 @@
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261009-game-information-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261009-online-source-1';
 import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-online-source-1';
-import { storedAsset, downloadAsset } from './op-game-form.js?v=20261009-online-source-1';
+import { storedAsset, downloadAsset } from './op-game-form.js?v=20261009-game-information-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -94,7 +95,7 @@ if(s.exists()){Object.assign(state,s.data());loadedSignature=workspaceDataSignat
 else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
 await saveNow()}await hydrateSheetSnapshots();state.customerGroups||=[];
 state.customers||=[];
-if(window.__omniplaySession?.superAdmin){migrateGameAssetPages();ensureCustomerOpPage(state);initializeGroupPermissions();}
+if(window.__omniplaySession?.superAdmin){migrateGameAssetPages();ensureCustomerOpPage(state);ensureGameInformationPage(state);initializeGroupPermissions();}
 if(state.customerOptionVersion!==CUSTOMER_OPTION_VERSION){state.customerTypeOptions=[...DEFAULT_CUSTOMER_TYPES];state.customerProgressOptions=[...DEFAULT_CUSTOMER_PROGRESS];state.customerCommAppOptions=[...DEFAULT_COMM_APPS];state.customerOptionVersion=CUSTOMER_OPTION_VERSION}
 state.customerTypeOptions||=[...DEFAULT_CUSTOMER_TYPES];
 state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
@@ -194,10 +195,10 @@ renderPage()}};
 ps.append(row)});
 r.append(b)});
 const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete,.page-rename').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.add('hidden');$('#customerBtn').classList.toggle('hidden',!canAccessPlatformList());$('#addPageBtn').disabled=!state.activeCategoryId||!adminView;document.documentElement.classList.remove('access-loading');if(canManageResources())renderCustomerNav(true)}
-async function renderPage(){$('#resourceGameEditor')?.remove();dispose();rememberView('page');$('#customerBtn').classList.remove('active');
+async function renderPage(){$('#gameInformationTooltip')?.remove();$('#resourceGameEditor')?.remove();dispose();rememberView('page');$('#customerBtn').classList.remove('active');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
-if(p?.type==='sheet'&&!isOpGame&&!p.customerOpGame&&window.ensureSpreadsheetLibraries){$('#workspace').classList.remove('hidden');$('#workspace').innerHTML='<div class="notice">正在載入試算表功能…</div>';try{await window.ensureSpreadsheetLibraries()}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(error.message)+' <button class="secondary" data-retry-sheet>重試</button></div>';$('#workspace [data-retry-sheet]').onclick=()=>renderPage();return}}
+if(p?.type==='sheet'&&!p.gameInformation&&!isOpGame&&!p.customerOpGame&&window.ensureSpreadsheetLibraries){$('#workspace').classList.remove('hidden');$('#workspace').innerHTML='<div class="notice">正在載入試算表功能…</div>';try{await window.ensureSpreadsheetLibraries()}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(error.message)+' <button class="secondary" data-retry-sheet>重試</button></div>';$('#workspace [data-retry-sheet]').onclick=()=>renderPage();return}}
 if(isGameList&&typeof window.renderGameListOnlinePage!=='function')normalizeGameListCells(p);
 if(isOpGame&&typeof window.renderOpGameFormPage!=='function')await syncOpGameFromGameList(p);
 $('#emptyState').classList.toggle('hidden',!!p||!!c);
@@ -209,7 +210,7 @@ const resourceEntry=customerSectionPages().find(entry=>entry.page?.id===p?.id);l
 if(resourceEntry&&canManageResources()){if(resourcePreviewGroup){const group=state.customerGroups.find(g=>g.id===resourcePreviewGroup);try{const customerSnapshot=await getDoc(doc(db,'omniplay-group-views',group.id));if(!customerSnapshot.exists()||!customerSnapshot.data().enabled)throw new Error('此群組尚未同步');resourceState=customerSnapshot.data()}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(firebaseError(error))+'</div>';return}resourcePage=resourceState.categories.flatMap(c=>c.pages||[]).find(item=>item.id===p.id);resourceReadonly=true;if(!resourcePage){$('#workspace').innerHTML='<div class="notice">這個群組沒有此頁面的查看權限。</div>';return}if(resourcePage.customerOpGame)resourcePage={...resourcePage,previewGroupId:group.id}}else if(p.customerOpGame){resourcePage={...p,customerOpGame:false};const sourceCategory=state.categories.find(category=>category.pages?.some(item=>item.name==='Game List_Online'));const sourcePage=sourceCategory?.pages.find(item=>item.name==='Game List_Online');if(sourcePage){const button=document.createElement('button');button.type='button';button.id='resourceGameEditor';button.className='secondary';button.textContent='新增／移除遊戲';button.onclick=()=>{state.activeCategoryId=sourceCategory.id;state.activePageId=sourcePage.id;renderNav();renderPage()};$('.actions').append(button)}}$('#pageTitle').textContent=customerSectionLabel(resourceEntry.section);$('#breadcrumb').textContent=resourcePreviewGroup?'客戶畫面預覽（唯讀）':'客戶參考文件 / 管理模式';}
 if(resourceReadonly&&resourcePage?.type==='sheet'&&!resourcePage.customerOpGame){const data=firstSheet(resourcePage.snapshot)?.cellData||{};$('#workspace').innerHTML='<div class="notice">客戶群組預覽（唯讀）</div><table>'+Object.entries(data).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,row])=>'<tr>'+Object.entries(row).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,cell])=>'<td>'+esc(cellValue(cell))+'</td>').join('')+'</tr>').join('')+'</table>';return}
 if(!p){if(!c)$('#emptyState').innerHTML='<div><h2>目前沒有分類</h2><p>按「新增分類」開始建立工作區。</p></div>';if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
-return}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state:resourceState,page:resourcePage,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(resourcePage,[],resourceReadonly)}
+return}if(p?.gameInformation)return renderGameInformationPage({state,page:p,saveWorkspace:()=>{save();renderNav()}});if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state:resourceState,page:resourcePage,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(resourcePage,[],resourceReadonly)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
 function cellValue(cell){let value=cell;for(let i=0;i<4&&value&&typeof value==='object'&&'v'in value;i++)value=value.v;return value&&typeof value==='object'?'':(value??'')}
 function normalizedHeader(value){const key=String(value??'').toLowerCase().replace(/%/g,' percent ').replace(/[^a-z0-9]+/g,' ').trim();return key==='list of games'?'game name english':key}
