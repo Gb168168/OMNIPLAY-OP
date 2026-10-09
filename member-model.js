@@ -1,3 +1,4 @@
+import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
 // No Firebase or DOM dependencies: the same model is used by login and sync.
 export const ADMIN_UID = 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2';
@@ -58,9 +59,7 @@ export function ensureCustomerOpPage(workspace) {
   return true;
 }
 export function customerGameCatalog(rowData = {}, recordData = {}, group = null, workspace = {}) {
-  let rows = [];
-  try { rows = typeof rowData.rowsJson === 'string' ? JSON.parse(rowData.rowsJson) : rowData.rows || []; } catch {}
-  if (!Array.isArray(rows)) rows = [];
+  const rows = preferredGameRows(gameListRows(rowData));
   const source = recordData.records || {}, records = {}, fields = ['mandarinName', 'status', 'releaseDate', 'pagcor', 'freeSpin'];
   const selected = rows.filter(row => Array.isArray(row) && String(row[0] ?? '').trim() && (
     !group || (Array.isArray(source[String(row[0]).trim()]?.groupIds) && source[String(row[0]).trim()].groupIds.includes(group.id))
