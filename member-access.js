@@ -45,11 +45,11 @@ async function editable(db = getFirestore()) {
 async function passwordSecrets(db) {
   const result = new Map();
   const snap = await getDocs(collection(db, 'omniplay-member-secrets'));
-  for (const item of snap.docs) result.set(item.data().key, item.data());
+  for (const item of snap.docs){result.set(item.data().key,item.data());written.set('omniplay-member-secrets/'+item.id,JSON.stringify({key:item.data().key,password:item.data().password}))}
   return result;
 }
 async function storePasswords(db, workspace) {
-  for (const member of collectMembers(workspace)) await firebaseSetDoc(doc(db, 'omniplay-member-secrets', await digest(member.key)), { key: member.key, password: member.password });
+ for(const member of collectMembers(workspace)){const ref=doc(db,'omniplay-member-secrets',await digest(member.key)),data={key:member.key,password:member.password},serialized=JSON.stringify(data);if(written.get(ref.path)===serialized)continue;await firebaseSetDoc(ref,data);written.set(ref.path,serialized)}
 }
 export async function getDoc(ref) {
   const session = window.__omniplaySession;
@@ -82,6 +82,7 @@ async function provision(db, member) {
   const key = await digest(member.key), credentials = await memberCredentials(member.username, member.password);
   const aliasKey = 'alias-' + await digest(credentials.email);
   const previous = bindings.get(key)?.email === credentials.email ? bindings.get(key) : bindings.get(aliasKey);
+  if(previous?.uid&&previous.email===credentials.email&&previous.password===credentials.password)return previous.uid;
   const primary = getApps().find(app => app.name === '[DEFAULT]');
   const auxiliary = getApps().find(app => app.name === 'member-provisioning') || initializeApp(primary.options, 'member-provisioning');
   const auth = getAuth(auxiliary);
