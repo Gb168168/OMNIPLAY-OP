@@ -1,3 +1,4 @@
+import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
 // No Firebase or DOM dependencies: the same model is used by login and sync.
 export const ADMIN_UID = 'xqDN3vaLfufEkz4TZ1omSmGkQ2A2';
 export const ADMIN_USERNAME = 'Rondo';
@@ -75,7 +76,8 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null,
     const links = [], seen = new Set(), sourceRecord = source[id] || {};
     const add = (page, folder, name) => { const key = page.id + '::' + folder.id; if (seen.has(key)) return; seen.add(key); links.push({id:key,pageId:page.id,workspaceFolderId:folder.id,name:String(name || folder.name || 'Files'),type:folder.type === 'photos' ? 'photos' : 'files'}); };
     for (const link of sourceRecord.folders || []) { const page = pages.find(page => page.id === link.pageId), folder = page && findFolder(page.folders,link.workspaceFolderId); if (folder) add(page,folder,link.name); }
-    for (const page of pages) for (const folder of page.folders || []) if (String(folder.gameAssetGameId || '') === id || String(folder.name || '').match(/^\d+/)?.[0] === id) add(page,folder);
+    const row=selected.find(row=>String(row[0]).trim()===id);
+    for(const link of automaticGameFolders(workspace,{id,name:row?.[2]||''},allowed)){const page=pages.find(page=>page.id===link.pageId),folder=findFolder(page?.folders,link.workspaceFolderId);if(page&&folder)add(page,folder,link.name)}
     const assetIds = (sourceRecord.assetIds || sourceRecord.resourceIds || []).filter(key => typeof key === 'string' && pages.some(page => page.id === key.split('::')[0]));
     if (links.length || assetIds.length) assetLinks[id] = {folders:links,assetIds};
   }
