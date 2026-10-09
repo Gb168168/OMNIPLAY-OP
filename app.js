@@ -1,5 +1,5 @@
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-game-links-1';
-import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-verified-permissions-1';
+import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-quota-reduction-1';
 import { storedAsset, downloadAsset } from './op-game-form.js?v=20261008-option-management-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
