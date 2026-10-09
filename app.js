@@ -269,13 +269,14 @@ const l=$('#permissionList');
 const total=workspacePageIds().length;
 if(!total)l.innerHTML='<div class="empty-mini"><strong>目前沒有可設定的頁面</strong></div>';
 if(isInternalGroup(g)){const section=document.createElement('section');section.className='permission-category';section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">⚙️</span><strong>系統管理</strong><span class="permission-category-count">1 頁</span></div><div class="permission-category-pages"><label class="permission-row" data-page-id="${PLATFORM_LIST_PERMISSION}"><input type="checkbox" value="${PLATFORM_LIST_PERMISSION}" ${g.allowedPages.includes(PLATFORM_LIST_PERMISSION)?'checked':''}><span class="permission-icon">🏢</span><span><strong>所有平台列表</strong><small>管理平台、群組、人員與權限</small></span></label></div>`;l.append(section)}
-state.categories.forEach(c=>{const pages=(c.pages||[]).filter(p=>isVisibleGroupPermissionPage(c,p));
+const resourceEntries=customerSectionPages(),resourceById=new Map(resourceEntries.filter(entry=>entry.page).map((entry,index)=>[entry.page.id,{...entry,index}]));
+state.categories.forEach(c=>{const pages=(c.pages||[]).filter(p=>isVisibleGroupPermissionPage(c,p)).sort((left,right)=>(resourceById.get(left.id)?.index??99)-(resourceById.get(right.id)?.index??99));
 if(!pages.length)return;
 const section=document.createElement('section');
 section.className='permission-category';
-section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">📁</span><strong>${esc(c.name)}</strong><span class="permission-category-count">${pages.length} 頁</span></div><div class="permission-category-pages"></div>`;
+section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">📁</span><strong>${esc(c.displayName||c.name)}</strong><span class="permission-category-count">${pages.length} 頁</span></div><div class="permission-category-pages"></div>`;
 const pageList=section.querySelector('.permission-category-pages');
-pages.forEach(p=>pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${icon(p.type)}</span><span><strong>${esc(p.name)}</strong><small>頁面</small></span></label>`));
+pages.forEach(p=>{const entry=resourceById.get(p.id);pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${entry?entry.section.icon:icon(p.type)}</span><span><strong>${esc(entry?customerSectionLabel(entry.section):(p.displayName||p.name))}</strong><small>頁面</small></span></label>`)});
 l.append(section)});
 l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySelectorAll('input:checked').length} 個頁面`);
 $('#backGroup').onclick=renderCustomers;
