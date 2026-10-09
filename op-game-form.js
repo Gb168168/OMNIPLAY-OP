@@ -1,7 +1,7 @@
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
 export { storedAsset, downloadAsset, uniqueGames };
-export function openGameAssetsFromRecords(game,state,saveWorkspace,data,readOnly=false){records=data.records||{};fieldOptions=data.fieldOptions||structuredClone(DEFAULT_FIELD_OPTIONS);openAssetViewer(game,state,saveWorkspace,[],readOnly)}
+export function openGameAssetsFromRecords(game,state,saveWorkspace,data,readOnly=false){installStyles();records=data.records||{};fieldOptions=data.fieldOptions||structuredClone(DEFAULT_FIELD_OPTIONS);openAssetViewer(game,state,saveWorkspace,[],readOnly)}
 import { getDoc, setDoc, getCustomerGameCatalog } from './member-access.js?v=20261009-online-source-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';import{getFirestore,doc}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';import{getStorage,ref as storageRef,uploadBytes,getDownloadURL,deleteObject}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js';
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'},app=getApps().length?getApps()[0]:initializeApp(cfg),db=getFirestore(app),storage=getStorage(app),rowsRef=doc(db,'omniplay','game-list-online-page'),recordsRef=doc(db,'omniplay','op-game-form-records');
