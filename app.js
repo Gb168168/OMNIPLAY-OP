@@ -1,5 +1,5 @@
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-game-links-1';
-import { getDoc, setDoc } from './member-access.js?v=20261008-admin-resources-1';
+import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-direct-permissions-1';
 import { storedAsset, downloadAsset } from './op-game-form.js?v=20261008-option-management-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
@@ -291,12 +291,10 @@ pages.forEach(p=>{const entry=resourceById.get(p.id);pageList.insertAdjacentHTML
 l.append(section)});
 l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySelectorAll('input:checked').length} 個頁面`);
 $('#backGroup').onclick=renderCustomers;
-$('#savePerm').onclick=()=>{const rows=[...l.querySelectorAll('.permission-row[data-page-id]')];
-g.pageOrder=rows.map(x=>x.dataset.pageId);
-g.allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId);
-g.permissionMode='custom';
-save();
-renderCustomers()}}
+$('#savePerm').onclick=async()=>{const rows=[...l.querySelectorAll('.permission-row[data-page-id]')],button=$('#savePerm'),allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId),pageOrder=rows.map(x=>x.dataset.pageId);
+button.disabled=true;button.textContent='正在同步客戶權限…';
+try{await saveGroupPermissions(db,g.id,allowedPages,pageOrder);Object.assign(g,{allowedPages,pageOrder,permissionMode:'custom'});$('#cloudStatus').textContent='☁️ 群組權限已同步到客戶端';renderCustomers();alert('群組權限已儲存並同步到客戶端')}catch(error){button.disabled=false;button.textContent='重試儲存群組權限';alert('權限同步失敗：'+firebaseError(error))}
+}}
 $('#customerBtn').onclick=renderCustomers;
 function updateNewItemFields(){const createCategory=$('#newItemCategory').value==='__new__',createPage=!createCategory||$('#newItemCreatePage').checked;$('#newItemCategoryField').classList.toggle('hidden',!createCategory);$('#newItemCategoryName').required=createCategory;$('#newItemCategoryName').disabled=!createCategory;$('#newItemPageChoice').classList.toggle('hidden',!createCategory);$('#newItemPageFields').classList.toggle('hidden',!createPage);$('#pageName').required=createPage;$('#pageName').disabled=!createPage;$('#pageType').disabled=!createPage;}
 function openNewItem(){if(!isAdminWorkspaceView())return;$('#newItemCategory').innerHTML=state.categories.map(category=>`<option value="${esc(category.id)}">${esc(category.displayName||category.name)}</option>`).join('')+'<option value="__new__">＋ 新增分類…</option>';$('#newItemCategory').value=state.categories.some(c=>c.id===state.activeCategoryId)?state.activeCategoryId:(state.categories[0]?.id||'__new__');$('#pageName').value='';$('#newItemCategoryName').value='';$('#newItemCreatePage').checked=true;updateNewItemFields();$('#pageDialog').showModal();}
