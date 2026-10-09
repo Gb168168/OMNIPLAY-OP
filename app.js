@@ -1,4 +1,4 @@
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261009-information-layout-2';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261009-multi-jackpot-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261009-online-source-1';
 import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-online-source-1';
