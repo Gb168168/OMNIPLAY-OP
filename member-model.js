@@ -87,7 +87,6 @@ export function effectiveGroupPages(workspace, group) {
   const privateIds = new Set((workspace.categories || []).filter(isInternalReferenceCategory).flatMap(category => (category.pages || []).map(page => page.id)));
   const allowed = new Set((group.allowedPages || []).filter(id => internal || !privateIds.has(id)));
   if (internal) for (const id of privateIds) allowed.add(id);
-  if ((workspace.categories || []).some(category => (category.pages || []).some(page => page.id === CUSTOMER_OP_PAGE))) allowed.add(CUSTOMER_OP_PAGE);
   return allowed;
 }
 export function groupWorkspace(workspace, group) {
