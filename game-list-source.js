@@ -17,5 +17,5 @@ export function gameListRows(data={}){
 }
 export function preferredGameRows(rows=[]){
  const groups=new Map();for(const row of rows){if(!Array.isArray(row)||!/^\d{5,}$/.test(text(row[0])))continue;const id=text(row[0]);if(!groups.has(id))groups.set(id,[]);groups.get(id).push(row)}
- return [...groups.values()].flatMap(group=>{const eligible=group.filter(row=>!na(row[12])&&!na(row[13]));return eligible.length?eligible:group.slice(0,1)});
+ return [...groups.values()].flatMap(group=>{const eligible=group.filter(row=>[row[12],row[13]].some(v=>text(v)&&!na(v)));return eligible.length?eligible:group.slice(0,1)});
 }
