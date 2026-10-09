@@ -140,9 +140,10 @@ let openCategoryId=null;
 function closeCategoryMenu(){openCategoryId=null;document.querySelectorAll('.category.menu-open').forEach(element=>{element.classList.remove('menu-open');element.querySelector('.category-head')?.setAttribute('aria-expanded','false')})}
 document.addEventListener('click',event=>{if(!event.target.closest('.category'))closeCategoryMenu()});
 document.addEventListener('keydown',event=>{if(event.key==='Escape')closeCategoryMenu()});
+function isCustomerResourceCategory(category){const names=[category.name,category.displayName].map(value=>String(value||'').replace(/[\s_📁]/gu,'').toLowerCase());return names.some(name=>['omniplay遊戲客戶參考文件','客戶參考文件'].includes(name))||(category.pages||[]).some(page=>page.customerOpGame||page.id==='page_op_game_customer')}
 function renderNav(){$('#resourceNavigation')?.remove();if(isCustomerPortal())return renderCustomerNav();const r=$('#categoryList');
 r.innerHTML='';
-state.categories.filter(c=>String(c.name||'').replace(/^\s*📁\s*/,'').trim()!=='OMNIPLAY遊戲_客戶參考文件').forEach(c=>{const b=document.createElement('div');
+state.categories.filter(c=>!isCustomerResourceCategory(c)).forEach(c=>{const b=document.createElement('div');
 b.className='category'+(openCategoryId===c.id?' menu-open':'');
 b.innerHTML=`<div class="category-head ${c.id===state.activeCategoryId?'active':''}"><span>📁 ${esc(c.displayName||c.name)}</span><button class="mini">⋯</button></div><div class="category-pages"></div>`;
 const head=b.querySelector('.category-head');head.setAttribute('role','button');head.tabIndex=0;head.setAttribute('aria-expanded',String(openCategoryId===c.id));
