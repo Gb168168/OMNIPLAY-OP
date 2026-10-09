@@ -1,5 +1,5 @@
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-game-links-1';
-import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-quota-reduction-1';
+import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-sync-dedup-1';
 import { storedAsset, downloadAsset } from './op-game-form.js?v=20261008-option-management-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
@@ -44,11 +44,26 @@ const GROUP_PERMISSION_DEFAULT_VERSION=2;function isVisibleGroupPermissionPage(c
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
 const SHEET_CHUNK_SIZE=240000;
+const sheetContentSignatures=new Map(),sheetWriteQueues=new Map();
+let savedWorkspaceSignature=null;
 function firebaseError(e){return String(e?.message||e?.code||'未知錯誤').replace(/^FirebaseError:\s*/,'').slice(0,100)}
 function cleanSnapshot(snapshot){try{return JSON.parse(JSON.stringify(snapshot))}catch(e){console.warn('clean sheet snapshot',e);return null}}
-async function readStoredSheet(page){const stored=await getDoc(sheetRef(page.id));if(!stored.exists())return null;const data=stored.data()||{};if(data.format==='json-chunks-v1'&&Number(data.chunkCount)>0){const pieces=[];for(let i=0;i<Number(data.chunkCount);i++){const part=await getDoc(sheetChunkRef(page.id,i));if(!part.exists()||typeof part.data()?.data!=='string')throw new Error(`缺少試算表分段 ${i+1}/${data.chunkCount}`);pieces.push(part.data().data)}return JSON.parse(pieces.join(''))}if(typeof data.snapshotJson==='string')return JSON.parse(data.snapshotJson);return data.snapshot||null}
-async function hydrateSheetSnapshots(){for(const category of state.categories||[]){for(const page of category.pages||[]){if(page.type!=='sheet'||!page.id)continue;try{const snapshot=await readStoredSheet(page);if(snapshot)page.snapshot=snapshot;else if(page.snapshot)await persistSheetSnapshot(page,page.snapshot)}catch(e){console.warn('load sheet snapshot',page.id,e);$('#cloudStatus').textContent=`⚠️ 讀取失敗：${firebaseError(e)}`}}}}
-async function persistSheetSnapshot(page,snapshot=page?.snapshot){if(!window.__omniplayCanEdit)return false;if(!page?.id||!snapshot)return false;const clean=cleanSnapshot(snapshot);if(!clean)return false;const json=JSON.stringify(clean),chunks=[];for(let i=0;i<json.length;i+=SHEET_CHUNK_SIZE)chunks.push(json.slice(i,i+SHEET_CHUNK_SIZE));await Promise.all(chunks.map((data,index)=>setDoc(sheetChunkRef(page.id,index),{data,index,updatedAt:new Date().toISOString()})));await setDoc(sheetRef(page.id),{format:'json-chunks-v1',chunkCount:chunks.length,updatedAt:new Date().toISOString()});page.snapshot=clean;return true}
+async function readStoredSheet(page){const stored=await getDoc(sheetRef(page.id));if(!stored.exists())return null;const data=stored.data()||{};if(data.format==='json-chunks-v1'&&Number(data.chunkCount)>0){const pieces=await Promise.all(Array.from({length:Number(data.chunkCount)},async(_,i)=>{const part=await getDoc(sheetChunkRef(page.id,i));if(!part.exists()||typeof part.data()?.data!=='string')throw new Error(`缺少試算表分段 ${i+1}/${data.chunkCount}`);return part.data().data}));return JSON.parse(pieces.join(''))}if(typeof data.snapshotJson==='string')return JSON.parse(data.snapshotJson);return data.snapshot||null}
+async function hydrateSheetSnapshots(){for(const category of state.categories||[]){for(const page of category.pages||[]){if(page.type!=='sheet'||!page.id)continue;try{const snapshot=await readStoredSheet(page);if(snapshot){page.snapshot=snapshot;sheetContentSignatures.set(page.id,JSON.stringify(snapshot))}else if(page.snapshot)await persistSheetSnapshot(page,page.snapshot)}catch(e){console.warn('load sheet snapshot',page.id,e);$('#cloudStatus').textContent=`⚠️ 讀取失敗：${firebaseError(e)}`}}}}
+async function persistSheetSnapshot(page,snapshot=page?.snapshot){
+ if(!window.__omniplayCanEdit||!page?.id||!snapshot)return false;
+ const clean=cleanSnapshot(snapshot);if(!clean)return false;const json=JSON.stringify(clean);
+ const previous=sheetWriteQueues.get(page.id)||Promise.resolve();
+ const pending=previous.catch(()=>{}).then(async()=>{
+  if(sheetContentSignatures.get(page.id)===json){page.snapshot=clean;return false}
+  const chunks=[];for(let i=0;i<json.length;i+=SHEET_CHUNK_SIZE)chunks.push(json.slice(i,i+SHEET_CHUNK_SIZE));
+  const updatedAt=new Date().toISOString();
+  await Promise.all(chunks.map((data,index)=>setDoc(sheetChunkRef(page.id,index),{data,index,updatedAt})));
+  await setDoc(sheetRef(page.id),{format:'json-chunks-v1',chunkCount:chunks.length,updatedAt});
+  sheetContentSignatures.set(page.id,json);page.snapshot=clean;return true;
+ });sheetWriteQueues.set(page.id,pending);return pending;
+}
+
 function isLegacyGameAssetPage(category,page){return String(category?.name||'').trim()==='OMNIPLAY遊戲_客戶參考文件'&&String(page?.name||'').trim().toLowerCase()!=='game asset'&&/^\d{5,}[_\s-]/.test(String(page?.name||'').trim())}
 function migrateGameAssetPages(){const category=(state.categories||[]).find(item=>String(item.name||'').trim()==='OMNIPLAY遊戲_客戶參考文件');if(!category)return false;category.pages=category.pages||[];const root=category.pages.find(item=>String(item.name||'').trim().toLowerCase()==='game asset');if(!root)return false;root.files=root.files||[];root.folders=root.folders||[];root.gameAssetRoot=true;const removedIds=[],mergeNode=(target,source)=>{target.files=target.files||[];target.folders=target.folders||[];const fileIds=new Set(target.files.map(item=>item.id));for(const file of source.files||[])if(!fileIds.has(file.id))target.files.push(file);for(const child of source.folders||[]){const existing=target.folders.find(item=>item.id===child.id)||target.folders.find(item=>item.gameAssetGameId&&item.gameAssetGameId===child.gameAssetGameId)||target.folders.find(item=>String(item.name||'').trim().toLowerCase()===String(child.name||'').trim().toLowerCase());if(existing)mergeNode(existing,child);else target.folders.push(child)}};for(const sourcePage of [...category.pages]){if(sourcePage===root)continue;const legacyByName=isLegacyGameAssetPage(category,sourcePage),gameFolders=(sourcePage.folders||[]).filter(folder=>folder.gameAssetGameId);if(!legacyByName&&!gameFolders.length)continue;if(legacyByName){const pageName=String(sourcePage.name||'').trim(),gameId=pageName.match(/^(\d{5,})/)?.[1];let target=root.folders.find(folder=>gameId&&String(folder.gameAssetGameId||'')===gameId)||root.folders.find(folder=>String(folder.name||'').trim().toLowerCase()===pageName.toLowerCase());if(!target){target={id:`game_${gameId||Date.now()}_${Math.random().toString(36).slice(2,7)}`,name:pageName,type:'files',files:[],folders:[],gameAssetGameId:gameId||undefined,createdAt:new Date().toISOString()};root.folders.push(target)}mergeNode(target,sourcePage);category.pages=category.pages.filter(page=>page!==sourcePage);removedIds.push(sourcePage.id);continue}for(const sourceFolder of gameFolders){let target=root.folders.find(folder=>folder.gameAssetGameId===sourceFolder.gameAssetGameId)||root.folders.find(folder=>String(folder.name||'').trim().toLowerCase()===String(sourceFolder.name||'').trim().toLowerCase());if(!target){target={...sourceFolder,files:[],folders:[]};root.folders.push(target)}mergeNode(target,sourceFolder)}sourcePage.folders=(sourcePage.folders||[]).filter(folder=>!folder.gameAssetGameId);if(!(sourcePage.files||[]).length&&!sourcePage.folders.length){category.pages=category.pages.filter(page=>page!==sourcePage);removedIds.push(sourcePage.id)}}if(!removedIds.length)return false;state.customerGroups.forEach(group=>{group.allowedPages=[...new Set((group.allowedPages||[]).map(id=>removedIds.includes(id)?root.id:id))];group.pageOrder=[...new Set((group.pageOrder||[]).map(id=>removedIds.includes(id)?root.id:id))]});if(removedIds.includes(state.activePageId))state.activePageId=root.id;return true}
 function workspaceDataSignature(){const data=payload();delete data.updatedAt;return JSON.stringify(data)}
@@ -56,15 +71,15 @@ let customerPermissionsUnsubscribe=null;
 function watchCustomerPermissions(){
  const session=window.__omniplaySession;if(!session||session.canEdit||session.superAdmin||!session.groupId||customerPermissionsUnsubscribe)return;
  let previous='';
- customerPermissionsUnsubscribe=onSnapshot(doc(db,'omniplay-group-views',session.groupId),snapshot=>{
+ customerPermissionsUnsubscribe=onSnapshot(doc(db,'omniplay-group-views',session.groupId),async snapshot=>{
   if(!snapshot.exists())return;const data=snapshot.data(),signature=JSON.stringify(data);if(signature===previous)return;previous=signature;
   if(data.enabled===false){state.categories=[];renderNav();$('#workspace').classList.add('hidden');$('#emptyState').classList.remove('hidden');$('#emptyState').innerHTML='<div><h2>此群組權限已停用</h2><p>請聯絡管理員。</p></div>';return}
-  const oldCategory=state.activeCategoryId,oldPage=state.activePageId;Object.assign(state,data);const entries=customerSectionPages(),selected=entries.find(entry=>entry.page?.id===oldPage)||entries.find(entry=>entry.page);state.activeCategoryId=selected?.category?.id||null;state.activePageId=selected?.page?.id||null;renderNav();renderPage();$('#cloudStatus').textContent=data.permissionsUpdatedAt?'☁️ 權限同步時間：'+new Date(data.permissionsUpdatedAt).toLocaleTimeString('zh-TW'):'☁️ 客戶資料已載入';
+  const oldPage=state.activePageId;const snapshots=new Map(state.categories.flatMap(category=>category.pages||[]).filter(page=>page.snapshot).map(page=>[page.id,page.snapshot]));for(const category of data.categories||[])for(const page of category.pages||[])if(data.documentRevision===state.documentRevision&&snapshots.has(page.id))page.snapshot=snapshots.get(page.id);Object.assign(state,data);await hydrateSheetSnapshots();if(signature!==previous)return;const entries=customerSectionPages(),selected=entries.find(entry=>entry.page?.id===oldPage)||entries.find(entry=>entry.page);state.activeCategoryId=selected?.category?.id||null;state.activePageId=selected?.page?.id||null;renderNav();renderPage();$('#cloudStatus').textContent=data.permissionsUpdatedAt?'☁️ 權限同步時間：'+new Date(data.permissionsUpdatedAt).toLocaleTimeString('zh-TW'):'☁️ 客戶資料已載入';
  },error=>{$('#cloudStatus').textContent='⚠️ 權限即時更新失敗：'+firebaseError(error)});
 }
 function workspaceRead(promise){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('雲端工作區讀取逾時')),15000);promise.then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})})}
 async function load(){const savedView=readSavedView();let loadedSignature=null;try{const s=await workspaceRead(getDoc(ref));
-if(s.exists()){Object.assign(state,s.data());loadedSignature=workspaceDataSignature();renderNav()}
+if(s.exists()){Object.assign(state,s.data());loadedSignature=workspaceDataSignature();savedWorkspaceSignature=loadedSignature;renderNav()}
 else{try{state.categories=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{}cloud=true;
 await saveNow()}await hydrateSheetSnapshots();state.customerGroups||=[];
 state.customers||=[];
@@ -90,7 +105,7 @@ function payload(){const categories=(state.categories||[]).map(category=>({...ca
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
 timer=setTimeout(saveNow,400)}function saveNow(){if(!window.__omniplayCanEdit)return Promise.resolve();if(!cloud)return Promise.resolve();clearTimeout(timer);
-const data=payload();saveQueue=saveQueue.catch(()=>{}).then(()=>setDoc(ref,data)).then(()=>{$('#cloudStatus').textContent='☁️ 已同步'}).catch(e=>{console.error(e);
+saveQueue=saveQueue.catch(()=>{}).then(async()=>{const signature=workspaceDataSignature();if(signature===savedWorkspaceSignature)return;const data=payload();await setDoc(ref,data);savedWorkspaceSignature=signature}).then(()=>{$('#cloudStatus').textContent='☁️ 已同步'}).catch(e=>{console.error(e);
 $('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`});return saveQueue}function scheduleSheetSave(){if(!window.__omniplayCanEdit)return;if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';const context=currentUniver;sheetSaveTimer=setTimeout(()=>captureCurrentSheet(context),900)}function workbookSnapshot(workbook){try{const snapshot=workbook?.getSnapshot?.();if(snapshot)return snapshot}catch(e){console.warn('get sheet snapshot',e)}return workbook?.save?.()}async function captureCurrentSheet(context=currentUniver){if(!context)return false;try{const workbook=context.api.getActiveWorkbook(),snapshot=await Promise.resolve(workbookSnapshot(workbook));if(!snapshot)return false;await persistSheetSnapshot(context.page,snapshot);localStorage.setItem(KEY,JSON.stringify(state.categories));await saveNow();return true}catch(e){console.warn('sheet autosave',e);$('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`;return false}}function dispose(){$('#sheetCellTools')?.remove();window.disposeGameListOnlinePage?.();if(!currentUniver)return;
 const context=currentUniver;clearTimeout(sheetSaveTimer);context.autoSaveDisposable?.dispose?.();
 captureCurrentSheet(context);try{context.univer.dispose()}catch{}currentUniver=null}
@@ -334,6 +349,7 @@ delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
 saveNow()});
 load();
+
 
 
 
