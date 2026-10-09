@@ -1,6 +1,6 @@
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261009-auto-game-links-1';
 import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-auto-game-links-1';
-import { storedAsset, downloadAsset } from './op-game-form.js?v=20261009-single-line-folders-1';
+import { storedAsset, downloadAsset } from './op-game-form.js?v=20261009-remove-legacy-asset-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
