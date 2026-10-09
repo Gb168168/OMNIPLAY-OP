@@ -2,7 +2,7 @@ import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc,
-  setDoc as rawSetDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+  setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
   groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261008-game-links-1';
 
@@ -173,6 +173,27 @@ async function synchronize(db, workspace) {
   }
   if (failures.length) throw new Error('人員登入未完成：' + failures.join('、'));
 
+}
+
+export async function saveGroupPermissions(db, groupId, allowedPages, pageOrder) {
+ if(!await owner(db))throw new Error('只有最高管理者可以設定群組權限');
+ const sourceSnapshot=await getDocs(collection(db,'omniplay'));
+ const sourceData=new Map(sourceSnapshot.docs.map(item=>[item.id,item.data()]));
+ const workspaceRef=doc(db,'omniplay','workspace');
+ await runTransaction(db,async transaction=>{
+  const workspaceSnapshot=await transaction.get(workspaceRef);
+  if(!workspaceSnapshot.exists())throw new Error('找不到工作區資料');
+  const workspace=workspaceSnapshot.data(),group=(workspace.customerGroups||[]).find(item=>item.id===groupId);
+  if(!group)throw new Error('找不到群組');
+  Object.assign(group,{allowedPages:[...allowedPages],pageOrder:[...pageOrder],permissionMode:'custom'});
+  workspace.updatedAt=new Date().toISOString();
+  const ids=groupDocumentIds(workspace,group,[...sourceData.keys()]);
+  if(ids.length>490)throw new Error('此群組的資料量超過單次同步上限');
+  const view=groupWorkspace(workspace,group);view.allowedDocumentIds=ids;
+  transaction.update(workspaceRef,{customerGroups:publicWorkspace(workspace.customerGroups),updatedAt:workspace.updatedAt});
+  for(const id of ids)transaction.set(doc(db,'omniplay-group-views',groupId,'documents',id),id===CUSTOMER_OP_DOCUMENT?customerGameCatalog(sourceData.get('game-list-online-page'),sourceData.get('op-game-form-records'),group,workspace):withoutCredentials(sourceData.get(id)));
+  transaction.set(doc(db,'omniplay-group-views',groupId),view);
+ });
 }
 
 export async function listMemberProfiles(db = getFirestore()) {
