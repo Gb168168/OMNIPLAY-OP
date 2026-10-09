@@ -1,5 +1,5 @@
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261008-game-links-1';
-import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-direct-permissions-1';
+import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-verified-permissions-1';
 import { storedAsset, downloadAsset } from './op-game-form.js?v=20261008-option-management-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
@@ -59,7 +59,7 @@ function watchCustomerPermissions(){
  customerPermissionsUnsubscribe=onSnapshot(doc(db,'omniplay-group-views',session.groupId),snapshot=>{
   if(!snapshot.exists())return;const data=snapshot.data(),signature=JSON.stringify(data);if(signature===previous)return;previous=signature;
   if(data.enabled===false){state.categories=[];renderNav();$('#workspace').classList.add('hidden');$('#emptyState').classList.remove('hidden');$('#emptyState').innerHTML='<div><h2>此群組權限已停用</h2><p>請聯絡管理員。</p></div>';return}
-  const oldCategory=state.activeCategoryId,oldPage=state.activePageId;Object.assign(state,data);const entries=customerSectionPages(),selected=entries.find(entry=>entry.page?.id===oldPage)||entries.find(entry=>entry.page);state.activeCategoryId=selected?.category?.id||null;state.activePageId=selected?.page?.id||null;renderNav();renderPage();$('#cloudStatus').textContent='☁️ 客戶權限已更新';
+  const oldCategory=state.activeCategoryId,oldPage=state.activePageId;Object.assign(state,data);const entries=customerSectionPages(),selected=entries.find(entry=>entry.page?.id===oldPage)||entries.find(entry=>entry.page);state.activeCategoryId=selected?.category?.id||null;state.activePageId=selected?.page?.id||null;renderNav();renderPage();$('#cloudStatus').textContent=data.permissionsUpdatedAt?'☁️ 權限同步時間：'+new Date(data.permissionsUpdatedAt).toLocaleTimeString('zh-TW'):'☁️ 客戶資料已載入';
  },error=>{$('#cloudStatus').textContent='⚠️ 權限即時更新失敗：'+firebaseError(error)});
 }
 function workspaceRead(promise){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('雲端工作區讀取逾時')),15000);promise.then(value=>{clearTimeout(timer);resolve(value)},error=>{clearTimeout(timer);reject(error)})})}
@@ -293,7 +293,7 @@ l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySel
 $('#backGroup').onclick=renderCustomers;
 $('#savePerm').onclick=async()=>{const rows=[...l.querySelectorAll('.permission-row[data-page-id]')],button=$('#savePerm'),allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId),pageOrder=rows.map(x=>x.dataset.pageId);
 button.disabled=true;button.textContent='正在同步客戶權限…';
-try{await saveGroupPermissions(db,g.id,allowedPages,pageOrder);Object.assign(g,{allowedPages,pageOrder,permissionMode:'custom'});$('#cloudStatus').textContent='☁️ 群組權限已同步到客戶端';renderCustomers();alert('群組權限已儲存並同步到客戶端')}catch(error){button.disabled=false;button.textContent='重試儲存群組權限';alert('權限同步失敗：'+firebaseError(error))}
+try{const permissionsUpdatedAt=await saveGroupPermissions(db,g.id,allowedPages,pageOrder);Object.assign(g,{allowedPages,pageOrder,permissionMode:'custom',permissionsUpdatedAt});$('#cloudStatus').textContent='☁️ 群組權限已同步到客戶端';renderCustomers();alert('已核對雲端客戶資料，群組權限同步完成')}catch(error){button.disabled=false;button.textContent='重試儲存群組權限';alert('權限同步失敗：'+firebaseError(error))}
 }}
 $('#customerBtn').onclick=renderCustomers;
 function updateNewItemFields(){const createCategory=$('#newItemCategory').value==='__new__',createPage=!createCategory||$('#newItemCreatePage').checked;$('#newItemCategoryField').classList.toggle('hidden',!createCategory);$('#newItemCategoryName').required=createCategory;$('#newItemCategoryName').disabled=!createCategory;$('#newItemPageChoice').classList.toggle('hidden',!createCategory);$('#newItemPageFields').classList.toggle('hidden',!createPage);$('#pageName').required=createPage;$('#pageName').disabled=!createPage;$('#pageType').disabled=!createPage;}
