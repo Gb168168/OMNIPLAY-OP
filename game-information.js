@@ -52,8 +52,8 @@ export async function renderGameInformationPage({state,page,saveWorkspace}){
  const cellContent=(key,value)=>{if(!value)return '—';
   if(key==='status'){const label=displayStatus(value),kind=/特選|首發|Special|Exclusive|獨家/i.test(value)?'special':/Coming|即將|預計/i.test(value)?'coming':/Released|已上線|已發行/i.test(value)?'released':'other';return '<span class="gi-pill gi-status gi-status-'+kind+'">'+esc(label)+'</span>';}
   if(key==='pagcor'||key==='freeSpin'){const kind=/^no$/i.test(value)?' gi-answer-no':/^yes$/i.test(value)?'':' gi-answer-progress';return '<span class="gi-pill gi-answer'+kind+'">'+esc(value)+'</span>';}
-  if(key==='jackpot'){const parts=value.replace(/(OP\\s*Jackpot)\\s*[/,，;；]\\s*/i,'$1\\n').split(/\\n/).map(v=>v.trim()).filter(Boolean);return parts.map(part=>'<span class="gi-pill '+(/OP\\s*Jackpot/i.test(part)?'gi-jackpot-main':'gi-jackpot-group')+'">'+esc(part)+'</span>').join('');}
-  if(key==='releaseDate'||key==='plannedReleaseDate')return '<span class="gi-date">'+esc(value.replace(/^(\\d{4})-(\\d{2})-(\\d{2})$/,(_,y,m,d)=>y+'/'+Number(m)+'/'+Number(d)))+'</span>';
+  if(key==='jackpot'){const parts=value.replace(/(OP\s*Jackpot)\s*[/,，;；]\s*/i,'$1\n').split(/\n/).map(v=>v.trim()).filter(Boolean);return parts.map(part=>'<span class="gi-pill '+(/OP\s*Jackpot/i.test(part)?'gi-jackpot-main':'gi-jackpot-group')+'">'+esc(part)+'</span>').join('');}
+  if(key==='releaseDate'||key==='plannedReleaseDate')return '<span class="gi-date">'+esc(value.replace(/^(\d{4})-(\d{2})-(\d{2})$/,(_,y,m,d)=>y+'/'+Number(m)+'/'+Number(d)))+'</span>';
   return esc(value);
  };
  const details=game=>{const r=allRecords[game.id]||{};return{...game,...r,jackpot:r.jackpot??game.progressiveJackpotGroup,note1:r.note1??r.notes??'',note2:r.note2||''}};
