@@ -1,7 +1,7 @@
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
-import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc,
+import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc, getDocFromServer,
   setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
   groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261008-game-links-1';
@@ -12,7 +12,16 @@ function databaseError(error, action, path) {
   result.code = error.code; return result;
 }
 async function firebaseGetDoc(ref) { try { return await rawGetDoc(ref); } catch (error) { throw databaseError(error,'讀取',ref.path); } }
-async function firebaseSetDoc(ref, data, options) { try { return await rawSetDoc(ref,data,options); } catch (error) { throw databaseError(error,'寫入',ref.path); } }
+function preserveLatestPermissions(incoming,latest){
+ for(const group of incoming.customerGroups||[]){const saved=(latest.customerGroups||[]).find(item=>item.id===group.id);if(saved?.permissionsUpdatedAt&&String(saved.permissionsUpdatedAt)>=String(group.permissionsUpdatedAt||'')){for(const key of ['allowedPages','pageOrder','permissionMode','permissionsUpdatedAt'])if(key in saved)group[key]=structuredClone(saved[key])}}
+ return incoming;
+}
+async function firebaseSetDoc(ref,data,options){try{
+ if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists())preserveLatestPermissions(data,latest.data());transaction.set(ref,data,options||{})});return}
+ if(/^omniplay-group-views\/[^/]+$/.test(ref.path)&&data.enabled!==false){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()&&String(latest.data().permissionsUpdatedAt||'')>String(data.permissionsUpdatedAt||''))return;transaction.set(ref,data,options||{})});return}
+ return await rawSetDoc(ref,data,options);
+ }catch(error){throw databaseError(error,'寫入',ref.path)}
+}
 async function getDocs(ref) { try { return await rawGetDocs(ref); } catch (error) { throw databaseError(error,'讀取',ref.path); } }
 
 let syncQueue = Promise.resolve(), bindings = null, sources = null, refreshTimer;
@@ -143,13 +152,13 @@ async function synchronize(db, workspace) {
     written.delete(view.ref.path);
   }
   for (const group of groups) {
-    const view = groupWorkspace(data, group), ids = groupDocumentIds(data, group, [...sources.keys()]);
+    const view = groupWorkspace(data, group);view.permissionsUpdatedAt=group.permissionsUpdatedAt||'';const ids = groupDocumentIds(data, group, [...sources.keys()]);
     view.allowedDocumentIds = isOwner ? ids : (oldViews.docs.find(item => item.id === group.id)?.data().allowedDocumentIds || []);
     if (!isOwner && !oldViews.docs.some(item => item.id === group.id)) continue;
     const writes = [[doc(db, 'omniplay-group-views', group.id), view],
       ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), id === CUSTOMER_OP_DOCUMENT ? customerGameCatalog(sources.get('game-list-online-page'), sources.get('op-game-form-records'), group, data) : withoutCredentials(sources.get(id))])];
     // Commit the root allowlist last so a new page is never exposed before its data exists.
-    const root = writes.shift(); writes.push(root);
+    const root = writes.shift();
     for (let i = 0; i < writes.length; i += 200) {
       const batch = writeBatch(db), changed = [];
       for (const [ref, value] of writes.slice(i, i + 200)) {
@@ -159,6 +168,7 @@ async function synchronize(db, workspace) {
       }
       if (changed.length) { try { await batch.commit(); } catch (error) { throw databaseError(error, '同步群組「' + group.name + '」', changed.map(([path])=>path).slice(0,2).join('、')); } for (const [path, value] of changed) written.set(path, value); }
     }
+    await firebaseSetDoc(root[0],root[1]);
   }
   const failures = [];
   for (const member of members) {
@@ -185,15 +195,22 @@ export async function saveGroupPermissions(db, groupId, allowedPages, pageOrder)
   if(!workspaceSnapshot.exists())throw new Error('找不到工作區資料');
   const workspace=workspaceSnapshot.data(),group=(workspace.customerGroups||[]).find(item=>item.id===groupId);
   if(!group)throw new Error('找不到群組');
-  Object.assign(group,{allowedPages:[...allowedPages],pageOrder:[...pageOrder],permissionMode:'custom'});
+  Object.assign(group,{allowedPages:[...allowedPages],pageOrder:[...pageOrder],permissionMode:'custom',permissionsUpdatedAt:new Date().toISOString()});
   workspace.updatedAt=new Date().toISOString();
   const ids=groupDocumentIds(workspace,group,[...sourceData.keys()]);
   if(ids.length>490)throw new Error('此群組的資料量超過單次同步上限');
-  const view=groupWorkspace(workspace,group);view.allowedDocumentIds=ids;
+  const view=groupWorkspace(workspace,group);view.allowedDocumentIds=ids;view.permissionsUpdatedAt=group.permissionsUpdatedAt;
   transaction.update(workspaceRef,{customerGroups:publicWorkspace(workspace.customerGroups),updatedAt:workspace.updatedAt});
   for(const id of ids)transaction.set(doc(db,'omniplay-group-views',groupId,'documents',id),id===CUSTOMER_OP_DOCUMENT?customerGameCatalog(sourceData.get('game-list-online-page'),sourceData.get('op-game-form-records'),group,workspace):withoutCredentials(sourceData.get(id)));
   transaction.set(doc(db,'omniplay-group-views',groupId),view);
  });
+ const published=await getDocFromServer(doc(db,'omniplay-group-views',groupId));
+ if(!published.exists())throw new Error('客戶端資料未建立');
+ const view=published.data(),actual=new Set(view.allowedPages||[]);
+ if(allowedPages.some(id=>!actual.has(id)))throw new Error('雲端客戶權限與勾選結果不一致，請重試');
+ const visible=new Set((view.categories||[]).flatMap(category=>(category.pages||[]).map(page=>page.id)));
+ if(allowedPages.filter(id=>id!=='system_all_platforms').some(id=>!visible.has(id)))throw new Error('雲端客戶資料缺少已開放頁面，請重試');
+ return view.permissionsUpdatedAt;
 }
 
 export async function listMemberProfiles(db = getFirestore()) {
