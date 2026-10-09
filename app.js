@@ -122,7 +122,15 @@ const CUSTOMER_SECTIONS=[
 let customerLanguage='zh';try{customerLanguage=localStorage.getItem('omniplay-customer-language')==='en'?'en':'zh'}catch{}
 function isCustomerPortal(){const session=window.__omniplaySession;if(!session||session.superAdmin)return false;const group=state.customerGroups.find(g=>g.id===session.groupId);return !['OMNIPLAY','OMNIPLAY Support'].includes(String(group?.name||session.groupName||'').trim())}
 function customerSectionLabel(section){return customerLanguage==='en'?section.en:section.zh}
-function customerSectionPages(){const category=state.categories.find(c=>String(c.name||'').replace(/^📁\s*/,'').trim()==='OMNIPLAY遊戲_客戶參考文件');return CUSTOMER_SECTIONS.map(section=>({section,category,page:category?.pages?.find(section.match)}))}
+function customerSectionPages(){
+ const visible=(state.categories||[]).filter(category=>!isInternalReferenceCategory(category));
+ const preferred=visible.filter(isCustomerResourceCategory);
+ const candidates=[...preferred,...visible.filter(category=>!preferred.includes(category))];
+ return CUSTOMER_SECTIONS.map(section=>{
+  for(const category of candidates){const selected=(category.pages||[]).find(section.match);if(selected)return{section,category,page:selected}}
+  return{section,category:preferred[0],page:undefined};
+ });
+}
 let resourcePreviewGroup='';
 function canManageResources(){return !!window.__omniplayCanEdit && (!!window.__omniplaySession?.superAdmin || ['OMNIPLAY','OMNIPLAY Support'].includes(String(state.customerGroups.find(g=>g.id===window.__omniplaySession?.groupId)?.name||window.__omniplaySession?.groupName||'').trim()))}
 function renderCustomerNav(internal=false){let root=$('#categoryList');if(internal){root=document.createElement('div');root.className='resource-navigation';root.id='resourceNavigation';$('.sidebar').append(root)}else{root.innerHTML='';document.documentElement.classList.add('customer-portal')}
