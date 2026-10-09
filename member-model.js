@@ -75,7 +75,7 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null,
   for (const id of Object.keys(records)) {
     const links = [], seen = new Set(), sourceRecord = source[id] || {};
     const add = (page, folder, name) => { const key = page.id + '::' + folder.id; if (seen.has(key)) return; seen.add(key); links.push({id:key,pageId:page.id,workspaceFolderId:folder.id,name:String(name || folder.name || 'Files'),type:folder.type === 'photos' ? 'photos' : 'files'}); };
-    for (const link of sourceRecord.folders || []) { const page = pages.find(page => page.id === link.pageId), folder = page && findFolder(page.folders,link.workspaceFolderId); if (folder) add(page,folder,link.name); }
+    for (const link of sourceRecord.folders || []) { const page = pages.find(page => page.id === link.pageId || (page.legacyAssetPageIds || []).includes(link.pageId)), folder = page && findFolder(page.folders,link.workspaceFolderId); if (folder) add(page,folder,link.name); }
     const row=selected.find(row=>String(row[0]).trim()===id);
     for(const link of automaticGameFolders(workspace,{id,name:row?.[2]||''},allowed)){const page=pages.find(page=>page.id===link.pageId),folder=findFolder(page?.folders,link.workspaceFolderId);if(page&&folder)add(page,folder,link.name)}
     const assetIds = (sourceRecord.assetIds || sourceRecord.resourceIds || []).filter(key => typeof key === 'string' && pages.some(page => page.id === key.split('::')[0]));
