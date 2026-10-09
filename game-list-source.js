@@ -8,7 +8,7 @@ export function snapshotGameRows(snapshot){
  const merge=(sheet.mergeData||[]).find(m=>m.startRow===header&&m.startColumn===start);
  const first=merge?merge.endRow+1:header+2;
  const read=(r,c)=>{const direct=sheet.cellData[r]?.[c];if(text(value(direct)))return value(direct);const merged=(sheet.mergeData||[]).find(m=>r>=m.startRow&&r<=m.endRow&&c>=m.startColumn&&c<=m.endColumn);return merged?value(sheet.cellData[merged.startRow]?.[merged.startColumn]):value(direct)};
- let previous=null;return Object.keys(sheet.cellData).map(Number).filter(r=>r>=first).sort((a,b)=>a-b).map(r=>{const row=Array.from({length:19},(_,c)=>read(r,start+c));if(!text(row[0])){const versionId=text(row[1]).match(/^(\d{5,})-/)?.[1];if(versionId)row[0]=versionId;else if(previous&&text(row[2])&&text(row[2])===text(previous[2]))row[0]=previous[0]}if(/^\d{5,}$/.test(text(row[0])))previous=row;return row}).filter(row=>/^\d{5,}$/.test(text(row[0])));
+ let previous=null;return Object.keys(sheet.cellData).map(Number).filter(r=>r>=first).sort((a,b)=>a-b).map(r=>{const row=Array.from({length:19},(_,c)=>read(r,start+c));if(!text(row[0])){const versionId=text(row[1]).match(/^(\d{5,})-/)?.[1];if(previous&&text(row[2])&&text(row[2])===text(previous[2]))row[0]=previous[0];else if(versionId)row[0]=versionId}if(/^\d{5,}$/.test(text(row[0])))previous=row;return row}).filter(row=>/^\d{5,}$/.test(text(row[0])));
 }
 export function gameListRows(data={}){
  let snapshot=data.nativeSnapshot;try{if(data.snapshotJson)snapshot=JSON.parse(data.snapshotJson)}catch{}
