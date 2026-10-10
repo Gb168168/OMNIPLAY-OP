@@ -1,4 +1,4 @@
-import {installInformationColors} from './game-information-colors.js?v=20261010-simple-colors-1';
+import {installInformationColors} from './game-information-colors.js?v=20261010-quick-colors-1';
 import {getDoc,setDoc} from './member-access.js?v=20261009-online-source-1';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261009-online-source-1';
 import {uniqueGames,openGameAssetsFromRecords} from './op-game-form.js?v=20261010-editor-delete-1';
