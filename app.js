@@ -1,4 +1,4 @@
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261010-info-delete-1';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261010-header-notes-only-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261009-online-source-1';
 import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-online-source-1';
