@@ -11,7 +11,7 @@ const defaults={color:'#223951',bg:'#FFFFFF',alternate:'#F4F6F7',headerColor:'#F
 const labelKinds=[['released','已發行標籤','.gi-status-released'],['coming','即將發行標籤','.gi-status-coming'],['special','特選遊戲標籤','.gi-status-special'],['other','其他狀態標籤','.gi-status-other'],['yes','Yes 標籤','.gi-answer:not(.gi-answer-no):not(.gi-answer-progress)'],['no','No 標籤','.gi-answer-no'],['progress','In Progress 標籤','.gi-answer-progress'],['jackpot','OP Jackpot 標籤','.gi-jackpot-main'],['jackpotGroup','其他彩金標籤','.gi-jackpot-group']];
 export function installInformationColors({workspace,columns,admin,settings,save,getValues,getNote}){
  let current=settings&&typeof settings==='object'?settings:{};
- let preview=null,activeDialog=null,menu=null;
+ let preview=null,activeDialog=null,menu=null,selecting=false,finishSelection=()=>{},selectionClick=null,selectionKeydown=null;
  const style=document.createElement('style');style.id='giCustomColors';document.querySelector('#giCustomColors')?.remove();document.head.append(style);
  const get=()=>preview||current;
  const apply=()=>{
@@ -69,22 +69,31 @@ export function installInformationColors({workspace,columns,admin,settings,save,
    apply();
   };
   dialog.querySelector('[data-reset]').onclick=()=>{if(mode==='table')draft.table={};if(mode==='columns')fields.forEach(field=>delete draft.columns[field]);if(mode==='cell'&&context)delete draft.cells[context.id]?.[context.key];if(mode==='labels')delete draft.labels[labelKind];if(mode==='rules'){draft.rules=[];ruleFields=[];ruleText='';ruleStyle={}}render()};
-  dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{preview=null;selectedFields.clear();apply();dialog.remove();if(activeDialog===dialog)activeDialog=null});
+  dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{preview=null;selectedFields.clear();finishSelection();apply();dialog.remove();if(activeDialog===dialog)activeDialog=null});
   dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();if((ruleText.trim()||ruleFields.length||Object.keys(ruleStyle).length)){status.textContent='請先按「加入規則並預覽」，或清空未加入的條件';return}const buttons=[...dialog.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);status.textContent='儲存中…';try{await persist(draft,context?.id?{id:context.id,key:context.key,text:noteText.trim()}:null);status.textContent='已儲存';dialog.close()}catch(error){current=original;status.textContent='儲存失敗：'+error.message;buttons.forEach(b=>b.disabled=false)}};
   render();dialog.showModal();
  }
  if(admin){
   const tools=workspace.querySelector('.gi-head-tools');
-  const button=document.createElement('button');button.type='button';button.className='gi-edit';button.textContent='🎨 調色';button.disabled=true;
-  const count=document.createElement('span');count.className='gi-column-count';count.textContent='勾選標題旁的 □，可一次選多欄';
-  button.onclick=()=>{if(chosenColumns.size)open('columns',{fields:[...chosenColumns]})};
+  const button=document.createElement('button');button.type='button';button.className='gi-edit';button.textContent='🎨 調色';button.setAttribute('aria-pressed','false');
+  const count=document.createElement('span');count.className='gi-column-count';count.hidden=true;
+  const applyButton=document.createElement('button');applyButton.type='button';applyButton.className='gi-edit';applyButton.textContent='套用顏色';applyButton.hidden=true;applyButton.disabled=true;
+  const cancelButton=document.createElement('button');cancelButton.type='button';cancelButton.className='gi-edit';cancelButton.textContent='取消';cancelButton.hidden=true;
+  const updateSelection=()=>{count.textContent=chosenColumns.size?'已選 '+chosenColumns.size+' 欄':'點擊欄位標題，可一次選多欄';applyButton.disabled=!chosenColumns.size;workspace.querySelectorAll('[data-gi-header-edit]').forEach(label=>{if(selecting)label.setAttribute('aria-pressed',String(chosenColumns.has(label.dataset.giHeaderEdit)));else label.removeAttribute('aria-pressed')});apply()};
+  finishSelection=()=>{selecting=false;chosenColumns.clear();workspace.classList.remove('gi-selecting-columns');button.setAttribute('aria-pressed','false');count.hidden=true;applyButton.hidden=true;cancelButton.hidden=true;updateSelection()};
+  button.onclick=()=>{if(selecting){finishSelection();return}selecting=true;workspace.classList.add('gi-selecting-columns');button.setAttribute('aria-pressed','true');count.hidden=false;applyButton.hidden=false;cancelButton.hidden=false;updateSelection()};
+  applyButton.onclick=()=>{if(chosenColumns.size)open('columns',{fields:[...chosenColumns]})};
+  cancelButton.onclick=finishSelection;
   const more=document.createElement('details');more.className='gi-more-colors';const summary=document.createElement('summary');summary.textContent='其他顏色設定';more.append(summary);const options=document.createElement('div');options.className='gi-more-options';
   for(const [mode,label] of [['table','表格外觀'],['labels','標籤顏色'],['rules','自動套色']]){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{more.open=false;open(mode)};options.append(b)}more.append(options);
-  tools?.prepend(count,button,more);
-  for(const th of workspace.querySelectorAll('th[data-gi-header]')){const key=th.dataset.giHeader,check=document.createElement('input');check.type='checkbox';check.className='gi-column-choice';check.setAttribute('aria-label','選取'+columns.find(c=>c[0]===key)?.[1].replace(/\n/g,' ')+'欄');check.onclick=e=>e.stopPropagation();check.onchange=()=>{if(check.checked)chosenColumns.add(key);else chosenColumns.delete(key);button.disabled=!chosenColumns.size;count.textContent=chosenColumns.size?'已選 '+chosenColumns.size+' 欄':'勾選標題旁的 □，可一次選多欄';apply()};th.prepend(check)}
-  workspace.oncontextmenu=event=>{const td=event.target.closest('td[data-gi-game][data-gi-col]'),th=event.target.closest('th[data-gi-header]');if(!td&&!th)return;event.preventDefault();if(td)open('cell',{id:td.dataset.giGame,key:td.dataset.giCol});else{const key=th.dataset.giHeader;if(!chosenColumns.has(key)){chosenColumns.clear();chosenColumns.add(key);workspace.querySelectorAll('.gi-column-choice').forEach(box=>box.checked=box.closest('th').dataset.giHeader===key)}button.disabled=false;count.textContent='已選 '+chosenColumns.size+' 欄';open('columns',{fields:[...chosenColumns]})}};
+  tools?.prepend(button,count,applyButton,cancelButton,more);
+  css.textContent+='.gi-head-tools [hidden]{display:none!important}.gi-selecting-columns .gi-header-label{cursor:pointer}.gi-selecting-columns th[data-gi-header]:hover{outline:2px solid #93bfff;outline-offset:-2px}.gi-table th.gi-format-selected{box-shadow:inset 0 0 0 2px #4f8cff,inset 0 0 0 100px #dbeafe33}';
+  selectionClick=event=>{const th=event.target.closest('th[data-gi-header]');if(!selecting||!th)return;event.preventDefault();event.stopImmediatePropagation();const key=th.dataset.giHeader;if(chosenColumns.has(key))chosenColumns.delete(key);else chosenColumns.add(key);updateSelection()};workspace.addEventListener('click',selectionClick,true);
+  selectionKeydown=event=>{if(event.key==='Escape'&&selecting&&!activeDialog){finishSelection()}};workspace.addEventListener('keydown',selectionKeydown);
+
+  workspace.oncontextmenu=event=>{const td=event.target.closest('td[data-gi-game][data-gi-col]'),th=event.target.closest('th[data-gi-header]');if(!td&&!th)return;event.preventDefault();if(td)open('cell',{id:td.dataset.giGame,key:td.dataset.giCol});else{const key=th.dataset.giHeader;if(!chosenColumns.has(key)){chosenColumns.clear();chosenColumns.add(key);updateSelection()}updateSelection();open('columns',{fields:[...chosenColumns]})}};
  }
  const outside=event=>{if(menu&&!menu.contains(event.target))closeMenu()};const escape=event=>{if(event.key==='Escape')closeMenu()};document.addEventListener('click',outside);document.addEventListener('keydown',escape);workspace.querySelector('.gi-scroll')?.addEventListener('scroll',closeMenu);
- const observer=new MutationObserver(()=>{if(!workspace.classList.contains('game-info-page')||!workspace.querySelector('.gi-table')){closeMenu();activeDialog?.close();style.remove();css.remove();document.removeEventListener('click',outside);document.removeEventListener('keydown',escape);observer.disconnect()}});observer.observe(workspace,{childList:true,attributes:true,attributeFilter:['class']});
+ const observer=new MutationObserver(()=>{if(!workspace.classList.contains('game-info-page')||!workspace.querySelector('.gi-table')){closeMenu();activeDialog?.close();finishSelection();workspace.removeEventListener('click',selectionClick,true);workspace.removeEventListener('keydown',selectionKeydown);style.remove();css.remove();document.removeEventListener('click',outside);document.removeEventListener('keydown',escape);observer.disconnect()}});observer.observe(workspace,{childList:true,attributes:true,attributeFilter:['class']});
  return {apply,open};
 }
