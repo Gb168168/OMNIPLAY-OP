@@ -14,3 +14,10 @@ export function publicReleaseNotification(notification){const{groupIds,groupName
 export function appendReleaseNotification(existing,notification){return[notification,...(Array.isArray(existing)?existing:[]).filter(item=>item.id!==notification.id)].slice(0,NOTIFICATION_LIMIT);}
 export function preserveReleaseNotifications(incoming,latest){if(!Object.hasOwn(incoming,'releaseNotifications')&&Object.hasOwn(latest,'releaseNotifications'))incoming.releaseNotifications=structuredClone(latest.releaseNotifications);return incoming;}
 export function visibleReleaseNotifications(items){return(Array.isArray(items)?items:[]).filter(item=>item.status==='published').sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));}
+
+export function filterReleaseGames(games,records,platforms,platformId='',query=''){
+ const platform=platformId?platforms.find(item=>item.id===platformId):null;
+ if(platformId&&!platform?.groupId)return[];
+ const term=String(query||'').trim().toLowerCase();
+ return games.filter(game=>(!platformId||(Array.isArray(records[game.id]?.groupIds)&&records[game.id].groupIds.includes(platform.groupId)))&&(!term||[game.id,game.name,game.mandarinName].some(value=>String(value||'').toLowerCase().includes(term))));
+}

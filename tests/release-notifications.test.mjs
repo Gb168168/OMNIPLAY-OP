@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT} from '../release-notification-model.js';
+import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames} from '../release-notification-model.js';
 const groups=[{id:'a',name:'客戶 A'},{id:'b',name:'客戶 B'}];
 const make=(overrides={})=>buildReleaseNotification({environment:'test',title:'龍門天下測試上架',message:'請安排驗收',releaseAt:'2026-10-14T16:00+08:00',groupIds:['a'],...overrides},{uid:'admin',name:'管理者',id:'n1',game:{id:'001',name:'Power Dragon',mandarinName:'龍門天下',version:'2.0.0'},groups,now:'2026-10-14T07:00:00.000Z'});
 test('validates environment, game, recipients, length and dates; stores Taipei time as UTC',()=>{
@@ -95,4 +95,19 @@ test('customer bell reads only its group, shows unread notifications, marks read
  list.querySelector('[data-read-all]').listeners.click();assert.equal(bell.querySelector('.release-badge').hidden,true);
  assert.match(storage.get('omniplay-release-read-v1:client-uid:a'),/n1/);
  assert.equal(list.open,true);
+});
+
+test('platform game search matches only assigned games and rejects missing or unknown platform groups',()=>{
+ const games=[{id:'106010',name:'Sexbomb MHYCA',mandarinName:'性感炸彈 麥卡'},{id:'100001',name:'Power Dragon',mandarinName:'龍門天下'},{id:'100002',name:'Power Fortune'}],records={'106010':{groupIds:['a']},'100001':{groupIds:['b']}},platforms=[{id:'pa',groupId:'a'},{id:'pb',groupId:'b'},{id:'unset'}];
+ assert.deepEqual(filterReleaseGames(games,records,platforms,'pa').map(game=>game.id),['106010']);
+ for(const term of ['106010','性感','mhyca'])assert.equal(filterReleaseGames(games,records,platforms,'pa',term).length,1);
+ assert.equal(filterReleaseGames(games,records,platforms,'pa','Power').length,0);
+ assert.equal(filterReleaseGames(games,records,platforms,'pb','106010').length,0);
+ assert.equal(filterReleaseGames(games,records,platforms,'unset').length,0);
+ assert.equal(filterReleaseGames(games,records,platforms,'unknown').length,0);
+ assert.equal(filterReleaseGames(games,records,platforms).length,3);
+});
+test('OMNIPLAY and OMNIPLAY Support can be selected as notification recipients',()=>{
+ const item=buildReleaseNotification({environment:'test',title:'內部測試通知',releaseAt:'2026-10-15T00:00:00+08:00',groupIds:['internal','support']},{uid:'admin',id:'internal-test',game:{id:'106010'},groups:[{id:'internal',name:'OMNIPLAY'},{id:'support',name:'OMNIPLAY Support'}]});
+ assert.deepEqual(item.groupNames,['OMNIPLAY','OMNIPLAY Support']);
 });
