@@ -386,3 +386,8 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
 
 /* Five game-status counters on wide screens */
 @media(min-width:851px){.op-game-stats{grid-template-columns:repeat(5,minmax(0,1fr))}}
+
+.op-game-stat{font-family:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background-color .15s,box-shadow .15s}
+.op-game-stat:hover{border-color:#86a9e9;background:#f6f9ff}
+.op-game-stat:focus-visible{outline:3px solid #79a6f9;outline-offset:2px}
+.op-game-stat-active{border:2px solid #3b82f6;background:#eef5ff;box-shadow:0 1px 5px #3b82f61a}
