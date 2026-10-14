@@ -97,15 +97,15 @@ test('customer bell reads only its group, shows unread notifications, marks read
  assert.equal(list.open,true);
 });
 
-test('platform game search matches only assigned games and rejects missing or unknown platform groups',()=>{
- const games=[{id:'106010',name:'Sexbomb MHYCA',mandarinName:'性感炸彈 麥卡'},{id:'100001',name:'Power Dragon',mandarinName:'龍門天下'},{id:'100002',name:'Power Fortune'}],records={'106010':{groupIds:['a']},'100001':{groupIds:['b']}},platforms=[{id:'pa',groupId:'a'},{id:'pb',groupId:'b'},{id:'unset'}];
- assert.deepEqual(filterReleaseGames(games,records,platforms,'pa').map(game=>game.id),['106010']);
- for(const term of ['106010','性感','mhyca'])assert.equal(filterReleaseGames(games,records,platforms,'pa',term).length,1);
- assert.equal(filterReleaseGames(games,records,platforms,'pa','Power').length,0);
- assert.equal(filterReleaseGames(games,records,platforms,'pb','106010').length,0);
- assert.equal(filterReleaseGames(games,records,platforms,'unset').length,0);
- assert.equal(filterReleaseGames(games,records,platforms,'unknown').length,0);
- assert.equal(filterReleaseGames(games,records,platforms).length,3);
+test('group game search matches only assigned games and rejects unknown groups',()=>{
+ const games=[{id:'106010',name:'Sexbomb MHYCA',mandarinName:'性感炸彈 麥卡'},{id:'100001',name:'Power Dragon',mandarinName:'龍門天下'},{id:'100002',name:'Power Fortune'}],records={'106010':{groupIds:['a']},'100001':{groupIds:['b']}},searchGroups=[{id:'a'},{id:'b'},{id:'unset'}];
+ assert.deepEqual(filterReleaseGames(games,records,searchGroups,'a').map(game=>game.id),['106010']);
+ for(const term of ['106010','性感','mhyca'])assert.equal(filterReleaseGames(games,records,searchGroups,'a',term).length,1);
+ assert.equal(filterReleaseGames(games,records,searchGroups,'a','Power').length,0);
+ assert.equal(filterReleaseGames(games,records,searchGroups,'b','106010').length,0);
+ assert.equal(filterReleaseGames(games,records,searchGroups,'unset').length,0);
+ assert.equal(filterReleaseGames(games,records,searchGroups,'unknown').length,0);
+ assert.equal(filterReleaseGames(games,records,searchGroups).length,3);
 });
 test('OMNIPLAY and OMNIPLAY Support can be selected as notification recipients',()=>{
  const item=buildReleaseNotification({environment:'test',title:'內部測試通知',releaseAt:'2026-10-15T00:00:00+08:00',groupIds:['internal','support']},{uid:'admin',id:'internal-test',game:{id:'106010'},groups:[{id:'internal',name:'OMNIPLAY'},{id:'support',name:'OMNIPLAY Support'}]});

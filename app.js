@@ -1,4 +1,4 @@
-import { installReleaseNotifications } from './release-notifications.js?v=20261014-platform-games-1';
+import { installReleaseNotifications } from './release-notifications.js?v=20261014-group-games-1';
 import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261014-notifications-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261009-online-source-1';

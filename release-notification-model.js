@@ -15,9 +15,8 @@ export function appendReleaseNotification(existing,notification){return[notifica
 export function preserveReleaseNotifications(incoming,latest){if(!Object.hasOwn(incoming,'releaseNotifications')&&Object.hasOwn(latest,'releaseNotifications'))incoming.releaseNotifications=structuredClone(latest.releaseNotifications);return incoming;}
 export function visibleReleaseNotifications(items){return(Array.isArray(items)?items:[]).filter(item=>item.status==='published').sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));}
 
-export function filterReleaseGames(games,records,platforms,platformId='',query=''){
- const platform=platformId?platforms.find(item=>item.id===platformId):null;
- if(platformId&&!platform?.groupId)return[];
+export function filterReleaseGames(games,records,groups,groupId='',query=''){
+ if(groupId&&!groups.some(group=>group.id===groupId))return[];
  const term=String(query||'').trim().toLowerCase();
- return games.filter(game=>(!platformId||(Array.isArray(records[game.id]?.groupIds)&&records[game.id].groupIds.includes(platform.groupId)))&&(!term||[game.id,game.name,game.mandarinName].some(value=>String(value||'').toLowerCase().includes(term))));
+ return games.filter(game=>(!groupId||(Array.isArray(records[game.id]?.groupIds)&&records[game.id].groupIds.includes(groupId)))&&(!term||[game.id,game.name,game.mandarinName].some(value=>String(value||'').toLowerCase().includes(term))));
 }
