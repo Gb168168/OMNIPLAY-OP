@@ -383,3 +383,6 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
 .op-game-stat strong{font-size:26px;line-height:1.2;color:#172b45;font-variant-numeric:tabular-nums}
 @media(max-width:850px){.op-game-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:440px){.op-game-stats{grid-template-columns:1fr 1fr;gap:7px}.op-game-stat{padding:10px}.op-game-stat span{font-size:12px}.op-game-stat strong{font-size:22px}}
+
+/* Five game-status counters on wide screens */
+@media(min-width:851px){.op-game-stats{grid-template-columns:repeat(5,minmax(0,1fr))}}
