@@ -2,7 +2,7 @@ import { ensureGameInformationPage, renderGameInformationPage } from './game-inf
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261009-online-source-1';
 import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261009-online-source-1';
-import { storedAsset, downloadAsset } from './op-game-form.js?v=20261010-editor-delete-1';
+import { storedAsset, downloadAsset } from './op-game-form.js?v=20261014-download-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
