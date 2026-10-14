@@ -17,5 +17,7 @@ export function gameListRows(data={}){
 }
 export function preferredGameRows(rows=[]){
  const groups=new Map();for(const row of rows){if(!Array.isArray(row)||!/^\d{5,}$/.test(text(row[0])))continue;const id=text(row[0]);if(!groups.has(id))groups.set(id,[]);groups.get(id).push(row)}
- return [...groups.values()].flatMap(group=>{const eligible=group.filter(row=>[row[12],row[13]].some(v=>text(v)&&!na(v)));return eligible.length?eligible:group.slice(0,1)});
+ return [...groups.values()].sort((a,b)=>compareGameIds(a[0][0],b[0][0])).flatMap(group=>{const eligible=group.filter(row=>[row[12],row[13]].some(v=>text(v)&&!na(v)));return eligible.length?eligible:group.slice(0,1)});
 }
+
+export function compareGameIds(left,right){const a=String(left??'').trim(),b=String(right??'').trim();if(!a)return b?1:0;if(!b)return-1;return a.localeCompare(b,'en',{numeric:true});}

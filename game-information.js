@@ -1,7 +1,7 @@
 import {installInformationColors} from './game-information-colors.js?v=20261013-simple-colors-2';
 import {getDoc,setDoc} from './member-access.js?v=20261014-notifications-1';
-import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261009-online-source-1';
-import {uniqueGames,openGameAssetsFromRecords} from './op-game-form.js?v=20261014-notifications-1';
+import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261014-game-id-sort-1';
+import {uniqueGames,openGameAssetsFromRecords} from './op-game-form.js?v=20261014-game-id-sort-1';
 import {getApps,initializeApp} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import {getFirestore,doc} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 const config={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};

@@ -1,5 +1,5 @@
 import { downloadGameList } from './game-list-export.js?v=20261014-download-1';
-import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
+import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261014-game-id-sort-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
 export { storedAsset, downloadAsset, uniqueGames };
 export function openGameAssetsFromRecords(game,state,saveWorkspace,data,readOnly=false){installStyles();records=data.records||{};fieldOptions=data.fieldOptions||structuredClone(DEFAULT_FIELD_OPTIONS);const record=records[game.id]||(records[game.id]={});record.folders||=[];record.assetIds||=[];openAssetViewer(game,state,saveWorkspace,[],readOnly)}
