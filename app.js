@@ -85,7 +85,7 @@ function watchCustomerPermissions(){
  const session=window.__omniplaySession;if(!session||session.canEdit||session.superAdmin||!session.groupId||customerPermissionsUnsubscribe)return;
  let previous='';
  customerPermissionsUnsubscribe=onSnapshot(doc(db,'omniplay-group-views',session.groupId),async snapshot=>{
-  if(!snapshot.exists())return;const data=snapshot.data(),signature=JSON.stringify(data);if(signature===previous)return;previous=signature;
+  if(!snapshot.exists())return;const data=snapshot.data(),signature=JSON.stringify({...data,releaseNotifications:undefined});if(signature===previous)return;previous=signature;
   if(data.enabled===false){state.categories=[];renderNav();$('#workspace').classList.add('hidden');$('#emptyState').classList.remove('hidden');$('#emptyState').innerHTML='<div><h2>此群組權限已停用</h2><p>請聯絡管理員。</p></div>';return}
   const oldPage=state.activePageId;const snapshots=new Map(state.categories.flatMap(category=>category.pages||[]).filter(page=>page.snapshot).map(page=>[page.id,page.snapshot]));for(const category of data.categories||[])for(const page of category.pages||[])if(data.documentRevision===state.documentRevision&&snapshots.has(page.id))page.snapshot=snapshots.get(page.id);Object.assign(state,data);if(signature!==previous)return;const entries=customerSectionPages(),selected=entries.find(entry=>entry.page?.id===oldPage)||entries.find(entry=>entry.page);state.activeCategoryId=selected?.category?.id||null;state.activePageId=selected?.page?.id||null;renderNav();renderPage();$('#cloudStatus').textContent=data.permissionsUpdatedAt?'☁️ 權限同步時間：'+new Date(data.permissionsUpdatedAt).toLocaleTimeString('zh-TW'):'☁️ 客戶資料已載入';
  },error=>{$('#cloudStatus').textContent='⚠️ 權限即時更新失敗：'+firebaseError(error)});
