@@ -1,3 +1,4 @@
+import { preserveReleaseNotifications } from './release-notification-model.js?v=20261014-notifications-1';
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
@@ -24,7 +25,7 @@ function preserveLatestPermissions(incoming,latest){
 }
 async function firebaseSetDoc(ref,data,options){try{
  if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()){preserveLatestPermissions(data,latest.data());if(!options?.merge&&sameContent(latest.data(),data))return}transaction.set(ref,data,options||{})});return}
- if(/^omniplay-group-views\/[^/]+$/.test(ref.path)&&data.enabled!==false){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()&&(String(latest.data().permissionsUpdatedAt||'')>String(data.permissionsUpdatedAt||'')||(!options?.merge&&sameContent(latest.data(),data))))return;transaction.set(ref,data,options||{})});return}
+ if(/^omniplay-group-views\/[^/]+$/.test(ref.path)&&data.enabled!==false){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists())preserveReleaseNotifications(data,latest.data());if(latest.exists()&&(String(latest.data().permissionsUpdatedAt||'')>String(data.permissionsUpdatedAt||'')||(!options?.merge&&sameContent(latest.data(),data))))return;transaction.set(ref,data,options||{})});return}
  return await rawSetDoc(ref,data,options);
  }catch(error){throw databaseError(error,'寫入',ref.path)}
 }
@@ -212,6 +213,7 @@ export async function saveGroupPermissions(db, groupId, allowedPages, pageOrder)
   const view=groupWorkspace(workspace,group);view.allowedDocumentIds=ids;view.permissionsUpdatedAt=group.permissionsUpdatedAt;
   const projected=ids.map(id=>[id,id===CUSTOMER_OP_DOCUMENT?customerGameCatalog(sourceData.get('game-list-online-page'),sourceData.get('op-game-form-records'),group,workspace):withoutCredentials(sourceData.get(id))]);
   view.documentRevision=await digest(contentSignature(projected));expectedPermissions=view.allowedPages;
+  const notificationView=await transaction.get(doc(db,'omniplay-group-views',groupId));if(notificationView.exists())preserveReleaseNotifications(view,notificationView.data());
   const existing=await Promise.all(ids.map(id=>transaction.get(doc(db,'omniplay-group-views',groupId,'documents',id))));
   transaction.update(workspaceRef,{customerGroups:publicWorkspace(workspace.customerGroups),updatedAt:workspace.updatedAt});
   for(const [index,id] of ids.entries()){const value=projected[index][1];if(existing[index].exists()&&sameContent(existing[index].data(),value))continue;transaction.set(doc(db,'omniplay-group-views',groupId,'documents',id),value);}
