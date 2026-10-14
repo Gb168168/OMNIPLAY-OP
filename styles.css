@@ -375,3 +375,11 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
  .page-row{grid-template-columns:minmax(0,1fr) 30px 30px}
  .page-link{font-size:13px;min-height:44px}
 }
+
+/* Game list status counters */
+.op-game-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.op-game-stat{display:flex;flex-direction:column;gap:5px;padding:13px 16px;background:#fff;border:1px solid #dce4ed;border-radius:10px;min-width:0;color:#53647b}
+.op-game-stat span{font-size:13px;line-height:1.4}
+.op-game-stat strong{font-size:26px;line-height:1.2;color:#172b45;font-variant-numeric:tabular-nums}
+@media(max-width:850px){.op-game-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:440px){.op-game-stats{grid-template-columns:1fr 1fr;gap:7px}.op-game-stat{padding:10px}.op-game-stat span{font-size:12px}.op-game-stat strong{font-size:22px}}
