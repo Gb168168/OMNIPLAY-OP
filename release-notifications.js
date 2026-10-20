@@ -1,6 +1,6 @@
 import {getFirestore,doc,getDoc,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import {getAuth} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
-import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261014-game-id-sort-1';
+import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
 import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames} from './release-notification-model.js?v=20261014-group-games-1';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const english=()=>localStorage.getItem('omniplay-customer-language')==='en',label=(zh,en)=>english()?en:zh;

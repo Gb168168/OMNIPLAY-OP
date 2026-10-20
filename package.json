@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/member-model.test.mjs tests/login-session.test.mjs tests/customer-op-renderer.test.mjs tests/release-notifications.test.mjs",
-    "test:firebase": "firebase emulators:exec --only auth,firestore --project demo-omniplay-members --config firebase.emulator.json \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/member-sync.test.mjs tests/group-editor.test.mjs\""
+    "test:firebase": "firebase emulators:exec --only auth,firestore --project demo-omniplay-members --config firebase.emulator.json \"node --test --test-concurrency=1 tests/firestore.rules.test.mjs tests/member-sync.test.mjs tests/group-editor.test.mjs\"",
+    "test:pagcor": "node --test tests/pagcor-approval.test.mjs",
+    "test:pagcor:firebase": "firebase emulators:exec --only auth,firestore --project demo-omniplay-pagcor --config firebase.emulator.json \"node --test --test-concurrency=1 tests/pagcor-approval.rules.test.mjs tests/pagcor-platform-sync.test.mjs\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "5.0.2",

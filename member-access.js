@@ -1,11 +1,11 @@
-import { preserveReleaseNotifications } from './release-notification-model.js?v=20261014-notifications-1';
+import { preserveReleaseNotifications } from './release-notification-model.js?v=20261020-pagcor-1';
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc, getDocFromServer,
   setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261009-online-source-1';
+  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261020-platform-1';
 
 
 function databaseError(error, action, path) {
@@ -141,6 +141,15 @@ async function synchronize(db, workspace) {
     await firebaseSetDoc(doc(db, 'omniplay', 'workspace'), publicWorkspace(data));
     const config = await configuration(db);
     if (!config?.credentialsMigrated) await firebaseSetDoc(doc(db, 'omniplay-security', 'access'), { ownerUid: config?.ownerUid || ADMIN_UID, ownerUsername: config?.ownerUsername || ADMIN_EMAIL, credentialsMigrated: true });
+  }
+  // Platform bindings are separate from shared group views; customers may not enumerate them.
+  const platformSnapshots = await getDocs(collection(db, 'omniplay-platform-access'));
+  const platformData = new Map(platformSnapshots.docs.map(item => [item.id, item.data()]));
+  const currentPlatforms = new Map((data.customers || []).map(platform => [platform.id, platform]));
+  for (const id of new Set([...platformData.keys(), ...currentPlatforms.keys()])) {
+    const platform = currentPlatforms.get(id);
+    const value = { enabled: !!platform, groupId: platform?.groupId || '' };
+    if (!sameContent(platformData.get(id), value)) await firebaseSetDoc(doc(db, 'omniplay-platform-access', id), value);
   }
   sources.set('workspace', data);
   const members = isOwner ? collectMembers(data) : [], profiles = isOwner ? await getDocs(collection(db, 'omniplay-member-access')) : null;
