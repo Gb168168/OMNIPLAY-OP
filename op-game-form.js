@@ -1,4 +1,4 @@
-import { mountPagcorApproval } from './pagcor-approval.js?v=20261020-1';
+import { mountPagcorApproval } from './pagcor-approval.js?v=20261020-save-2';
 import { downloadGameList } from './game-list-export.js?v=20261014-download-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';

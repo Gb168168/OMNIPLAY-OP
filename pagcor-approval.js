@@ -41,7 +41,10 @@ export async function mountPagcorApproval({ container, game, state, readOnly = f
   container.querySelector('.op-browser-empty')?.remove();
   container.prepend(button);
   const unsubscribe = onSnapshot(reference, snapshot => {
-    if (snapshot.exists()) data = snapshot.data();
+    if (snapshot.exists()) {
+      data = snapshot.data();
+      button.querySelector('small').textContent = data.items.length + ' ' + label('個項目', 'items');
+    }
     else if (!admin) { button.remove(); opened?.close(); }
   }, () => { button.remove(); opened?.close(); });
   const cleanup = () => { unsubscribe(); observer.disconnect(); opened?.close(); };
@@ -58,7 +61,7 @@ function openApproval({ reference, game, platforms, admin, data, onSave }) {
   const uploadedFiles = new Map(), objectUrls = new Set();
   dialog.innerHTML = `<div class="pagcor-head"><div><h2>Pagcor Approval</h2><p>${esc(game.id)} · ${esc(game.name)}</p></div><button type="button" data-close>${label('關閉','Close')}</button></div>
     ${admin ? `<section class="pagcor-section"><h3>允許查看的平台</h3><p class="pagcor-help">僅勾選的平台帳號可查看。未勾選任何平台時，只有內部管理者可看。同群組平台不會自動共用此權限。</p><input type="search" data-platform-search aria-label="搜尋平台" placeholder="搜尋平台名稱或域名"><div class="pagcor-platforms">${platforms.map(platform => `<label data-platform-label="${esc((platform.name+' '+(platform.domain||'')).toLowerCase())}"><input type="checkbox" name="approvalPlatform" value="${esc(platform.id)}" ${(data.allowedPlatformIds || []).includes(platform.id) ? 'checked' : ''}><span>${esc(platform.name)}<small> · ${esc(platform.domain || '未填域名')}</small></span></label>`).join('') || '<p>請先在所有平台列表建立平台。</p>'}</div></section>
-    <section class="pagcor-section"><h3>圖片 檔案與連結</h3><div class="pagcor-tools"><button type="button" data-upload>上傳圖片／檔案</button><input type="file" data-files multiple hidden><span class="pagcor-help">單檔上限 20 MB，每款遊戲最多 50 個項目。儲存後才套用。</span></div><div class="pagcor-links" style="margin-top:12px"><input data-link-name maxlength="160" placeholder="連結名稱" aria-label="連結名稱"><input data-link-url type="url" placeholder="https://…" aria-label="連結網址"><button type="button" data-add-link>加入連結</button></div></section>` : ''}
+    <section class="pagcor-section"><h3>圖片 檔案與連結</h3><div class="pagcor-tools"><button type="button" data-upload>上傳圖片／檔案</button><input type="file" data-files multiple hidden><span class="pagcor-help">單檔上限 20 MB，每款遊戲最多 50 個項目。儲存後才套用。填完連結可直接按下方儲存。</span></div><div class="pagcor-links" style="margin-top:12px"><input data-link-name maxlength="160" placeholder="連結名稱，例如：CPS1" aria-label="連結名稱"><input data-link-url type="url" placeholder="完整網址，例如：https://example.com/report" aria-label="連結網址"><button type="button" data-add-link>加入連結</button></div></section>` : ''}
     <div class="pagcor-items"></div><div class="pagcor-footer"><span class="pagcor-status" role="status"></span>${admin ? '<button type="button" data-save>儲存 Pagcor Approval</button>' : ''}</div>`;
   document.body.append(dialog);
   const status = dialog.querySelector('.pagcor-status');
@@ -131,18 +134,30 @@ function openApproval({ reference, game, platforms, admin, data, onSave }) {
       } catch (error) { status.textContent = '上傳失敗：' + (error.code || error.message); }
       finally { draw(); setBusy(false); }
     };
+    const addPendingLink = () => {
+        const name = dialog.querySelector('[data-link-name]'), url = dialog.querySelector('[data-link-url]');
+        if (!name.value.trim() && !url.value.trim()) return false;
+        if (!name.value.trim()) throw new Error('請輸入連結名稱');
+        if (!url.value.trim()) throw new Error('請貼上完整連結網址（https://…）');
+        if (items.length >= MAX_APPROVAL_ITEMS) throw new Error('每款遊戲最多 50 個項目');
+        let href;
+        try { href = approvalLink(url.value); }
+        catch { throw new Error('連結網址無效，請貼上完整的 http:// 或 https:// 網址'); }
+        items.push({ id: crypto.randomUUID(), kind: 'link', name: name.value.trim(), url: href });
+        name.value = ''; url.value = ''; status.textContent = '請儲存以套用'; draw();
+        return true;
+    };
     dialog.querySelector('[data-add-link]').onclick = () => {
       try {
-        const name = dialog.querySelector('[data-link-name]'), url = dialog.querySelector('[data-link-url]');
-        if (!name.value.trim()) throw new Error('請輸入連結名稱');
-        if (items.length >= MAX_APPROVAL_ITEMS) throw new Error('每款遊戲最多 50 個項目');
-        items.push({ id: crypto.randomUUID(), kind: 'link', name: name.value.trim(), url: approvalLink(url.value) });
-        name.value = ''; url.value = ''; status.textContent = '請儲存以套用'; draw();
+        if (!addPendingLink()) throw new Error('請輸入連結名稱與完整網址');
       } catch (error) { status.textContent = error.message; }
     };
     dialog.querySelector('[data-save]').onclick = async () => {
       setBusy(true); status.textContent = '儲存中…';
       try {
+        // Save the visible draft too; never silently discard text left in the link fields.
+        addPendingLink();
+        status.textContent = '儲存中…';
         const next = normalizeApproval({ items, allowedPlatformIds: [...dialog.querySelectorAll('[name=approvalPlatform]:checked')].map(input => input.value) }, platforms);
         const revision = Number(data.revision || 0);
         saveAttempted = true;
