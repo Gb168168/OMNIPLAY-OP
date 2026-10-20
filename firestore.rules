@@ -47,6 +47,42 @@ service cloud.firestore {
     }
     match /omniplay-member-bindings/{id} { allow read, write: if isOwner(); }
     match /omniplay-member-secrets/{id} { allow read, write: if isOwner(); }
+    match /omniplay-platform-access/{platformId} {
+      allow read, write: if isAdmin();
+    }
+    function canViewApproval(gameId, approval) {
+      let profile = member();
+      let platformId = profile.get('platformId', '');
+      let platform = get(/databases/$(database)/documents/omniplay-platform-access/$(platformId)).data;
+      let view = get(/databases/$(database)/documents/omniplay-group-views/$(profile.groupId)).data;
+      let catalog = get(/databases/$(database)/documents/omniplay-group-views/$(profile.groupId)/documents/op-game-customer-records).data;
+      return profile.enabled == true && platformId != '' && platform.enabled == true
+        && platform.groupId == profile.groupId && view.enabled == true
+        && 'op-game-customer-records' in view.allowedDocumentIds
+        && gameId in catalog.records
+        && platformId in approval.allowedPlatformIds;
+    }
+    match /omniplay-pagcor-approvals/{gameId} {
+      allow get: if isAdmin() || (signedIn() && canViewApproval(gameId, resource.data));
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['allowedPlatformIds', 'items', 'fileIds', 'revision', 'updatedAt'])
+        && request.resource.data.allowedPlatformIds is list
+        && request.resource.data.allowedPlatformIds.size() <= 400
+        && request.resource.data.items is list && request.resource.data.items.size() <= 50
+        && request.resource.data.fileIds is list && request.resource.data.fileIds.size() <= 50
+        && request.resource.data.revision is int;
+      allow delete: if isAdmin();
+      match /files/{fileId}/chunks/{index} {
+        allow get: if isAdmin() || (signedIn()
+          && fileId in get(/databases/$(database)/documents/omniplay-pagcor-approvals/$(gameId)).data.fileIds
+          && canViewApproval(gameId, get(/databases/$(database)/documents/omniplay-pagcor-approvals/$(gameId)).data));
+        allow create, update: if isAdmin()
+          && request.resource.data.keys().hasOnly(['data'])
+          && request.resource.data.data is string && request.resource.data.data.size() <= 349528;
+        allow delete: if isAdmin();
+      }
+    }
     match /omniplay/{documentId} {
       allow read: if isAdmin();
       allow create, update, delete: if isOwner();

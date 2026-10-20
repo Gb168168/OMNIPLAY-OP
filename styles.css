@@ -391,3 +391,6 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
 .op-game-stat:hover{border-color:#86a9e9;background:#f6f9ff}
 .op-game-stat:focus-visible{outline:3px solid #79a6f9;outline-offset:2px}
 .op-game-stat-active{border:2px solid #3b82f6;background:#eef5ff;box-shadow:0 1px 5px #3b82f61a}
+
+
+.group-member-form{grid-template-columns:repeat(2,minmax(0,1fr))}.group-member-form small{font-size:12px;line-height:1.5;color:#65758c}@media(max-width:800px){.group-member-form{grid-template-columns:1fr}}

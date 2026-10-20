@@ -1,3 +1,4 @@
+import { memberPlatformId } from './pagcor-approval-model.js';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
 // No Firebase or DOM dependencies: the same model is used by login and sync.
@@ -28,7 +29,8 @@ export function collectMembers(workspace) {
     names.add(normalized);
     result.push({ key: `${kind}:${group.id}:${member.id}`, username, password: String(member.password),
       name: member.name || username, groupId: group.id, groupName: group.name || '',
-      internal: ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) });
+      internal: ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()),
+      platformId: memberPlatformId(member, group, workspace.customers || [], kind) });
   };
   for (const group of groups) for (const member of group.members || []) push(member, group, 'member');
   for (const customer of workspace.customers || []) push(customer, groups.find(group => group.id === customer.groupId), 'customer');
