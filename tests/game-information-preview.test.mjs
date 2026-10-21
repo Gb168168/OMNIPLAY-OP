@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { resolveLinkedGame } from '../group-field-values.js';
 
 test('FBM group preview never inherits the internal editor controls or approval context', async () => {
   const source = (await readFile(new URL('../game-information.js', import.meta.url), 'utf8'))
@@ -16,7 +17,7 @@ test('FBM group preview never inherits the internal editor controls or approval 
   workspace.querySelector = node; workspace.querySelectorAll = () => [];
   let assetArgs, colorAdmin;
   const records = { records: { '101014': { pagcor: 'Yes', groupIds: ['fbm'] } } };
-  const ctx = { window: { __omniplayCanEdit: true },
+  const ctx = { resolveLinkedGame, window: { __omniplayCanEdit: true },
     document: { querySelector: selector => selector === '#workspace' ? workspace : null,
       getElementById: () => true, createElement: () => ({ setAttribute() {}, hidden: true }), body: { append() {} } },
     localStorage: { getItem: () => null }, getApps: () => [{}], initializeApp() {}, getFirestore: () => ({}),

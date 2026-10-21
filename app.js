@@ -1,9 +1,9 @@
 import { installReleaseNotifications } from './release-notifications.js?v=20261020-pagcor-1';
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261021-preview-2';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261021-group-values-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
-import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261020-platform-1';
-import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261020-pagcor-1';
-import { storedAsset, downloadAsset } from './op-game-form.js?v=20261021-preview-2';
+import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261021-group-values-1';
+import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261021-group-values-1';
+import { storedAsset, downloadAsset } from './op-game-form.js?v=20261021-group-values-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';

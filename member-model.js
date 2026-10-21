@@ -1,3 +1,4 @@
+import { projectLinkedRow } from './group-field-values.js?v=20261021-group-values-1';
 import { memberPlatformId } from './pagcor-approval-model.js';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261009-online-source-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
@@ -65,7 +66,7 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null,
   const source = recordData.records || {}, records = {}, fields = ['mandarinName', 'status', 'releaseDate', 'pagcor', 'freeSpin'];
   const selected = rows.filter(row => Array.isArray(row) && String(row[0] ?? '').trim() && (
     !group || (Array.isArray(source[String(row[0]).trim()]?.groupIds) && source[String(row[0]).trim()].groupIds.includes(group.id))
-  )).map(row => row.slice(0, 19).map(value => ['string', 'number', 'boolean'].includes(typeof value) ? value : ''));
+  )).map(row => projectLinkedRow(row.slice(0, 19).map(value => ['string', 'number', 'boolean'].includes(typeof value) ? value : ''), source[String(row[0]).trim()]?.linkedFieldRules, group?.id ?? null));
   for (const row of selected) {
     const id = String(row[0]).trim(), sourceRecord = source[id] || {};
     records[id] = Object.fromEntries(fields.filter(key => ['string','number','boolean'].includes(typeof sourceRecord[key])).map(key => [key, sourceRecord[key]]));
@@ -83,6 +84,14 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null,
     if (links.length || assetIds.length) assetLinks[id] = {folders:links,assetIds};
   }
   return { rowsJson: JSON.stringify(selected), records, ...(Object.keys(assetLinks).length ? {assetLinks} : {}) };
+}
+
+export function projectGroupGameDocument(id, value, rowData, recordData, group, workspace) {
+  if (id === CUSTOMER_OP_DOCUMENT) return customerGameCatalog(rowData, recordData, group, workspace);
+  const internal = ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim());
+  if (!internal && id === 'op-game-form-records') return { records: customerGameCatalog(rowData, recordData, group, workspace).records, updatedAt: value?.updatedAt || '' };
+  if (!internal && id === 'game-list-online-page') return { rowsJson: customerGameCatalog(rowData, recordData, group, workspace).rowsJson, updatedAt: value?.updatedAt || '' };
+  return withoutCredentials(value);
 }
 
 export function effectiveGroupPages(workspace, group) {

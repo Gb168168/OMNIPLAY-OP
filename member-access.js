@@ -5,7 +5,7 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc, getDocFromServer,
   setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261020-platform-1';
+  groupDocumentIds, projectGroupGameDocument, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261021-group-values-1';
 
 
 function databaseError(error, action, path) {
@@ -173,7 +173,7 @@ async function synchronize(db, workspace) {
     view.allowedDocumentIds = isOwner ? ids : (oldViews.docs.find(item => item.id === group.id)?.data().allowedDocumentIds || []);
     if (!isOwner && !oldViews.docs.some(item => item.id === group.id)) continue;
     const writes = [[doc(db, 'omniplay-group-views', group.id), view],
-      ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), id === CUSTOMER_OP_DOCUMENT ? customerGameCatalog(sources.get('game-list-online-page'), sources.get('op-game-form-records'), group, data) : withoutCredentials(sources.get(id))])];
+      ...ids.map(id => [doc(db, 'omniplay-group-views', group.id, 'documents', id), projectGroupGameDocument(id, sources.get(id), sources.get('game-list-online-page'), sources.get('op-game-form-records'), group, data)])];
     // Commit the root allowlist last so a new page is never exposed before its data exists.
     view.documentRevision=await digest(contentSignature(writes.slice(1).map(([ref,value])=>[ref.id,value])));
     const root = writes.shift();
@@ -220,7 +220,7 @@ export async function saveGroupPermissions(db, groupId, allowedPages, pageOrder)
   const ids=groupDocumentIds(workspace,group,[...sourceData.keys()]);
   if(ids.length>490)throw new Error('此群組的資料量超過單次同步上限');
   const view=groupWorkspace(workspace,group);view.allowedDocumentIds=ids;view.permissionsUpdatedAt=group.permissionsUpdatedAt;
-  const projected=ids.map(id=>[id,id===CUSTOMER_OP_DOCUMENT?customerGameCatalog(sourceData.get('game-list-online-page'),sourceData.get('op-game-form-records'),group,workspace):withoutCredentials(sourceData.get(id))]);
+  const projected=ids.map(id=>[id,projectGroupGameDocument(id,sourceData.get(id),sourceData.get('game-list-online-page'),sourceData.get('op-game-form-records'),group,workspace)]);
   view.documentRevision=await digest(contentSignature(projected));expectedPermissions=view.allowedPages;
   const notificationView=await transaction.get(doc(db,'omniplay-group-views',groupId));if(notificationView.exists())preserveReleaseNotifications(view,notificationView.data());
   const existing=await Promise.all(ids.map(id=>transaction.get(doc(db,'omniplay-group-views',groupId,'documents',id))));
