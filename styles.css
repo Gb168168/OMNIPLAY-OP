@@ -456,3 +456,21 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
  #workspace.op-form-page .op-game-stat{padding:5px 8px;gap:6px;min-height:30px}
  #workspace.op-form-page .op-game-stat span{font-size:11px}
 }
+
+/* One coherent status-filter strip with aligned labels and counts. */
+#workspace.op-form-page .op-game-stats{display:flex;flex-wrap:nowrap;align-items:stretch;gap:0;width:fit-content;max-width:100%;padding:4px;margin:0 0 10px;background:#fff;border:1px solid #d5dfec;border-radius:10px;overflow-x:auto;scrollbar-width:thin}
+#workspace.op-form-page .op-game-stat{position:relative;flex:0 0 auto;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:16px;min-height:38px;padding:7px 16px;border:0;border-radius:6px;background:transparent;box-shadow:none;color:#52657f;white-space:nowrap;transition:background .15s,color .15s}
+#workspace.op-form-page .op-game-stat+.op-game-stat{margin-left:5px}
+#workspace.op-form-page .op-game-stat+.op-game-stat::before{content:"";position:absolute;left:-3px;top:9px;bottom:9px;width:1px;background:#e2e8f0}
+#workspace.op-form-page .op-game-stat span{font-size:12px;font-weight:500;line-height:20px}
+#workspace.op-form-page .op-game-stat strong{display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:0 6px;border-radius:5px;background:#edf1f7;color:#334b69;font-size:14px;font-weight:700;line-height:24px;font-variant-numeric:tabular-nums}
+#workspace.op-form-page .op-game-stat:hover{background:#f3f6fb;color:#244f85}
+#workspace.op-form-page .op-game-stat-active{background:#eaf2ff;color:#245ab0}
+#workspace.op-form-page .op-game-stat-active strong{background:#d7e6ff;color:#1d4e99}
+#workspace.op-form-page .op-game-table td:has(>.op-edit-btn),
+#workspace.op-form-page .op-game-table th.op-admin-column:first-child{padding:8px 6px!important}
+#workspace.op-form-page .op-edit-btn{white-space:nowrap;word-break:keep-all;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:28px;line-height:1.2;padding:5px 8px}
+@media(max-width:760px){
+ #workspace.op-form-page .op-game-stat{gap:10px;padding:6px 10px;min-height:36px}
+ #workspace.op-form-page .op-game-stat span{font-size:11px}
+}
