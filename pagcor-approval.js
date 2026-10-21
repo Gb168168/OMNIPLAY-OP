@@ -1,6 +1,6 @@
 import { getFirestore, doc, getDocFromServer, runTransaction, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { uploadApprovalFile, readApprovalFile, removeApprovalFile } from './pagcor-approval-files.js';
-import { PAGCOR_COLLECTION, MAX_APPROVAL_FILE_BYTES, MAX_APPROVAL_ITEMS, approvalLink, normalizeApproval } from './pagcor-approval-model.js';
+import { PAGCOR_COLLECTION, MAX_APPROVAL_FILE_BYTES, MAX_APPROVAL_ITEMS, approvalLink, normalizeApproval, approvalPreviewAllowed } from './pagcor-approval-model.js?v=20261021-preview-2';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const english = () => localStorage.getItem('omniplay-customer-language') === 'en';
@@ -12,16 +12,39 @@ function installStyle() {
   document.head.append(style);
 }
 
-export async function mountPagcorApproval({ container, game, state, readOnly = false, previewGroupId = null }) {
-  const admin = !readOnly && !!window.__omniplayCanEdit;
-  // A group preview has no individual platform identity. Never preview private content as the administrator.
-  if (previewGroupId) return;
+export async function mountPagcorApproval({ container, game, state, readOnly = false, previewGroupId = null, previewPlatformIds = null }) {
+  const admin = !readOnly && !previewGroupId && !!window.__omniplayCanEdit;
+  if (previewGroupId && (!window.__omniplayCanEdit || !Array.isArray(previewPlatformIds) || !previewPlatformIds.length)) return;
   const reference = doc(getFirestore(), PAGCOR_COLLECTION, game.id);
   let data = { allowedPlatformIds: [], items: [], revision: 0 };
   try {
     const snapshot = await getDocFromServer(reference);
     if (snapshot.exists()) data = snapshot.data();
     else if (!admin) return;
+    if (previewGroupId) {
+      if (!approvalPreviewAllowed(data, previewPlatformIds)) {
+        if (previewPlatformIds.some(id => data.allowedPlatformIds?.includes(id)) && container.isConnected) {
+          const note = document.createElement('p'); note.className = 'pagcor-help';
+          note.textContent = '此群組的平台權限不同，請在上方選擇個別平台預覽。'; container.append(note);
+        }
+        return;
+      }
+      // Preview uses the internal user's connection, so explicitly reproduce the server's access checks.
+      const [group, catalog, ...platforms] = await Promise.all([
+        getDocFromServer(doc(getFirestore(), 'omniplay-group-views', previewGroupId)),
+        getDocFromServer(doc(getFirestore(), 'omniplay-group-views', previewGroupId, 'documents', 'op-game-customer-records')),
+        ...previewPlatformIds.map(id => getDocFromServer(doc(getFirestore(), 'omniplay-platform-access', id))),
+      ]);
+      if (!group.exists() || group.data().enabled !== true || !group.data().allowedDocumentIds?.includes('op-game-customer-records')
+        || !catalog.exists() || !Object.hasOwn(catalog.data().records || {}, game.id)) return;
+      if (platforms.some(platform => !platform.exists() || platform.data().enabled !== true || platform.data().groupId !== previewGroupId)) {
+        if (container.isConnected) {
+          const note = document.createElement('p'); note.className = 'pagcor-help';
+          note.textContent = '平台權限尚未同步，請先執行「同步帳號與權限」後再預覽。'; container.append(note);
+        }
+        return;
+      }
+    }
   } catch (error) {
     if (!admin) return; // Unauthorized clients receive neither metadata nor attachments.
     const status = document.createElement('p'); status.className = 'pagcor-help';
@@ -43,6 +66,7 @@ export async function mountPagcorApproval({ container, game, state, readOnly = f
   const unsubscribe = onSnapshot(reference, snapshot => {
     if (snapshot.exists()) {
       data = snapshot.data();
+      if (previewGroupId && !approvalPreviewAllowed(data, previewPlatformIds)) { button.remove(); opened?.close(); return; }
       button.querySelector('small').textContent = data.items.length + ' ' + label('個項目', 'items');
     }
     else if (!admin) { button.remove(); opened?.close(); }

@@ -27,13 +27,14 @@ test('FBM group preview never inherits the internal editor controls or approval 
   };
   vm.createContext(ctx); vm.runInContext(source, ctx);
   const page = { id: 'info', gameInformation: true };
-  await ctx.renderGameInformationPage({ state: {}, page, previewGroupId: 'fbm' });
+  await ctx.renderGameInformationPage({ state: {}, page, previewGroupId: 'fbm', previewPlatformIds: ['fbm-platform'] });
   assert.doesNotMatch(node('tbody').innerHTML, /data-gi-edit/);
   assert.doesNotMatch(workspace.innerHTML, /data-gi-import|data-gi-header-edit/);
   assert.equal(colorAdmin, false);
   await workspace.onclick({ target: { closest: selector => selector === '[data-gi-id]' ? { dataset: { giId: '101014' } } : null } });
   assert.equal(assetArgs[4], true);
   assert.equal(assetArgs[5], 'fbm');
+  assert.deepEqual(Array.from(assetArgs[6]), ['fbm-platform']);
   await ctx.renderGameInformationPage({ state: {}, page });
   assert.match(node('tbody').innerHTML, /data-gi-edit/);
   assert.equal(colorAdmin, true);
@@ -47,7 +48,8 @@ test('asset entry point forces read-only mode and preserves the preview group', 
   const ctx = { installStyles() {}, records: {}, fieldOptions: {}, DEFAULT_FIELD_OPTIONS: {}, structuredClone,
     openAssetViewer: (...value) => { args = value; } };
   vm.createContext(ctx); vm.runInContext(entry, ctx);
-  ctx.openGameAssetsFromRecords({ id: '101014' }, {}, null, {}, false, 'fbm');
+  ctx.openGameAssetsFromRecords({ id: '101014' }, {}, null, {}, false, 'fbm', ['fbm-platform']);
   assert.equal(args[4], true);
   assert.equal(args[5], 'fbm');
+  assert.deepEqual(Array.from(args[6]), ['fbm-platform']);
 });

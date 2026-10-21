@@ -1,10 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { approvalLink, normalizeApproval, memberPlatformId, APPROVAL_CHUNK_BYTES } from '../pagcor-approval-model.js';
+import { approvalLink, normalizeApproval, memberPlatformId, approvalPreviewAllowed, APPROVAL_CHUNK_BYTES } from '../pagcor-approval-model.js';
 import { collectMembers, customerGameCatalog } from '../member-model.js';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import { webcrypto } from 'node:crypto';
+
+test('preview distinguishes approved Playtime platforms, unapproved FBM and mixed groups', () => {
+  const approval = { allowedPlatformIds: ['pts', 'pts2'] };
+  assert.equal(approvalPreviewAllowed(approval, ['pts', 'pts2']), true);
+  assert.equal(approvalPreviewAllowed(approval, ['pts']), true);
+  assert.equal(approvalPreviewAllowed(approval, ['pts2']), true);
+  assert.equal(approvalPreviewAllowed(approval, ['fbm']), false);
+  assert.equal(approvalPreviewAllowed(approval, ['pts', 'fbm']), false);
+  assert.equal(approvalPreviewAllowed(approval, []), false);
+  assert.equal(approvalPreviewAllowed(approval, null), false);
+  assert.equal(approvalPreviewAllowed({ allowedPlatformIds: [] }, ['pts']), false);
+});
 
 test('platforms in a shared group remain distinct and unknown bindings fail closed', () => {
   const group = { id: 'g', name: 'Client', members: [

@@ -3,6 +3,13 @@ export const MAX_APPROVAL_FILE_BYTES = 20 * 1024 * 1024;
 export const APPROVAL_CHUNK_BYTES = 256 * 1024;
 export const MAX_APPROVAL_ITEMS = 50;
 
+// Group preview shows only content shared by every platform in that group.
+// An individual platform preview passes exactly one ID. Empty identity never grants access.
+export function approvalPreviewAllowed(approval, platformIds) {
+  return Array.isArray(platformIds) && platformIds.length > 0
+    && platformIds.every(id => typeof id === 'string' && id !== '' && approval.allowedPlatformIds?.includes(id));
+}
+
 export function approvalLink(value) {
   const text = String(value || '').trim();
   if (text.length > 2048) throw new Error('連結網址上限 2048 字元');
