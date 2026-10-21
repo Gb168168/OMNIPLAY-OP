@@ -394,3 +394,37 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
 
 
 .group-member-form{grid-template-columns:repeat(2,minmax(0,1fr))}.group-member-form small{font-size:12px;line-height:1.5;color:#65758c}@media(max-width:800px){.group-member-form{grid-template-columns:1fr}}
+
+/* Keep the directory readable while fitting more games in the viewport. */
+#workspace.op-form-page{padding:12px 18px!important}
+#workspace.op-form-page .op-form-head{margin-bottom:10px;gap:14px}
+#workspace.op-form-page .op-form-head h2{font-size:21px;margin:2px 0}
+#workspace.op-form-page .op-game-stats{gap:10px;margin-bottom:12px}
+#workspace.op-form-page .op-game-stat{padding:8px 14px;gap:2px}
+#workspace.op-form-page .op-game-stat strong{font-size:23px}
+#workspace.op-form-page .op-game-stat span{font-size:12px}
+#workspace.op-form-page .op-game-table th{padding:9px 12px!important;line-height:1.35}
+#workspace.op-form-page .op-game-table td{padding:8px 12px!important;line-height:1.4}
+#workspace.op-form-page .op-game-table td>span[style*="white-space:pre-line"]{max-height:44px;overflow:auto;white-space:pre-line;scrollbar-width:thin}
+#workspace.op-form-page .op-game-table .op-pills{max-height:44px;overflow:auto;scrollbar-width:thin;align-content:start}
+#workspace.op-form-page .op-game-table .op-value-pill{max-height:44px;overflow:auto}
+#workspace.op-form-page .op-game-card{isolation:isolate}
+#workspace.op-form-page .op-game-table{border-collapse:separate;border-spacing:0}
+#workspace.op-form-page .op-game-table td{background:#fff}
+#workspace.op-form-page .op-game-table tr:hover td{background:#f2f7fd}
+#workspace.op-form-page .op-game-table th.op-admin-column:first-child,
+#workspace.op-form-page .op-game-table td:has(>.op-edit-btn){position:sticky;left:0;min-width:64px!important;width:64px!important;max-width:64px!important;z-index:3}
+#workspace.op-form-page .op-game-table th:first-child:not(.op-admin-column),
+#workspace.op-form-page .op-game-table th.op-admin-column+th,
+#workspace.op-form-page .op-game-table td:has(>.op-id-link){position:sticky;left:0;min-width:110px!important;width:110px!important;max-width:110px!important;z-index:3;box-shadow:2px 0 0 #d7e0ec}
+#workspace.op-form-page .op-game-table:has(.op-admin-column) td:has(>.op-id-link),
+#workspace.op-form-page .op-game-table th.op-admin-column+th{left:64px}
+#workspace.op-form-page .op-game-table thead th.op-admin-column:first-child,
+#workspace.op-form-page .op-game-table thead th.op-admin-column+th,
+#workspace.op-form-page .op-game-table thead th:first-child:not(.op-admin-column){z-index:5}
+@media(max-width:760px){
+ #workspace.op-form-page{padding:10px!important}
+ #workspace.op-form-page .op-form-head{gap:8px}
+ #workspace.op-form-page .op-game-stat{padding:6px 10px}
+ #workspace.op-form-page .op-game-stat strong{font-size:20px}
+}
