@@ -243,10 +243,10 @@ test('upgrades shared old type config once, preserves custom types and respects 
 });
 
 test('composer automatically applies templates and preserves manual edits during game updates',async()=>{
- const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('   let previousTemplate='),end=source.indexOf('   const paintTypes=',start);
- const fields={environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},titleZh:{value:''},titleEn:{value:''}};
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('   let previousDateGameId='),end=source.indexOf('   const paintTypes=',start);
+ const fields={releaseAt:{value:''},environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},titleZh:{value:''},titleEn:{value:''}};
  const nodes=new Map(),form={elements:fields,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
- const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
+ const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{},notificationTemplateDates:copy=>copy,defaultNotificationDate:()=>'',records:{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  vm.runInContext('autoTitle()',context);assert.equal(fields.titleZh.value,releaseTemplate('flow-uat').titleZh);assert.equal(fields.titleEn.value,releaseTemplate('flow-uat').titleEn);
  fields.messageZh.value='人工修改';fields.gameId.value='002';vm.runInContext('autoTitle()',context);assert.equal(fields.messageZh.value,'人工修改');assert.equal(fields.messageEn.value,releaseTemplate('flow-uat').messageEn);
@@ -363,4 +363,31 @@ test('description date input synchronizes both languages and updates only the se
  const changed=context.fillDescriptionDate(multi,1,'2026-12-02','zh');assert.match(changed,/開始【請輸入 YYYY/);assert.match(changed,/結束 2026 \/ 12 \/ 02/);
  assert.equal(context.fillDescriptionDate('保留我的說明與 7 天期限',0,'2026-12-02','zh'),'保留我的說明與 7 天期限');
  assert.throws(()=>context.fillDescriptionDate(multi,0,'12/02/2026','zh'));
+});
+
+test('notification dates prefer actual release, fall back only when blank, and validate calendar dates',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function defaultNotificationDate('),end=source.indexOf('function notificationTitle(',start),context={};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ assert.equal(context.defaultNotificationDate({releaseDate:'2026-11-02',plannedReleaseDate:'2026-10-28'}),'2026-11-02');
+ assert.equal(context.defaultNotificationDate({releaseDate:'  ',plannedReleaseDate:'2026/10/28'}),'2026-10-28');
+ assert.equal(context.defaultNotificationDate({}), '');
+ assert.equal(context.defaultNotificationDate({releaseDate:'2026-02-30',plannedReleaseDate:'2026-10-28'}),'');
+ const copy=context.notificationTemplateDates(releaseTemplate('first-pord'),{releaseDate:'2026-11-02'});
+ assert.match(copy.messageZh,/2026 \/ 11 \/ 02/);assert.match(copy.messageEn,/2026 \/ 11 \/ 02/);
+ assert.doesNotMatch(copy.messageZh,/請輸入/);assert.doesNotMatch(copy.messageEn,/Enter YYYY/);
+ const planned=context.notificationTemplateDates(releaseTemplate('first-pord'),{plannedReleaseDate:'2026-12-03'});assert.match(planned.messageZh,/2026 \/ 12 \/ 03/);
+});
+
+test('composer defaults release time and bilingual descriptions from the selected game and preserves manual date edits',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
+ const elements={releaseAt:{value:''},environment:{value:'first-pord'},gameId:{value:'001'},templateVariant:{value:'standard'},titleZh:{value:''},titleEn:{value:''},messageZh:{value:''},messageEn:{value:''}};
+ const nodes=new Map(),context={form:{elements,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector);}},
+ records:{'001':{releaseDate:'2026-11-04',plannedReleaseDate:'2026-10-20'},'002':{plannedReleaseDate:'2026-12-05'},'003':{}},
+ games:new Map([['001',{id:'001'}],['002',{id:'002'}],['003',{id:'003'}]]),releaseTemplate,preview:{},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{}};
+ vm.createContext(context);vm.runInContext(source.slice(source.indexOf('function defaultNotificationDate('),source.indexOf('function notificationTitle(')),context);
+ vm.runInContext(source.slice(source.indexOf('   let previousDateGameId='),source.indexOf('   const replaceTemplate=')),context);
+ vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'2026-11-04');assert.match(elements.messageZh.value,/2026 \/ 11 \/ 04/);assert.match(elements.messageEn.value,/2026 \/ 11 \/ 04/);
+ elements.releaseAt.value='2026-11-09';vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'2026-11-09');
+ elements.gameId.value='002';vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'2026-12-05');assert.match(elements.messageEn.value,/2026 \/ 12 \/ 05/);
+ elements.gameId.value='003';vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'');assert.match(elements.messageZh.value,/請輸入 YYYY/);
 });
