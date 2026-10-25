@@ -67,3 +67,24 @@ test('original file bytes round-trip across chunks and writes stay below batch s
   await assert.rejects(ctx.readApprovalFile('90001',item),/不完整/);
   await ctx.removeApprovalFile('90001',item);assert.equal(documents.size,0);
 });
+
+
+test('empty Game ID approvals stay hidden and reappear only when items exist', async () => {
+ const source=await readFile(new URL('../pagcor-approval.js',import.meta.url),'utf8');
+ const start=source.indexOf('export async function mountPagcorApproval('),end=source.indexOf('\nfunction openApproval(',start);
+ for(const admin of [false,true]){
+  let snapshotListener;const children=[],tools=[];let emptyRemoved=0;
+  const makeNode=()=>({style:{},hidden:false,innerHTML:'',textContent:'',querySelector:()=>({textContent:''}),remove(){this.removed=true;}});
+  const toolbar={append:node=>tools.push(node)},dialog={querySelector:()=>toolbar,addEventListener(){}};
+  const container={isConnected:true,prepend:node=>children.push(node),querySelector:()=>({remove:()=>emptyRemoved++}),closest:()=>dialog};
+  const context={window:{__omniplayCanEdit:admin},document:{createElement:makeNode,body:{}},getFirestore:()=>({}),doc:()=>({}),PAGCOR_COLLECTION:'approvals',
+   getDocFromServer:async()=>({exists:()=>true,data:()=>({items:[],allowedPlatformIds:[],revision:0})}),installStyle(){},label:(zh,en)=>zh,
+   onSnapshot:(reference,callback)=>{snapshotListener=callback;return()=>{};},MutationObserver:class{observe(){}disconnect(){}},openApproval:()=>({close(){}})};
+  vm.createContext(context);vm.runInContext(source.slice(start,end).replace('export async function','async function'),context);
+  await context.mountPagcorApproval({container,game:{id:'100001'},state:{}});
+  const button=children[0];assert.equal(button.hidden,true);assert.equal(button.style.display,'none');assert.equal(emptyRemoved,0);
+  assert.equal(tools.length,admin?1:0);if(admin)assert.equal(tools[0].hidden,false);
+  snapshotListener({exists:()=>true,data:()=>({items:[{id:'file'}]})});assert.equal(button.hidden,false);assert.equal(button.style.display,'');assert.equal(emptyRemoved,1);if(admin)assert.equal(tools[0].hidden,true);
+  snapshotListener({exists:()=>true,data:()=>({items:[]})});assert.equal(button.hidden,true);if(admin)assert.equal(tools[0].hidden,false);
+ }
+});
