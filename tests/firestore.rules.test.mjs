@@ -106,3 +106,17 @@ test('Rondo may appoint admins; admins cannot appoint, read passwords, or replac
   await assertSucceeds(getDoc(doc(owner, 'omniplay-audit-events', 'valid')));
   await assertSucceeds(getDoc(doc(admin, 'omniplay-audit-events', 'valid')));
 });
+
+
+test('release collection is internal only and the legacy notification document is frozen', async () => {
+ const admin = env.authenticatedContext('xqDN3vaLfufEkz4TZ1omSmGkQ2A2').firestore();
+ const ref = doc(admin, 'omniplay-release-notifications', 'rules-notice');
+ await assertSucceeds(setDoc(ref, { id: 'rules-notice', status: 'published' }));
+ await assertSucceeds(getDoc(ref));
+ for (const db of [env.authenticatedContext('f').firestore(), env.unauthenticatedContext().firestore()]) {
+  await assertFails(getDoc(doc(db, 'omniplay-release-notifications', 'rules-notice')));
+  await assertFails(setDoc(doc(db, 'omniplay-release-notifications', 'forbidden'), { status: 'published' }));
+ }
+ await assertFails(setDoc(doc(admin, 'omniplay', 'game-release-notifications'), { items: [] }));
+ await assertSucceeds(deleteDoc(ref));
+});

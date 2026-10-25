@@ -1,4 +1,4 @@
-import {getFirestore,doc,getDoc,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import {getFirestore,doc,collection,query,orderBy,limit,getDoc,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import {getAuth} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
 import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames} from './release-notification-model.js?v=20261014-group-games-1';
@@ -13,26 +13,41 @@ function styles(){if(document.querySelector('#releaseNotificationStyles'))return
 
 `;document.head.append(style);}
 function notificationDialog(id){let dialog=document.getElementById(id);if(!dialog){dialog=document.createElement('dialog');dialog.id=id;dialog.className='release-dialog';dialog.setAttribute('data-viewer-control','');document.body.append(dialog);}return dialog;}
+const RELEASE_COLLECTION='omniplay-release-notifications';
+// Keep the legacy document as a backup; never overwrite an already migrated item.
+export async function migrateReleaseNotifications(db){
+ const legacy=await getDoc(doc(db,'omniplay','game-release-notifications'));
+ for(const item of legacy.exists()?legacy.data().items||[]:[]){
+  if(!item.id||String(item.id).includes('/'))throw new Error('舊通知識別碼無效，請聯絡管理者');
+  const ref=doc(db,RELEASE_COLLECTION,item.id);
+  await runTransaction(db,async transaction=>{
+   const current=await transaction.get(ref);
+   if(!current.exists())transaction.set(ref,item);
+  });
+ }
+}
 export async function publishReleaseNotification(db,notification){
- const ref=doc(db,'omniplay','game-release-notifications');
+ await migrateReleaseNotifications(db);
+ const ref=doc(db,RELEASE_COLLECTION,notification.id);
  await runTransaction(db,async transaction=>{
-  const source=await transaction.get(ref),refs=notification.groupIds.map(id=>doc(db,'omniplay-group-views',id));
+  const source=await transaction.get(ref);
+  if(source.exists())return;
+  const refs=notification.groupIds.map(id=>doc(db,'omniplay-group-views',id));
   const groups=await Promise.all(refs.map(ref=>transaction.get(ref)));
   if(groups.some(snapshot=>!snapshot.exists()||snapshot.data().enabled!==true))throw new Error('部分群組尚未同步或已停用，請先完成群組同步後重試');
-  const history=source.exists()?source.data().items||[]:[];
-  if(history.some(item=>item.id===notification.id))return;
-  transaction.set(ref,{items:appendReleaseNotification(history,notification),updatedAt:notification.createdAt},{merge:true});
+  transaction.set(ref,notification);
   groups.forEach((snapshot,index)=>transaction.update(refs[index],{releaseNotifications:appendReleaseNotification(snapshot.data().releaseNotifications,publicReleaseNotification(notification))}));
  });
 }
 export async function withdrawReleaseNotification(db,id){
- const ref=doc(db,'omniplay','game-release-notifications');
+ await migrateReleaseNotifications(db);
+ const ref=doc(db,RELEASE_COLLECTION,id);
  await runTransaction(db,async transaction=>{
-  const source=await transaction.get(ref),items=source.exists()?source.data().items||[]:[],notification=items.find(item=>item.id===id);
+  const source=await transaction.get(ref),notification=source.exists()?source.data():null;
   if(!notification||notification.status!=='published')return;
   const refs=notification.groupIds.map(groupId=>doc(db,'omniplay-group-views',groupId)),snapshots=await Promise.all(refs.map(ref=>transaction.get(ref)));
   const now=new Date().toISOString();
-  transaction.update(ref,{items:items.map(item=>item.id===id?{...item,status:'withdrawn',withdrawnAt:now}:item),updatedAt:now});
+  transaction.update(ref,{status:'withdrawn',withdrawnAt:now});
   snapshots.forEach((snapshot,index)=>{if(snapshot.exists())transaction.update(refs[index],{releaseNotifications:(snapshot.data().releaseNotifications||[]).filter(item=>item.id!==id)});});
  });
 }
@@ -87,9 +102,12 @@ export function installReleaseNotifications({db=getFirestore(),state}){
   }catch(error){dialog.querySelector('[data-content]').innerHTML='<div class="release-error">'+esc(error.message||error)+'</div>';}
  }
  button.onclick=openList;paintBell();
- const ref=admin?doc(db,'omniplay','game-release-notifications'):doc(db,'omniplay-group-views',groupId);
- const unsubscribe=onSnapshot(ref,snapshot=>{loaded=true;error='';items=snapshot.exists()?(admin?snapshot.data().items||[]:snapshot.data().releaseNotifications||[]):[];paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);},failure=>{loaded=true;error=label('通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: ')+(failure.code||failure.message);paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);});
+ const ref=admin?query(collection(db,RELEASE_COLLECTION),orderBy('createdAt','desc'),limit(NOTIFICATION_LIMIT)):doc(db,'omniplay-group-views',groupId);
+ let unsubscribe=()=>{},disposed=false;
+ const subscribe=()=>{if(disposed)return;unsubscribe=onSnapshot(ref,snapshot=>{loaded=true;error='';items=admin?snapshot.docs.map(item=>item.data()):(snapshot.exists()?snapshot.data().releaseNotifications||[]:[]);paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);},failure=>{loaded=true;error=label('通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: ')+(failure.code||failure.message);paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);});};
+ if(admin)migrateReleaseNotifications(db).then(subscribe).catch(failure=>{loaded=true;error='通知移轉失敗，請確認已發布新版 Firestore 規則後重新整理：'+(failure.code||failure.message);paintBell();});else subscribe();
  window.addEventListener('storage',event=>{if(event.key!==readKey)return;try{read=new Set(JSON.parse(event.newValue||'[]'));paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);}catch{}});
  const observer=new MutationObserver(()=>{paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)openList();});observer.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
- window.addEventListener('pagehide',()=>{unsubscribe();observer.disconnect();},{once:true});
+ window.addEventListener('pagehide',()=>{disposed=true;unsubscribe();observer.disconnect();},{once:true});
 }
+

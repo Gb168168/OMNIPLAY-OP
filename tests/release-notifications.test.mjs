@@ -29,6 +29,7 @@ test('limits history, de-duplicates IDs, hides withdrawals and orders newest fir
 async function mockStore(seed={}){
  const data=new Map(Object.entries(seed)),source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
  const context={console,Date,structuredClone,appendReleaseNotification,publicReleaseNotification,
+  getDoc:async ref=>({exists:()=>data.has(ref),data:()=>structuredClone(data.get(ref))}),
   doc:(db,...parts)=>parts.join('/'),runTransaction:async(db,callback)=>{
    const next=new Map([...data].map(([key,value])=>[key,structuredClone(value)]));let writing=false;
    const snapshot=ref=>({exists:()=>next.has(ref),data:()=>structuredClone(next.get(ref))});
@@ -38,13 +39,13 @@ async function mockStore(seed={}){
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
- return{data,publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id)};
+ return{data,publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
 }
 test('publishes only selected groups atomically, preserves permission fields, retries once per ID',async()=>{
  const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
  const store=await mockStore({'omniplay-group-views/a':base,'omniplay-group-views/b':base});
  await store.publish(make());await store.publish(make());
- assert.equal(store.data.get('omniplay/game-release-notifications').items.length,1);
+ assert.equal(store.data.get('omniplay-release-notifications/n1').id,'n1');
  assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications.length,1);
  assert.equal(store.data.get('omniplay-group-views/b').releaseNotifications,undefined);
  assert.deepEqual(store.data.get('omniplay-group-views/a').allowedPages,['game']);
@@ -52,7 +53,7 @@ test('publishes only selected groups atomically, preserves permission fields, re
 test('disabled recipients reject the entire publication without partial customer delivery',async()=>{
  const store=await mockStore({'omniplay-group-views/a':{enabled:true},'omniplay-group-views/b':{enabled:false}});
  await assert.rejects(store.publish(make({groupIds:['a','b']})),/停用/);
- assert.equal(store.data.has('omniplay/game-release-notifications'),false);
+ assert.equal(store.data.has('omniplay-release-notifications/n1'),false);
  assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications,undefined);
 });
 test('withdrawal removes customer copies and keeps management history; deleted groups do not block it',async()=>{
@@ -60,7 +61,7 @@ test('withdrawal removes customer copies and keeps management history; deleted g
  await store.publish(make({groupIds:['a','b']}));store.data.delete('omniplay-group-views/b');
  await store.withdraw('n1');await store.withdraw('n1');
  assert.deepEqual(store.data.get('omniplay-group-views/a').releaseNotifications,[]);
- assert.equal(store.data.get('omniplay/game-release-notifications').items[0].status,'withdrawn');
+ assert.equal(store.data.get('omniplay-release-notifications/n1').status,'withdrawn');
 });
 
 test('customer bell reads only its group, shows unread notifications, marks read and never exposes publish controls',async()=>{
@@ -110,4 +111,15 @@ test('group game search matches only assigned games and rejects unknown groups',
 test('OMNIPLAY and OMNIPLAY Support can be selected as notification recipients',()=>{
  const item=buildReleaseNotification({environment:'test',title:'內部測試通知',releaseAt:'2026-10-15T00:00:00+08:00',groupIds:['internal','support']},{uid:'admin',id:'internal-test',game:{id:'106010'},groups:[{id:'internal',name:'OMNIPLAY'},{id:'support',name:'OMNIPLAY Support'}]});
  assert.deepEqual(item.groupNames,['OMNIPLAY','OMNIPLAY Support']);
+});
+
+
+test('legacy migration preserves history and never resurrects withdrawn notifications',async()=>{
+ const old=make();
+ const store=await mockStore({'omniplay/game-release-notifications':{items:[old]},'omniplay-group-views/a':{enabled:true,releaseNotifications:[publicReleaseNotification(old)]}});
+ await store.migrate();assert.equal(store.data.get('omniplay-release-notifications/n1').title,old.title);
+ await store.withdraw('n1');await store.migrate();
+ assert.equal(store.data.get('omniplay-release-notifications/n1').status,'withdrawn');
+ assert.deepEqual(store.data.get('omniplay-group-views/a').releaseNotifications,[]);
+ assert.equal(store.data.get('omniplay/game-release-notifications').items[0].status,'published');
 });
