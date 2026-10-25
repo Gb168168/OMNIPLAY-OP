@@ -228,11 +228,11 @@ test('all eleven requested types map to the supplied bilingual Excel templates',
  assert.equal(releaseTemplate('schedule-change').messageZh.includes('延後上線'),true);
  assert.equal(releaseTemplate('custom-type'),null);
 });
-test('templates fill game details literally without changing unknown dates, links or source text',()=>{
+test('templates fill game details and internal Game ID references while preserving dates and literal names',()=>{
  const game={id:'001',mandarinName:'測試$&遊戲',name:'Test $& Game'};
  const copy=releaseTemplate('first-uat',game);
  assert.match(copy.messageZh,/遊戲 ID： 001/);assert.ok(copy.messageZh.includes('遊戲名稱： 測試$&遊戲'));
- assert.ok(copy.messageEn.includes('Game Name： Test $& Game'));assert.ok(copy.messageZh.includes('遊戲素材：\n'));
+ assert.ok(copy.messageEn.includes('Game Name： Test $& Game'));assert.ok(copy.messageZh.includes('遊戲素材： GAME ID 001\n'));
  assert.ok(copy.messageZh.includes('（UTC+8）'));
  const noDm=releaseTemplate('flow-uat',game,'no-dm');assert.ok(noDm.messageZh.includes('遊戲相關資料提供日期'));assert.equal(noDm.messageZh.includes('遊戲素材：'),false);
  assert.equal(releaseTemplate('flow-pord',game).note.includes('不放宣傳圖'),true);
@@ -293,4 +293,32 @@ test('group badges expose only own group to recipients, and updated notification
  assert.match(context.recipientGroupsMarkup(item,true,''),/Support/);assert.match(context.recipientGroupsMarkup(item,true,''),/OKBET/);
  const customer=context.recipientGroupsMarkup(item,false,'OKBET');assert.match(customer,/OKBET/);assert.doesNotMatch(customer,/Support/);
  assert.equal(context.notificationReadKey(item),'n');assert.notEqual(context.notificationReadKey({...item,updatedAt:'new'}),'n');
+});
+
+
+test('notification resource links open the matching Game ID in both languages and safely escape text',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
+ const start=source.indexOf('function notificationMessageMarkup('),end=source.indexOf('function bilingualMessageMarkup(',start);
+ const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const context={esc};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ for(const key of ['遊戲清單','遊戲素材','行銷資源','Game List','Game Assets','Marketing Resources']){
+  const html=context.notificationMessageMarkup(key+'： GAME ID 100001','100001');
+  assert.match(html,/data-notification-game="100001"/);assert.match(html,/GAME ID 100001 ↗/);
+ }
+ const legacy=context.notificationMessageMarkup('遊戲清單：\n\n遊戲素材：\n行銷資源：','100001');
+ assert.equal((legacy.match(/data-notification-game=/g)||[]).length,3);assert.ok(legacy.includes('\n\n'));
+ assert.doesNotMatch(context.notificationMessageMarkup('Game Assets: https://drive.google.com/example','100001'),/<button/);
+ assert.equal(context.notificationMessageMarkup('<img src=x onerror=alert(1)>','100001'),'&lt;img src=x onerror=alert(1)&gt;');
+ assert.doesNotMatch(context.notificationMessageMarkup('遊戲素材：',''),/<button/);
+ const template=releaseTemplate('flow-uat',{id:'100001',name:'Power Dragon'});
+ assert.match(template.messageZh,/遊戲清單： GAME ID 100001/);assert.match(template.messageEn,/Marketing Resources： GAME ID 100001/);
+});
+test('notification game opener uses the authorized customer catalog and rejects inaccessible games',async()=>{
+ const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
+ const body=app.slice(app.indexOf('async function openNotificationGame('),app.indexOf('function isAdminWorkspaceView('));
+ let opened=null;const context={window:{__omniplaySession:{canEdit:false}},db:{},state:{},save:()=>{},renderNav:()=>{},
+  getCustomerGameCatalog:async()=>({rowsJson:'[]',records:{}}),gameListRows:()=>[['100001']],uniqueGames:()=>[{id:'100001',name:'Power Dragon'}],
+  openGameAssetsFromRecords:(...args)=>{opened=args;}};
+ vm.createContext(context);vm.runInContext(body,context);await context.openNotificationGame('100001');assert.equal(opened[0].id,'100001');assert.equal(opened[4],true);
+ opened=null;await assert.rejects(context.openNotificationGame('100003'),/access denied/);assert.equal(opened,null);
 });
