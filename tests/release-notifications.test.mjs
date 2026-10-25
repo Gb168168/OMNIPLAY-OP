@@ -346,5 +346,21 @@ test('early access release uses requested bilingual wording, signatures and visi
  assert.match(copy.messageEn,/From now until \[Enter YYYY \/ MM \/ DD\] \(UTC\+8\)/);
  assert.ok(copy.messageEn.endsWith('Best regards,\nOMNIPLAY Team'));
  assert.match(copy.messageEn,/Kindly assist with arranging its launch on your platform/);
- const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');assert.match(source,/data-date-reminder/);assert.match(source,/日期待填寫：YYYY \/ MM \/ DD/);
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');assert.match(source,/data-date-reminder/);assert.match(source,/data-description-dates/);
+});
+
+test('description date input synchronizes both languages and updates only the selected date slot',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function descriptionDatePattern('),end=source.indexOf('function notificationTitle(',start),context={};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const template=releaseTemplate('first-pord');
+ const zh=context.fillDescriptionDate(template.messageZh,0,'2026-11-09','zh');
+ const en=context.fillDescriptionDate(template.messageEn,0,'2026-11-09','en');
+ assert.match(zh,/即日起至 2026 \/ 11 \/ 09 （UTC\+8）/);assert.match(en,/until 2026 \/ 11 \/ 09 \(UTC\+8\)/);
+ assert.equal(context.descriptionDateSlots(zh)[0].date,'2026-11-09');
+ assert.match(context.fillDescriptionDate(zh,0,'2026-12-02','zh'),/2026 \/ 12 \/ 02/);
+ assert.match(context.fillDescriptionDate(en,0,'','en'),/\[Enter YYYY \/ MM \/ DD\]/);
+ const multi='開始【請輸入 YYYY / MM / DD】（UTC+8）\n結束【請輸入 YYYY / MM / DD】（UTC+8）';
+ const changed=context.fillDescriptionDate(multi,1,'2026-12-02','zh');assert.match(changed,/開始【請輸入 YYYY/);assert.match(changed,/結束 2026 \/ 12 \/ 02/);
+ assert.equal(context.fillDescriptionDate('保留我的說明與 7 天期限',0,'2026-12-02','zh'),'保留我的說明與 7 天期限');
+ assert.throws(()=>context.fillDescriptionDate(multi,0,'12/02/2026','zh'));
 });
