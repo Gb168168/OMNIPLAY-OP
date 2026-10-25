@@ -12,4 +12,4 @@ export function auditSessions(rows){
  return sessions.sort((a,b)=>auditDate(b.login||b.logout)-auditDate(a.login||a.logout));
 }
 export function auditOperations(rows){return rows.filter(row=>row.action==='download'||auditMeta(row).kind==='force_logout').sort((a,b)=>auditDate(b)-auditDate(a))}
-export function logoutLabel(row){if(!row)return '未記錄登出';const meta=auditMeta(row);return meta.reason==='forced'||String(row.item).includes('強制登出')?'強制登出':'已登出'}
+export function logoutLabel(row){if(!row)return '';const meta=auditMeta(row);return meta.reason==='forced'||String(row.item).includes('強制登出')?'強制登出':'已登出'}
