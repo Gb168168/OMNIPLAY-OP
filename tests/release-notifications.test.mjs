@@ -200,23 +200,23 @@ test('customer display follows language selection with fallback for single-langu
 });
 
 test('default notification types preserve requested groups, names and order',()=>{
- assert.deepEqual(normalizeReleaseTypes(undefined).map(type=>[type.category,type.name]),[['流程','上架 UAT'],['流程','上架 PORD'],['首發','首發平台 UAT'],['首發','首發平台 PORD'],['首發','首發平台 PORD 延長'],['首發','其他平台(首發後) UAT'],['首發','其他平台(首發後) PORD'],['特選遊戲','特選遊戲 UAT'],['特選遊戲','特選遊戲 PORD'],['其他','素材補充通知'],['其他','新遊戲上線時間調整通知']]);
+ assert.deepEqual(normalizeReleaseTypes(undefined).map(type=>[type.category,type.name]),[['流程','上架 UAT'],['流程','上架 PORD'],['首發','首發平台 PORD'],['首發','首發平台 PORD 延長'],['首發','其他平台(首發後) UAT'],['首發','其他平台(首發後) PORD'],['特選遊戲','特選遊戲 UAT'],['特選遊戲','特選遊戲 PORD'],['其他','素材補充通知'],['其他','新遊戲上線時間調整通知']]);
  const types=normalizeReleaseTypes(undefined);types[0].name='changed';assert.equal(DEFAULT_NOTIFICATION_TYPES[0].name,'上架 UAT');
 });
 test('types can be added and deleted including all defaults without resurrection',()=>{
  const custom={id:'custom-uat',category:'流程',name:'維護 UAT',nameEn:'Maintenance UAT'};
- const types=changeReleaseTypes(undefined,{add:custom});assert.equal(types.length,12);
+ const types=changeReleaseTypes(undefined,{add:custom});assert.equal(types.length,11);
  assert.throws(()=>changeReleaseTypes(types,{add:custom}),/已存在/);
- assert.equal(changeReleaseTypes(types,{removeId:'custom-uat'}).length,11);
+ assert.equal(changeReleaseTypes(types,{removeId:'custom-uat'}).length,10);
  let empty=types;for(const type of types)empty=changeReleaseTypes(empty,{removeId:type.id});
  assert.deepEqual(normalizeReleaseTypes(empty),[]);
 });
 test('custom type snapshots survive deletion and customer delivery; unknown current selections fail closed',()=>{
  const types=normalizeReleaseTypes(undefined),context={uid:'admin',id:'n',game:{id:'1'},groups,types};
- const input={environment:'first-uat',title:'首發',releaseAt:'2026-10-25',groupIds:['a']};
- const item=buildReleaseNotification(input,context);assert.equal(item.typeName,'首發平台 UAT');assert.equal(publicReleaseNotification(item).typeNameEn,'First-launch Platform UAT');
- const remaining=changeReleaseTypes(types,{removeId:'first-uat'});assert.throws(()=>buildReleaseNotification(input,{...context,types:remaining}),/通知類型/);
- assert.equal(item.typeName,'首發平台 UAT');assert.throws(()=>buildReleaseNotification(input,{...context,types:[]}),/通知類型/);
+ const input={environment:'first-pord',title:'首發',releaseAt:'2026-10-25',groupIds:['a']};
+ const item=buildReleaseNotification(input,context);assert.equal(item.typeName,'首發平台 PORD');assert.equal(publicReleaseNotification(item).typeNameEn,'First-launch Platform PORD');
+ const remaining=changeReleaseTypes(types,{removeId:'first-pord'});assert.throws(()=>buildReleaseNotification(input,{...context,types:remaining}),/通知類型/);
+ assert.equal(item.typeName,'首發平台 PORD');assert.throws(()=>buildReleaseNotification(input,{...context,types:[]}),/通知類型/);
  assert.equal(make().environment,'test');
 });
 
@@ -231,12 +231,12 @@ test('compact descriptions remove repeated game details and release date but kee
  assert.doesNotMatch(copy.messageZh,/遊戲 ID|遊戲名稱|遊戲清單|遊戲素材|行銷資源|正式環境上線日期|團隊 敬上/);
  assert.doesNotMatch(copy.messageEn,/Game ID|Game Name|Game List|Game Assets|Marketing Resources|PROD Environment Release Date|Best regards/);
  assert.match(copy.messageZh,/更新至測試環境/);assert.match(copy.messageZh,/收到通知後/);
- assert.match(releaseTemplate('first-uat').messageZh,/搶先體驗期間/);
+ assert.match(releaseTemplate('first-pord').messageZh,/搶先體驗期間/);
  assert.match(releaseTemplate('flow-uat',null,'no-dm').messageZh,/遊戲相關資料提供日期/);
 });
 test('upgrades shared old type config once, preserves custom types and respects later deletions',()=>{
  const custom={id:'custom',category:'其他',name:'自訂',nameEn:''};
- const upgraded=upgradeReleaseTypeConfig({types:[...DEFAULT_NOTIFICATION_TYPES.slice(0,4),custom]});assert.equal(upgraded.length,12);assert.equal(upgraded.at(-1).id,'custom');
+ const upgraded=upgradeReleaseTypeConfig({types:[...DEFAULT_NOTIFICATION_TYPES.slice(0,4),custom]});assert.equal(upgraded.length,11);assert.equal(upgraded.at(-1).id,'custom');
  const removed=upgraded.filter(type=>type.id!=='materials');
  assert.deepEqual(upgradeReleaseTypeConfig({version:2,types:removed}),removed);
  assert.deepEqual(upgradeReleaseTypeConfig({version:2,types:[]}),[]);
@@ -246,7 +246,7 @@ test('composer automatically applies templates and preserves manual edits during
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('   let previousTemplate='),end=source.indexOf('   const paintTypes=',start);
  const fields={environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},titleZh:{value:''},titleEn:{value:''}};
  const nodes=new Map(),form={elements:fields,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
- const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
+ const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  vm.runInContext('autoTitle()',context);assert.equal(fields.titleZh.value,releaseTemplate('flow-uat').titleZh);assert.equal(fields.titleEn.value,releaseTemplate('flow-uat').titleEn);
  fields.messageZh.value='人工修改';fields.gameId.value='002';vm.runInContext('autoTitle()',context);assert.equal(fields.messageZh.value,'人工修改');assert.equal(fields.messageEn.value,releaseTemplate('flow-uat').messageEn);
@@ -331,4 +331,20 @@ test('bilingual titles persist through recipient payloads, support legacy fallba
  const html=context.notificationTitleMarkup(item,true);assert.match(html,/中文標題/);assert.match(html,/English title/);
  const gameStart=source.indexOf('function notificationGameMarkup('),gameEnd=source.indexOf('function notificationMessage(',gameStart);vm.runInContext(source.slice(gameStart,gameEnd),context);
  assert.match(context.notificationGameMarkup(item),/data-notification-game="001"/);
+});
+
+test('removes first-launch UAT from defaults and existing shared configurations without restoring deleted types',()=>{
+ const types=[...DEFAULT_NOTIFICATION_TYPES,{id:'first-uat',category:'首發',name:'首發平台 UAT'},{id:'custom',category:'其他',name:'Custom'}];
+ for(const version of [1,2,3]){const result=upgradeReleaseTypeConfig({version,types});assert.ok(!result.some(type=>type.id==='first-uat'));assert.ok(result.some(type=>type.id==='custom'));}
+ assert.deepEqual(upgradeReleaseTypeConfig({version:3,types:[]}),[]);assert.equal(releaseTemplate('first-uat'),null);
+});
+test('early access release uses requested bilingual wording, signatures and visible date placeholders',async()=>{
+ const copy=releaseTemplate('first-pord');
+ assert.equal(copy.titleZh,'◀️ OMNIPLAY 正式環境－遊戲搶先體驗上架通知 ▶️');
+ assert.match(copy.messageZh,/即日起至【請輸入 YYYY \/ MM \/ DD】 （UTC\+8）/);
+ assert.match(copy.messageZh,/如有延長安排，將另行通知。/);assert.ok(copy.messageZh.endsWith('OMNIPLAY 團隊 敬上'));
+ assert.match(copy.messageEn,/From now until \[Enter YYYY \/ MM \/ DD\] \(UTC\+8\)/);
+ assert.ok(copy.messageEn.endsWith('Best regards,\nOMNIPLAY Team'));
+ assert.match(copy.messageEn,/Kindly assist with arranging its launch on your platform/);
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');assert.match(source,/data-date-reminder/);assert.match(source,/日期待填寫：YYYY \/ MM \/ DD/);
 });
