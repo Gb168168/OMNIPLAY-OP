@@ -14,7 +14,7 @@ function canViewAudit(session=window.__omniplaySession){return!!session&&(sessio
 async function recordAudit(account,action,item=''){try{await addDoc(auditRef(),{authUid:account.authUid||'',username:account.username||'',name:account.name||account.username||'',groupName:account.groupName||'',action,item:String(item||''),createdAt:serverTimestamp(),createdAtIso:new Date().toISOString()})}catch(error){console.warn('audit log',error)}}
 function auditAction(action){return ({login:'登入',logout:'登出',download:'下載'})[action]||'其他'}
 function auditTime(value){const date=value?.toDate?.()||new Date(value||0);return Number.isNaN(date.getTime())?'—':date.toLocaleString('zh-TW',{hour12:false})}
-async function showAuditLog(){const {openAudit}=await import('./audit-log-filter.js?v=20261025-audit-tabs-1');return openAudit()}
+async function showAuditLog(){const {openAudit}=await import('./audit-log-filter.js?v=20261025-audit-tabs-2');return openAudit()}
 
 const PRESENCE_KEY='omniplay-active-connection-v1';let presenceRef=null,presenceTimer=null,presenceUnsubscribe=null,presenceBusy=false;
 async function startPresence(session){const db=getFirestore();let id=sessionStorage.getItem(PRESENCE_KEY);if(!id){id=crypto.randomUUID();sessionStorage.setItem(PRESENCE_KEY,id)}presenceRef=doc(db,'omniplay-active-sessions',id);try{const existing=await getDoc(presenceRef);if(existing.exists()&&existing.data().revoked){await logout('forced');return}if(!existing.exists())await setDoc(presenceRef,{authUid:session.authUid,username:session.username,name:session.name||session.username,groupName:session.groupName||'',startedAt:serverTimestamp(),lastSeen:serverTimestamp(),active:true,revoked:false});else await updateDoc(presenceRef,{lastSeen:serverTimestamp(),active:true});
