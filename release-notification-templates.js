@@ -39,5 +39,7 @@ export function releaseTemplate(typeId,game,variant='standard'){
  let key=TEMPLATE_KEYS[typeId];if(key==='uat'&&variant==='no-dm')key='uat-no-dm';
  const template=RELEASE_TEMPLATES[key];if(!template)return null;
  const fill=(text,lang)=>text.replace(/^(遊戲 ID\s*[：:]|Game ID\s*[：:])[^\n]*$/gm,(_,label)=>label+' '+(game?.id||'')).replace(/^(遊戲名稱\s*[：:]|Game Name\s*[：:])[^\n]*$/gm,(_,label)=>label+' '+(lang==='zh'?(game?.mandarinName||game?.name||''):(game?.name||'')));
- return {messageZh:fill(template.zh,'zh'),messageEn:fill(template.en,'en'),supportsNoDm:TEMPLATE_KEYS[typeId]==='uat',note:key==='pord'||key==='first-pord'?'此類型不放宣傳圖，請附上測試環境提供的連結。':''};
+ const link=(text)=>!game?.id?text:text.replace(/^(遊戲清單|遊戲素材|行銷資源|Game List|Game Assets|Marketing Resources)(\s*[：:])[^\n]*$/gm,(_,label,colon)=>label+colon+' GAME ID '+game.id);
+ return {messageZh:link(fill(template.zh,'zh')),messageEn:link(fill(template.en,'en')),supportsNoDm:TEMPLATE_KEYS[typeId]==='uat',note:key==='pord'||key==='first-pord'?'此類型不放宣傳圖，請附上測試環境提供的連結。':''};
 }
+
