@@ -55,22 +55,33 @@ export async function mountPagcorApproval({ container, game, state, readOnly = f
   if (!container.isConnected) return;
   installStyle();
   const button = document.createElement('button'); button.type = 'button'; button.className = 'op-browser-folder';
-  button.innerHTML = '<span>📄</span><strong>Pagcor Approval</strong><small>' +
-    (admin ? '獨立平台權限 · ' : '') + data.items.length + ' ' + label('個項目', 'items') + '</small>';
-  let opened = null;
-  button.onclick = () => { opened = openApproval({ reference, game, platforms: state.customers || [], admin, data,
-    onSave: next => { data = next; button.querySelector('small').textContent = next.items.length + ' 個項目'; } });
+  let opened = null, addButton = null;
+  const renderEntry = () => {
+    const count = Array.isArray(data.items) ? data.items.length : 0;
+    button.hidden = count === 0; button.style.display = count ? '' : 'none';
+    button.innerHTML = '<span>📄</span><strong>Pagcor Approval</strong><small>' +
+      (admin ? '獨立平台權限 · ' : '') + count + ' ' + label('個項目', 'items') + '</small>';
+    if (addButton) { addButton.hidden = count > 0; addButton.style.display = count ? 'none' : ''; }
+    if (count) container.querySelector('.op-browser-empty')?.remove();
+    else if (!admin) opened?.close();
   };
-  container.querySelector('.op-browser-empty')?.remove();
-  container.prepend(button);
+  const open = () => { opened = openApproval({ reference, game, platforms: state.customers || [], admin, data,
+    onSave: next => { data = next; renderEntry(); } }); };
+  button.onclick = open;
+  if (admin) {
+    const toolbar = container.closest('dialog')?.querySelector('.op-browser-toolbar');
+    if (toolbar) { addButton = document.createElement('button'); addButton.type = 'button'; addButton.className = 'op-folder-add';
+      addButton.textContent = '＋ 新增 Pagcor Approval'; addButton.onclick = open; toolbar.append(addButton); }
+  }
+  container.prepend(button); renderEntry();
   const unsubscribe = onSnapshot(reference, snapshot => {
     if (snapshot.exists()) {
       data = snapshot.data();
-      if (previewGroupId && !approvalPreviewAllowed(data, previewPlatformIds)) { button.remove(); opened?.close(); return; }
-      button.querySelector('small').textContent = data.items.length + ' ' + label('個項目', 'items');
+      if (previewGroupId && !approvalPreviewAllowed(data, previewPlatformIds)) { button.remove(); addButton?.remove(); opened?.close(); return; }
+      renderEntry();
     }
-    else if (!admin) { button.remove(); opened?.close(); }
-  }, () => { button.remove(); opened?.close(); });
+    else { data = { allowedPlatformIds: [], items: [], revision: 0 }; renderEntry(); if (!admin) opened?.close(); }
+  }, () => { button.remove(); addButton?.remove(); opened?.close(); });
   const cleanup = () => { unsubscribe(); observer.disconnect(); opened?.close(); };
   const observer = new MutationObserver(() => { if (!container.isConnected) cleanup(); });
   observer.observe(document.body, { childList: true, subtree: true });
@@ -201,3 +212,4 @@ function openApproval({ reference, game, platforms, admin, data, onSave }) {
   draw(); dialog.showModal();
   return dialog;
 }
+
