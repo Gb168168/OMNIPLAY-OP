@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {auditSessions,auditOperations,logoutLabel} from '../audit-history-model.js';
+const row=(action,minute,sessionId='',extra={})=>({authUid:'u',username:'K',action,createdAtIso:'2026-10-25T05:'+String(minute).padStart(2,'0')+':00Z',item:sessionId?JSON.stringify({sessionId}):'',...extra});
+test('login and logout appear as one row',()=>{const rows=auditSessions([row('logout',20),row('login',10)]);assert.equal(rows.length,1);assert.equal(rows[0].login.action,'login');assert.equal(rows[0].logout.action,'logout')});
+test('session IDs pair concurrent logins without crossing devices',()=>{const rows=auditSessions([row('logout',40,'a'),row('logout',30,'b'),row('login',20,'b'),row('login',10,'a')]);assert.equal(rows.length,2);assert.equal(rows[0].logout.createdAtIso,row('logout',30).createdAtIso);assert.equal(rows[1].logout.createdAtIso,row('logout',40).createdAtIso)});
+test('unmatched events stay visible without fabricated times',()=>{const rows=auditSessions([row('login',40),row('logout',10)]);assert.equal(rows.length,2);assert.equal(rows[0].logout,null);assert.equal(rows[1].login,null);assert.equal(logoutLabel(null),'未記錄登出')});
+test('downloads and administrator force actions use the operations tab only',()=>{const forced=row('logout',30,'',{item:JSON.stringify({kind:'force_logout',target:'F'})});const rows=[row('login',10),row('download',20),forced,row('logout',40)];assert.equal(auditSessions(rows).length,1);assert.deepEqual(auditOperations(rows).map(row=>row.action),['logout','download'])});
+test('force logout acknowledgement closes session and retains reason',()=>{const end=row('logout',20,'a',{item:JSON.stringify({sessionId:'a',reason:'forced'})});const session=auditSessions([row('login',10,'a'),end])[0];assert.equal(logoutLabel(session.logout),'強制登出')});
+test('different accounts never pair',()=>{const rows=auditSessions([row('login',10),row('logout',20,'',{authUid:'other'})]);assert.equal(rows.length,2)});
