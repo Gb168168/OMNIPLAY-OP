@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames} from '../release-notification-model.js';
+import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds} from '../release-notification-model.js';
 const groups=[{id:'a',name:'客戶 A'},{id:'b',name:'客戶 B'}];
 const make=(overrides={})=>buildReleaseNotification({environment:'test',title:'龍門天下測試上架',message:'請安排驗收',releaseAt:'2026-10-14T16:00+08:00',groupIds:['a'],...overrides},{uid:'admin',name:'管理者',id:'n1',game:{id:'001',name:'Power Dragon',mandarinName:'龍門天下',version:'2.0.0'},groups,now:'2026-10-14T07:00:00.000Z'});
 test('validates environment, game, recipients, length and dates; stores Taipei time as UTC',()=>{
@@ -122,4 +122,15 @@ test('legacy migration preserves history and never resurrects withdrawn notifica
  assert.equal(store.data.get('omniplay-release-notifications/n1').status,'withdrawn');
  assert.deepEqual(store.data.get('omniplay-group-views/a').releaseNotifications,[]);
  assert.equal(store.data.get('omniplay/game-release-notifications').items[0].status,'published');
+});
+
+test('game selection defaults only assigned existing groups, without duplicates or unknown recipients',()=>{
+ const records={'g1':{groupIds:['a','b','a','removed']},'g2':{groupIds:['b']}};
+ assert.deepEqual(defaultReleaseGroupIds('g1',records,groups),['a','b']);
+ assert.deepEqual(defaultReleaseGroupIds('g2',records,groups),['b']);
+ for(const gameId of ['missing','g3'])assert.deepEqual(defaultReleaseGroupIds(gameId,records,groups),[]);
+ assert.deepEqual(defaultReleaseGroupIds('g1',records,[]),[]);
+});
+test('malformed group assignments never default to all recipients',()=>{
+ for(const groupIds of [null,'a',{},undefined])assert.deepEqual(defaultReleaseGroupIds('game',{game:{groupIds}},groups),[]);
 });
