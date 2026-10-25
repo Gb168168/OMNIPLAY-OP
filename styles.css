@@ -499,3 +499,7 @@ dialog.owner-permissions-dialog{width:min(600px,calc(100vw - 32px));max-height:c
 .owner-permissions-footer small{color:#8391a5;font-size:12px}
 .owner-transfer-form{padding:0}
 @media(max-width:480px){.owner-permissions-head{padding:20px}.owner-permissions-body{padding:16px}.owner-permissions-row{padding:12px;gap:10px;flex-wrap:wrap}.owner-permissions-identity{flex:1 1 150px}.owner-permissions-row select{flex-basis:120px;width:120px}.owner-permissions-footer{padding:16px}.owner-permissions-avatar{flex-basis:32px;height:32px}}
+
+#platformAdminPermissions>.owner-permissions-dialog{width:100%;max-width:none;margin:0 0 20px;border:1px solid #dce5f0;border-radius:16px;background:#fff;color:#172033;overflow:hidden;box-shadow:0 4px 18px #20385808}
+#platformAdminPermissions .owner-permissions-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+.platform-list-workspace .customer-tools{flex-wrap:wrap;justify-content:flex-end}
