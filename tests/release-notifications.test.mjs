@@ -415,15 +415,15 @@ test('delete removes recipient copies while keeping a tombstone to prevent legac
  await store.withdraw('n1');assert.equal(store.data.get('omniplay-release-notifications/n1').status,'deleted');
 });
 
-test('admin table uses four sections, leaves PORD dates empty and seeds transitions as new notifications',async()=>{
+test('admin table shares one header, omits empty sections and seeds transitions as new notifications',async()=>{
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
  const rows=[make({environment:'flow-uat'}),{...make({environment:'first-pord'}),id:'first',releaseAt:'2026-10-25T00:00:00Z'},{...make({environment:'flow-pord'}),id:'prod'}];
  const transitionButton={dataset:{transition:'n1'}},list={innerHTML:'',querySelectorAll:selector=>selector==='[data-transition]'?[transitionButton]:[]};let draft;
  const context={items:rows,notificationCategory,notificationTransition,isPordNotification,esc:value=>String(value??''),notificationTypeLabel:item=>item.typeName,releaseDate:value=>'DATE:'+value,bindGameLinks:()=>{},compose:(...args)=>{draft=args;}};
  vm.createContext(context);vm.runInContext(source.slice(source.indexOf(' function renderAdminList('),source.indexOf(' function renderList(')),context);
  context.renderAdminList(list,{},rows);const html=list.innerHTML;
- const offsets=['流程','首發','特選','其他'].map(category=>html.indexOf('-------'+category+'-------'));assert.ok(offsets.every((value,index)=>value>=0&&(!index||value>offsets[index-1])));
- assert.match(html,/Game ID/);assert.match(html,/功能鍵/);assert.match(html,/data-transition="n1"/);assert.match(html,/data-transition="first"/);assert.doesNotMatch(html,/data-transition="prod"/);
+ const offsets=['流程','首發'].map(category=>html.indexOf('-------'+category+'-------'));assert.ok(offsets.every((value,index)=>value>=0&&(!index||value>offsets[index-1])));
+ assert.equal((html.match(/<thead>/g)||[]).length,1);assert.doesNotMatch(html,/-------特選-------|-------其他-------/);assert.match(html,/release-actions-cell/);assert.match(html,/Game ID/);assert.match(html,/功能鍵/);assert.match(html,/data-transition="n1"/);assert.match(html,/data-transition="first"/);assert.doesNotMatch(html,/data-transition="prod"/);
  assert.doesNotMatch(html,/DATE:2026-10-25T00:00:00Z/);assert.match(html,/data-delete="n1"/);assert.match(html,/data-groups="n1"/);
  transitionButton.onclick();assert.equal(draft[1],null);assert.equal(draft[2].transition.typeId,'flow-pord');assert.equal(draft[2].game.id,'001');assert.deepEqual(draft[2].groupIds,['a']);
 });
