@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds,DEFAULT_NOTIFICATION_TYPES,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig} from '../release-notification-model.js';
+import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds,DEFAULT_NOTIFICATION_TYPES,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition} from '../release-notification-model.js';
 const groups=[{id:'a',name:'客戶 A'},{id:'b',name:'客戶 B'}];
 const make=(overrides={})=>buildReleaseNotification({environment:'test',title:'龍門天下測試上架',message:'請安排驗收',releaseAt:'2026-10-14T16:00+08:00',groupIds:['a'],...overrides},{uid:'admin',name:'管理者',id:'n1',game:{id:'001',name:'Power Dragon',mandarinName:'龍門天下',version:'2.0.0'},groups,now:'2026-10-14T07:00:00.000Z'});
 test('validates environment, game, recipients, length and dates; stores Taipei time as UTC',()=>{
@@ -40,7 +40,7 @@ async function mockStore(seed={}){
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
- return{data,edit:(item,revision)=>context.editReleaseNotification({},item,revision),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
+ return{data,edit:(item,revision)=>context.editReleaseNotification({},item,revision),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),delete:id=>context.deleteReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
 }
 test('publishes only selected groups atomically, preserves permission fields, retries once per ID',async()=>{
  const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
@@ -80,7 +80,7 @@ test('customer bell reads only its group, shows unread notifications, marks read
  }
  const controls=new Node(),head=new Node(),body=new Node(),callbacks={},context={
   console,Date,Map,Set,structuredClone,ENVIRONMENTS:{test:{zh:'測試環境上架',en:'Test Environment Release'}},NOTIFICATION_LIMIT,
-  visibleReleaseNotifications,
+  visibleReleaseNotifications,isPordNotification,
   window:{__omniplaySession:{authUid:'client-uid',groupId:'a',canEdit:false},addEventListener:(type,fn)=>callbacks[type]=fn},
   document:{getElementById:id=>nodes.get(id),querySelector:selector=>selector==='.session-controls'?controls:null,
    createElement:()=>new Node(),head,body,documentElement:new Node()},
@@ -200,7 +200,7 @@ test('customer display follows language selection with fallback for single-langu
 });
 
 test('default notification types preserve requested groups, names and order',()=>{
- assert.deepEqual(normalizeReleaseTypes(undefined).map(type=>[type.category,type.name]),[['流程','上架 UAT'],['流程','上架 PORD'],['首發','首發平台 PORD'],['首發','首發平台 PORD 延長'],['首發','其他平台(首發後) UAT'],['首發','其他平台(首發後) PORD'],['特選遊戲','特選遊戲 UAT'],['特選遊戲','特選遊戲 PORD'],['其他','素材補充通知'],['其他','新遊戲上線時間調整通知']]);
+ assert.deepEqual(normalizeReleaseTypes(undefined).map(type=>[type.category,type.name]),[['流程','上架 UAT'],['流程','上架 PORD'],['首發','首發平台 PORD'],['首發','首發平台 PORD 延長'],['首發','其他平台(首發後) UAT'],['首發','其他平台(首發後) PORD'],['特選','特選遊戲 UAT'],['特選','特選遊戲 PORD'],['其他','素材補充通知'],['其他','新遊戲上線時間調整通知']]);
  const types=normalizeReleaseTypes(undefined);types[0].name='changed';assert.equal(DEFAULT_NOTIFICATION_TYPES[0].name,'上架 UAT');
 });
 test('types can be added and deleted including all defaults without resurrection',()=>{
@@ -246,7 +246,7 @@ test('composer automatically applies templates and preserves manual edits during
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('   let previousDateGameId='),end=source.indexOf('   const paintTypes=',start);
  const fields={releaseAt:{value:''},environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},titleZh:{value:''},titleEn:{value:''}};
  const nodes=new Map(),form={elements:fields,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
- const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{},notificationTemplateDates:copy=>copy,defaultNotificationDate:()=>'',records:{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
+ const context={form,isPordNotification,preview:{hidden:false},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{},notificationTemplateDates:copy=>copy,defaultNotificationDate:()=>'',records:{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  vm.runInContext('autoTitle()',context);assert.equal(fields.titleZh.value,releaseTemplate('flow-uat').titleZh);assert.equal(fields.titleEn.value,releaseTemplate('flow-uat').titleEn);
  fields.messageZh.value='人工修改';fields.gameId.value='002';vm.runInContext('autoTitle()',context);assert.equal(fields.messageZh.value,'人工修改');assert.equal(fields.messageEn.value,releaseTemplate('flow-uat').messageEn);
@@ -380,8 +380,8 @@ test('notification dates prefer actual release, fall back only when blank, and v
 
 test('composer defaults release time and bilingual descriptions from the selected game and preserves manual date edits',async()=>{
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
- const elements={releaseAt:{value:''},environment:{value:'first-pord'},gameId:{value:'001'},templateVariant:{value:'standard'},titleZh:{value:''},titleEn:{value:''},messageZh:{value:''},messageEn:{value:''}};
- const nodes=new Map(),context={form:{elements,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector);}},
+ const elements={releaseAt:{value:''},environment:{value:'other-uat'},gameId:{value:'001'},templateVariant:{value:'no-dm'},titleZh:{value:''},titleEn:{value:''},messageZh:{value:''},messageEn:{value:''}};
+ const nodes=new Map(),context={isPordNotification,notificationTypes:normalizeReleaseTypes(undefined),form:{elements,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector);}},
  records:{'001':{releaseDate:'2026-11-04',plannedReleaseDate:'2026-10-20'},'002':{plannedReleaseDate:'2026-12-05'},'003':{}},
  games:new Map([['001',{id:'001'}],['002',{id:'002'}],['003',{id:'003'}]]),releaseTemplate,preview:{},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{}};
  vm.createContext(context);vm.runInContext(source.slice(source.indexOf('function defaultNotificationDate('),source.indexOf('function notificationTitle(')),context);
@@ -390,4 +390,50 @@ test('composer defaults release time and bilingual descriptions from the selecte
  elements.releaseAt.value='2026-11-09';vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'2026-11-09');
  elements.gameId.value='002';vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'2026-12-05');assert.match(elements.messageEn.value,/2026 \/ 12 \/ 05/);
  elements.gameId.value='003';vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'');assert.match(elements.messageZh.value,/請輸入 YYYY/);
+});
+
+test('PORD types clear release dates while UAT still requires a valid date',()=>{
+ for(const environment of ['flow-pord','first-pord','first-pord-extension','other-pord','selected-pord']){
+  assert.equal(make({environment,releaseAt:''}).releaseAt,'');assert.equal(make({environment}).releaseAt,'');
+ }
+ assert.throws(()=>make({environment:'flow-uat',releaseAt:''}),/上架時間/);
+ const custom=[{id:'custom',category:'其他',name:'維護 PORD'}];assert.equal(buildReleaseNotification({environment:'custom',title:'維護',groupIds:['a']},{uid:'admin',id:'custom',game:{id:'1'},groups,types:custom}).releaseAt,'');
+});
+test('transition buttons map only UAT to PORD and first platform PORD to other-platform UAT',()=>{
+ for(const prefix of ['flow','other','selected'])assert.equal(notificationTransition(make({environment:prefix+'-uat'})).typeId,prefix+'-pord');
+ for(const environment of ['first-pord','first-pord-extension']){const transition=notificationTransition(make({environment}));assert.equal(transition.typeId,'other-uat');assert.equal(transition.label,'其他平台(首發後) UAT');}
+ assert.equal(notificationTransition(make({environment:'flow-pord'})),null);
+ assert.equal(notificationTransition({...make({environment:'flow-uat'}),status:'withdrawn'}),null);
+ const custom=[{id:'a',name:'Maintenance UAT'},{id:'b',name:'Maintenance PORD'}];assert.equal(notificationTransition({environment:'a',typeName:'Maintenance UAT',status:'published'},custom).typeId,'b');
+ assert.equal(notificationCategory({typeCategory:'特選遊戲'}),'特選');
+});
+test('delete removes recipient copies while keeping a tombstone to prevent legacy resurrection',async()=>{
+ const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
+ const store=await mockStore({'omniplay-group-views/a':base,'omniplay-group-views/b':base});await store.publish(make());await store.delete('n1');
+ assert.equal(store.data.get('omniplay-release-notifications/n1').status,'deleted');assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications.length,0);
+ store.data.set('omniplay/game-release-notifications',{items:[make()]});await store.migrate();assert.equal(store.data.get('omniplay-release-notifications/n1').status,'deleted');
+ await store.withdraw('n1');assert.equal(store.data.get('omniplay-release-notifications/n1').status,'deleted');
+});
+
+test('admin table uses four sections, leaves PORD dates empty and seeds transitions as new notifications',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
+ const rows=[make({environment:'flow-uat'}),{...make({environment:'first-pord'}),id:'first',releaseAt:'2026-10-25T00:00:00Z'},{...make({environment:'flow-pord'}),id:'prod'}];
+ const transitionButton={dataset:{transition:'n1'}},list={innerHTML:'',querySelectorAll:selector=>selector==='[data-transition]'?[transitionButton]:[]};let draft;
+ const context={items:rows,notificationCategory,notificationTransition,isPordNotification,esc:value=>String(value??''),notificationTypeLabel:item=>item.typeName,releaseDate:value=>'DATE:'+value,bindGameLinks:()=>{},compose:(...args)=>{draft=args;}};
+ vm.createContext(context);vm.runInContext(source.slice(source.indexOf(' function renderAdminList('),source.indexOf(' function renderList(')),context);
+ context.renderAdminList(list,{},rows);const html=list.innerHTML;
+ const offsets=['流程','首發','特選','其他'].map(category=>html.indexOf('-------'+category+'-------'));assert.ok(offsets.every((value,index)=>value>=0&&(!index||value>offsets[index-1])));
+ assert.match(html,/Game ID/);assert.match(html,/功能鍵/);assert.match(html,/data-transition="n1"/);assert.match(html,/data-transition="first"/);assert.doesNotMatch(html,/data-transition="prod"/);
+ assert.doesNotMatch(html,/DATE:2026-10-25T00:00:00Z/);assert.match(html,/data-delete="n1"/);assert.match(html,/data-groups="n1"/);
+ transitionButton.onclick();assert.equal(draft[1],null);assert.equal(draft[2].transition.typeId,'flow-pord');assert.equal(draft[2].game.id,'001');assert.deepEqual(draft[2].groupIds,['a']);
+});
+
+test('PORD composer disables and clears release time without clearing the description deadline',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
+ const elements={releaseAt:{value:'2026-10-25'},environment:{value:'first-pord'},gameId:{value:'001'},templateVariant:{value:'standard'},titleZh:{value:''},titleEn:{value:''},messageZh:{value:''},messageEn:{value:''}};
+ const nodes=new Map(),context={isPordNotification,notificationTypes:normalizeReleaseTypes(undefined),form:{elements,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector);}},records:{'001':{releaseDate:'2026-11-04'}},games:new Map([['001',{id:'001'}]]),releaseTemplate,preview:{},resizeReleaseMessageFields:()=>{},updateDateReminder:()=>{}};
+ vm.createContext(context);vm.runInContext(source.slice(source.indexOf('function defaultNotificationDate('),source.indexOf('function notificationTitle(')),context);
+ vm.runInContext(source.slice(source.indexOf('   let previousDateGameId='),source.indexOf('   const replaceTemplate=')),context);
+ vm.runInContext('applyTemplate()',context);assert.equal(elements.releaseAt.value,'');assert.equal(elements.releaseAt.required,false);assert.equal(elements.releaseAt.disabled,true);assert.match(elements.messageZh.value,/2026 \/ 11 \/ 04/);
+ elements.environment.value='other-uat';vm.runInContext('applyTemplate(true)',context);assert.equal(elements.releaseAt.value,'2026-11-04');assert.equal(elements.releaseAt.disabled,false);assert.equal(elements.releaseAt.required,true);
 });
