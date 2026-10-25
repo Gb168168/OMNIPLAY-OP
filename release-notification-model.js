@@ -3,14 +3,14 @@ export const NOTIFICATION_LIMIT=100;
 export function buildReleaseNotification(input,{uid,name,game,groups,now=new Date().toISOString(),id}){
  if(!uid||!id||!game?.id)throw new Error('請選擇遊戲並確認登入狀態');
  if(!Object.hasOwn(ENVIRONMENTS,input.environment))throw new Error('請選擇上架環境');
- const title=String(input.title||'').trim(),message=String(input.message||'').trim(),releaseAt=String(input.releaseAt||'');
- if(!title||title.length>200||message.length>2000)throw new Error('標題必填且限 200 字；說明限 2000 字');
+ const title=String(input.title||'').trim(),messageZh=String(input.messageZh??input.message??'').trim(),messageEn=String(input.messageEn||'').trim(),message=messageZh||messageEn,releaseAt=String(input.releaseAt||'');
+ if(!title||title.length>200||messageZh.length>2000||messageEn.length>2000)throw new Error('標題必填且限 200 字；中英文說明各限 2000 字');
  if(!releaseAt||!Number.isFinite(Date.parse(releaseAt)))throw new Error('請填寫有效的上架時間');
  const selected=[...new Set(input.groupIds||[])],known=new Map(groups.map(group=>[group.id,group]));
  if(!selected.length||selected.length>400||selected.some(groupId=>!known.has(groupId)))throw new Error('請選擇有效的接收群組（最多 400 個）');
  const images=input.images||[];
  if(!Array.isArray(images)||images.length>3||images.some(image=>!image||!/^[a-zA-Z0-9-]{1,80}$/.test(image.id)||typeof image.name!=='string'||image.name.length>120)||new Set(images.map(image=>image.id)).size!==images.length)throw new Error('通知圖片資料無效，每則最多 3 張');
- return{...(images.length?{images:images.map(({id,name})=>({id,name}))}:{}),id,environment:input.environment,title,message,releaseAt:new Date(releaseAt).toISOString(),game:{id:String(game.id),name:String(game.name||''),mandarinName:String(game.mandarinName||''),version:String(game.version||'')},groupIds:selected,groupNames:selected.map(groupId=>String(known.get(groupId).name||'')),createdAt:now,createdBy:uid,createdByName:String(name||''),status:'published'};
+ return{...(images.length?{images:images.map(({id,name})=>({id,name}))}:{}),id,environment:input.environment,title,message,messageZh,messageEn,releaseAt:new Date(releaseAt).toISOString(),game:{id:String(game.id),name:String(game.name||''),mandarinName:String(game.mandarinName||''),version:String(game.version||'')},groupIds:selected,groupNames:selected.map(groupId=>String(known.get(groupId).name||'')),createdAt:now,createdBy:uid,createdByName:String(name||''),status:'published'};
 }
 export function publicReleaseNotification(notification){const{groupIds,groupNames,createdBy,createdByName,...content}=notification;return content;}
 export function appendReleaseNotification(existing,notification){return[notification,...(Array.isArray(existing)?existing:[]).filter(item=>item.id!==notification.id)].slice(0,NOTIFICATION_LIMIT);}
