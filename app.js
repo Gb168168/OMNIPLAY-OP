@@ -1,9 +1,9 @@
-import { installReleaseNotifications } from './release-notifications.js?v=20261025-notification-lines-1';
+import { installReleaseNotifications } from './release-notifications.js?v=20261025-game-links-1';
 import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261021-group-values-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261021-group-values-1';
-import { getDoc, setDoc, saveGroupPermissions } from './member-access.js?v=20261021-group-values-1';
-import { storedAsset, downloadAsset } from './op-game-form.js?v=20261021-group-values-1';
+import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog } from './member-access.js?v=20261021-group-values-1';
+import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261021-group-values-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -38,6 +38,15 @@ const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[.
 let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,saveQueue=Promise.resolve();
 const PLATFORM_LIST_PERMISSION='system_all_platforms';
 
+async function openNotificationGame(gameId){
+ const admin=!!window.__omniplaySession?.canEdit;
+ let rows,data;
+ if(admin){const snapshots=await Promise.all([getDoc(doc(db,'omniplay','game-list-online-page')),getDoc(doc(db,'omniplay','op-game-form-records'))]);rows=snapshots[0].data()||{};data=snapshots[1].data()||{};}
+ else{data=await getCustomerGameCatalog(db);rows=data;}
+ const game=uniqueGames(gameListRows(rows)).find(game=>game.id===String(gameId));
+ if(!game)throw new Error('此遊戲不存在或目前帳號沒有查看權限 / Game unavailable or access denied');
+ openGameAssetsFromRecords(game,state,()=>{save();renderNav()},data,!admin);
+}
 function isAdminWorkspaceView(){if(window.__omniplaySession)return !!window.__omniplayCanEdit;const params=new URLSearchParams(location.search);if(params.get('view')==='customer'||params.has('customer'))return false;try{if(localStorage.getItem('omniplay-customer-session')||sessionStorage.getItem('omniplay-customer-session'))return false}catch{}return true}
 function isInternalGroup(group){return['OMNIPLAY','OMNIPLAY Support'].includes(String(group?.name||'').trim())}
 function canAccessPlatformList(){const session=window.__omniplaySession;if(session?.canEdit)return true;if(!session)return true;const group=state.customerGroups.find(item=>item.id===session.groupId);return!!(isInternalGroup(group)&&(group.allowedPages||[]).includes(PLATFORM_LIST_PERMISSION))}
@@ -113,7 +122,7 @@ cloud=true;
 if(loadedSignature!==null&&loadedSignature!==workspaceDataSignature())save();
 if(!$('#cloudStatus').textContent.startsWith('⚠️'))$('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ '+firebaseError(e);$('#emptyState').classList.remove('hidden');$('#emptyState').innerHTML='<div><h2>工作區載入失敗</h2><p>'+esc(e.message||'雲端連線異常')+'</p><button class="primary" data-retry-workspace>重新載入</button></div>';$('#emptyState [data-retry-workspace]').onclick=()=>location.reload();return}renderNav();
-if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustomerPermissions();installReleaseNotifications({db,state})}
+if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustomerPermissions();installReleaseNotifications({db,state,openNotificationGame})}
 function payload(){const categories=(state.categories||[]).map(category=>({...category,pages:(category.pages||[]).map(page=>{if(page.type!=='sheet')return page;const{snapshot,...metadata}=page;return metadata})}));return{categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){if(!window.__omniplayCanEdit)return;localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
@@ -378,6 +387,7 @@ delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
 saveNow()});
 load();
+
 
 
 
