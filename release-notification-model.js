@@ -4,10 +4,13 @@ export const DEFAULT_NOTIFICATION_TYPES=[
  {id:'flow-pord',category:'流程',name:'上架 PORD',nameEn:'PORD Release'},
  {id:'first-uat',category:'首發',name:'首發平台 UAT',nameEn:'First-launch Platform UAT'},
  {id:'first-pord',category:'首發',name:'首發平台 PORD',nameEn:'First-launch Platform PORD'},
+ {id:'first-pord-extension',category:'首發',name:'首發平台 PORD 延長',nameEn:'First-launch Platform PORD Extension'},
  {id:'other-uat',category:'首發',name:'其他平台(首發後) UAT',nameEn:'Other Platforms (After First Launch) UAT'},
  {id:'other-pord',category:'首發',name:'其他平台(首發後) PORD',nameEn:'Other Platforms (After First Launch) PORD'},
  {id:'selected-uat',category:'特選遊戲',name:'特選遊戲 UAT',nameEn:'Selected Games UAT'},
- {id:'selected-pord',category:'特選遊戲',name:'特選遊戲 PORD',nameEn:'Selected Games PORD'}
+ {id:'selected-pord',category:'特選遊戲',name:'特選遊戲 PORD',nameEn:'Selected Games PORD'},
+ {id:'materials',category:'其他',name:'素材補充通知',nameEn:'Marketing Materials Update'},
+ {id:'schedule-change',category:'其他',name:'新遊戲上線時間調整通知',nameEn:'Game Launch Schedule Change'}
 ];
 export function normalizeReleaseTypes(value){
  if(value===undefined)return DEFAULT_NOTIFICATION_TYPES.map(type=>({...type}));
@@ -50,3 +53,9 @@ export function filterReleaseGames(games,records,groups,groupId='',query=''){
 }
 
 export function defaultReleaseGroupIds(gameId,records,groups){const assigned=new Set(Array.isArray(records[gameId]?.groupIds)?records[gameId].groupIds:[]);return groups.filter(group=>assigned.has(group.id)).map(group=>group.id);}
+
+export function upgradeReleaseTypeConfig(config){
+ if(config?.version>=2)return normalizeReleaseTypes(config.types);
+ const existing=normalizeReleaseTypes(config?.types),defaultIds=new Set(DEFAULT_NOTIFICATION_TYPES.map(type=>type.id));
+ return normalizeReleaseTypes([...DEFAULT_NOTIFICATION_TYPES,...existing.filter(type=>!defaultIds.has(type.id))]);
+}
