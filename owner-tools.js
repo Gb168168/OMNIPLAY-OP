@@ -6,7 +6,7 @@ if (session?.superAdmin) {
   const button = document.createElement('button');
   button.className = 'secondary'; button.type = 'button';
   button.textContent = session.bootstrap ? '建立 Rondo 並交接' : '管理員權限';
-  const audit=controls.querySelector('.audit-log-btn,.logout-btn');controls.insertBefore(button,audit);
+  const audit=controls.querySelector('.audit-log-btn,.logout-btn');if (session.bootstrap) controls.insertBefore(button,audit);
   const resync = document.createElement('button'); resync.className = 'secondary'; resync.type = 'button'; resync.textContent = '同步帳號與權限'; controls.insertBefore(resync,controls.querySelector('.audit-log-btn,.logout-btn'));
 
   const syncHelp = document.createElement('div');
@@ -36,8 +36,9 @@ if (session?.superAdmin) {
     catch (error) { status.textContent = '⚠️ ' + error.message; }
     finally { resync.disabled = false; }
   };
-  button.onclick = async () => {
-    const dialog = document.createElement('dialog'); dialog.className = 'owner-permissions-dialog'; dialog.setAttribute('aria-labelledby', 'ownerPermissionsTitle'); dialog.setAttribute('aria-describedby', 'ownerPermissionsHelp'); document.body.append(dialog);
+  const showPermissions = async (host = null) => {
+    if (host?.querySelector('.owner-permissions-dialog')) { host.replaceChildren(); return; }
+    const dialog = document.createElement(host ? 'section' : 'dialog'); dialog.className = 'owner-permissions-dialog'; dialog.setAttribute('aria-labelledby', 'ownerPermissionsTitle'); dialog.setAttribute('aria-describedby', 'ownerPermissionsHelp'); if (host) { host.append(dialog); dialog.close = () => { dialog.remove(); document.querySelector('#platformAdminPermissionsBtn')?.setAttribute('aria-expanded', 'false'); }; } else document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove());
     const title = document.createElement('h2'); title.textContent = session.bootstrap ? '設定最高管理者 Rondo' : '管理員權限'; title.id = 'ownerPermissionsTitle';
     const header = document.createElement('div'); header.className = 'owner-permissions-head';
@@ -82,6 +83,8 @@ if (session?.superAdmin) {
       } catch (error) { message.textContent = error.message; }
     }
     const footer = document.createElement('div'); footer.className = 'owner-permissions-footer';
-    const hint = document.createElement('small'); hint.textContent = session.bootstrap ? '最高管理者交接' : '權限變更於下次登入生效'; footer.append(hint, close); dialog.append(footer); dialog.showModal();
+    const hint = document.createElement('small'); hint.textContent = session.bootstrap ? '最高管理者交接' : '權限變更於下次登入生效'; footer.append(hint, close); dialog.append(footer); if (!host) dialog.showModal();
   };
+  button.onclick = () => showPermissions();
+  window.showOmniplayPermissions = showPermissions;
 }
