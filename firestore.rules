@@ -85,6 +85,18 @@ service cloud.firestore {
     }
     match /omniplay-release-notifications/{notificationId} {
       allow read, write: if isAdmin();
+      match /images/{imageId} {
+        allow create, update: if isAdmin()
+          && request.resource.data.keys().hasOnly(['data'])
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 400000
+          && request.resource.data.data.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+');
+        allow delete: if isAdmin();
+        allow get: if isAdmin() || (signedIn()
+          && canViewGroup(member().groupId)
+          && get(/databases/$(database)/documents/omniplay-release-notifications/$(notificationId)).data.status == 'published'
+          && member().groupId in get(/databases/$(database)/documents/omniplay-release-notifications/$(notificationId)).data.groupIds);
+      }
     }
     match /omniplay/{documentId} {
       allow read: if isAdmin();
