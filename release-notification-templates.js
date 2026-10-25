@@ -47,5 +47,5 @@ export function releaseTemplate(typeId,game,variant='standard'){
    && !/^[📅🗓🗓️\s]*(正式環境(?:預計)?上線日期|正式環境上線日期|PROD Environment Release Date|Expected Production Launch Date)\s*[：:]/i.test(value);
  }).join('\n').replace(/\n{3,}/g,'\n\n').trim();
  const dates=(text,lang)=>text.replace(/(?:（UTC\+8）|\(UTC\+8\))/g,match=>(lang==='zh'?'【請輸入 YYYY / MM / DD】':'[Enter YYYY / MM / DD]')+' '+match);
- return {titleZh:title(template.zh),titleEn:title(template.en),messageZh:dates(description(template.zh),'zh'),messageEn:dates(description(template.en),'en'),supportsNoDm:TEMPLATE_KEYS[typeId]==='uat',note:''};
+ return {titleZh:title(template.zh),titleEn:title(template.en),messageZh:dates(description(template.zh)+(key==='materials'?'\n\n🗂 素材補充日期：（UTC+8）':''),'zh'),messageEn:dates(description(template.en)+(key==='materials'?'\n\n🗂 Materials Update Date: (UTC+8)':''),'en'),supportsNoDm:TEMPLATE_KEYS[typeId]==='uat',note:''};
 }
