@@ -283,12 +283,12 @@ test('editing disabled recipients or withdrawn notifications fails without parti
  assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications.length,1);
  await store.withdraw('n1');await assert.rejects(store.edit(original,original.createdAt),/撤回/);
 });
-test('group badges expose only own group to recipients, and updated notifications become unread',async()=>{
+test('group badges remain admin-only, and updated notifications become unread',async()=>{
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function notificationReadKey('),end=source.indexOf('export async function withdrawReleaseNotification(',start),context={esc:value=>String(value)};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  const item={id:'n',groupNames:['Support','OKBET']};
  assert.match(context.recipientGroupsMarkup(item,true,''),/Support/);assert.match(context.recipientGroupsMarkup(item,true,''),/OKBET/);
- const customer=context.recipientGroupsMarkup(item,false,'OKBET');assert.match(customer,/OKBET/);assert.doesNotMatch(customer,/Support/);
+ const customer=context.recipientGroupsMarkup(item,false,'OKBET');assert.equal(customer,'');
  assert.equal(context.notificationReadKey(item),'n');assert.notEqual(context.notificationReadKey({...item,updatedAt:'new'}),'n');
 });
 
@@ -455,4 +455,13 @@ test('admin type labels remain Chinese even when recipient language is English',
  const start=source.indexOf('function notificationTypeLabel('),end=source.indexOf('export function installReleaseNotifications(',start),context={english:()=>true,ENVIRONMENTS:{}};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  const item={environment:'first-pord',typeName:'首發平台 PORD',typeNameEn:'First-launch Platform PORD'};
  assert.equal(context.notificationTypeLabel(item,true),'首發平台 PORD');assert.equal(context.notificationTypeLabel(item),'First-launch Platform PORD');
+});
+
+test('recipient release dates are prominent and recipient groups are absent',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
+ const start=source.indexOf('function notificationReleaseTimeMarkup('),end=source.indexOf('function notificationMessage(',start),context={notificationHasNoReleaseDate,label:(zh,en)=>zh,esc:value=>String(value),releaseDate:()=> '2025/09/15'};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ assert.match(context.notificationReleaseTimeMarkup(make()),/release-time-highlight/);assert.match(context.notificationReleaseTimeMarkup(make()),/<strong>2025\/09\/15<\/strong>/);
+ assert.equal(context.notificationReleaseTimeMarkup(make({environment:'flow-pord'})),'');
+ assert.match(source,/release-compose-main/);assert.match(source,/release-compose-side/);assert.match(source,/class="release-publish" data-publish/);
 });
