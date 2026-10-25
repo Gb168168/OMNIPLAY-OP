@@ -28,6 +28,7 @@ export function changeReleaseTypes(current,change){
 export const ENVIRONMENTS={test:{zh:'測試環境上架',en:'Test Environment Release'},production:{zh:'正式環境上架',en:'Production Environment Release'}};
 export const NOTIFICATION_LIMIT=100;
 export function isPordNotification(item){return item?.environment==='production'||/PORD/i.test(item?.typeName||item?.name||item?.environment||'');}
+export function notificationHasNoReleaseDate(item){return isPordNotification(item)||item?.environment==='materials'||/^(素材補充通知|Marketing Materials Update)$/i.test(item?.typeName||item?.name||'');}
 export function notificationCategory(item){const category=String(item.typeCategory||'').replace(/^特選遊戲$/,'特選');return ['流程','首發','特選','其他'].includes(category)?category:(DEFAULT_NOTIFICATION_TYPES.find(type=>type.id===item.environment)?.category||'其他');}
 export function notificationTransition(item,types=DEFAULT_NOTIFICATION_TYPES){
  if(item.status!=='published')return null;
@@ -43,13 +44,13 @@ export function buildReleaseNotification(input,{uid,name,game,groups,now=new Dat
  if(!selectedType&&(types||!Object.hasOwn(ENVIRONMENTS,input.environment)))throw new Error('請選擇有效的通知類型');
  const titleZh=String(input.titleZh??input.title??'').trim(),titleEn=String(input.titleEn||'').trim(),title=titleZh||titleEn,messageZh=String(input.messageZh??input.message??'').trim(),messageEn=String(input.messageEn||'').trim(),message=messageZh||messageEn,releaseAt=String(input.releaseAt||'');
  if(!title||titleZh.length>200||titleEn.length>200||messageZh.length>2000||messageEn.length>2000)throw new Error('標題必填且限 200 字；中英文說明各限 2000 字');
- const pord=isPordNotification({environment:input.environment,typeName:selectedType?.name});
- if(!pord&&(!releaseAt||!Number.isFinite(Date.parse(releaseAt))))throw new Error('請填寫有效的上架時間');
+ const noReleaseDate=notificationHasNoReleaseDate({environment:input.environment,typeName:selectedType?.name});
+ if(!noReleaseDate&&(!releaseAt||!Number.isFinite(Date.parse(releaseAt))))throw new Error('請填寫有效的上架時間');
  const selected=[...new Set(input.groupIds||[])],known=new Map(groups.map(group=>[group.id,group]));
  if(!selected.length||selected.length>400||selected.some(groupId=>!known.has(groupId)))throw new Error('請選擇有效的接收群組（最多 400 個）');
  const images=input.images||[];
  if(!Array.isArray(images)||images.length>3||images.some(image=>!image||!/^[a-zA-Z0-9-]{1,80}$/.test(image.id)||typeof image.name!=='string'||image.name.length>120)||new Set(images.map(image=>image.id)).size!==images.length)throw new Error('通知圖片資料無效，每則最多 3 張');
- return{...(images.length?{images:images.map(({id,name})=>({id,name}))}:{}),id,environment:input.environment,...(selectedType?{typeName:selectedType.name,typeNameEn:selectedType.nameEn,typeCategory:selectedType.category}:{}),title,titleZh,titleEn,message,messageZh,messageEn,releaseAt:pord?'':new Date(releaseAt).toISOString(),game:{id:String(game.id),name:String(game.name||''),mandarinName:String(game.mandarinName||''),version:String(game.version||'')},groupIds:selected,groupNames:selected.map(groupId=>String(known.get(groupId).name||'')),createdAt:now,createdBy:uid,createdByName:String(name||''),status:'published'};
+ return{...(images.length?{images:images.map(({id,name})=>({id,name}))}:{}),id,environment:input.environment,...(selectedType?{typeName:selectedType.name,typeNameEn:selectedType.nameEn,typeCategory:selectedType.category}:{}),title,titleZh,titleEn,message,messageZh,messageEn,releaseAt:noReleaseDate?'':new Date(releaseAt).toISOString(),game:{id:String(game.id),name:String(game.name||''),mandarinName:String(game.mandarinName||''),version:String(game.version||'')},groupIds:selected,groupNames:selected.map(groupId=>String(known.get(groupId).name||'')),createdAt:now,createdBy:uid,createdByName:String(name||''),status:'published'};
 }
 export function publicReleaseNotification(notification){const{groupIds,groupNames,createdBy,createdByName,updatedBy,updatedByName,...content}=notification;return content;}
 export function appendReleaseNotification(existing,notification){return[notification,...(Array.isArray(existing)?existing:[]).filter(item=>item.id!==notification.id)].slice(0,NOTIFICATION_LIMIT);}
