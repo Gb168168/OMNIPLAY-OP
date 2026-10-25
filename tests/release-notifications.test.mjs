@@ -220,22 +220,19 @@ test('custom type snapshots survive deletion and customer delivery; unknown curr
  assert.equal(make().environment,'test');
 });
 
-test('all eleven requested types map to the supplied bilingual Excel templates',()=>{
- for(const type of DEFAULT_NOTIFICATION_TYPES){const copy=releaseTemplate(type.id);assert.ok(copy?.messageZh.includes('OMNIPLAY'));assert.ok(copy?.messageEn.includes('OMNIPLAY'));}
- assert.equal(releaseTemplate('flow-uat').messageZh,RELEASE_TEMPLATES.uat.zh.replace(/^遊戲 ID：$/m,'遊戲 ID： ').replace(/^遊戲名稱：$/m,'遊戲名稱： '));
+test('all notification templates extract bilingual titles and retain useful instructions',()=>{
+ for(const type of DEFAULT_NOTIFICATION_TYPES){const copy=releaseTemplate(type.id);assert.ok(copy?.titleZh);assert.ok(copy?.titleEn);assert.ok(copy.messageZh);assert.ok(copy.messageEn);assert.ok(!copy.messageZh.includes(copy.titleZh));assert.ok(!copy.messageEn.includes(copy.titleEn));}
+ assert.equal(releaseTemplate('flow-uat').titleZh,RELEASE_TEMPLATES.uat.zh.split('\n')[0]);
  assert.equal(releaseTemplate('first-pord-extension').messageEn.includes('7 days'),true);
- assert.equal(releaseTemplate('materials').messageZh.includes('素材補充'),true);
- assert.equal(releaseTemplate('schedule-change').messageZh.includes('延後上線'),true);
  assert.equal(releaseTemplate('custom-type'),null);
 });
-test('templates fill game details and internal Game ID references while preserving dates and literal names',()=>{
- const game={id:'001',mandarinName:'測試$&遊戲',name:'Test $& Game'};
- const copy=releaseTemplate('first-uat',game);
- assert.match(copy.messageZh,/遊戲 ID： 001/);assert.ok(copy.messageZh.includes('遊戲名稱： 測試$&遊戲'));
- assert.ok(copy.messageEn.includes('Game Name： Test $& Game'));assert.ok(copy.messageZh.includes('遊戲素材： GAME ID 001\n'));
- assert.ok(copy.messageZh.includes('（UTC+8）'));
- const noDm=releaseTemplate('flow-uat',game,'no-dm');assert.ok(noDm.messageZh.includes('遊戲相關資料提供日期'));assert.equal(noDm.messageZh.includes('遊戲素材：'),false);
- assert.equal(releaseTemplate('flow-pord',game).note.includes('不放宣傳圖'),true);
+test('compact descriptions remove repeated game details and release date but keep independent deadlines',()=>{
+ const copy=releaseTemplate('flow-uat',{id:'100001',name:'Power Dragon'});
+ assert.doesNotMatch(copy.messageZh,/遊戲 ID|遊戲名稱|遊戲清單|遊戲素材|行銷資源|正式環境上線日期|團隊 敬上/);
+ assert.doesNotMatch(copy.messageEn,/Game ID|Game Name|Game List|Game Assets|Marketing Resources|PROD Environment Release Date|Best regards/);
+ assert.match(copy.messageZh,/更新至測試環境/);assert.match(copy.messageZh,/收到通知後/);
+ assert.match(releaseTemplate('first-uat').messageZh,/搶先體驗期間/);
+ assert.match(releaseTemplate('flow-uat',null,'no-dm').messageZh,/遊戲相關資料提供日期/);
 });
 test('upgrades shared old type config once, preserves custom types and respects later deletions',()=>{
  const custom={id:'custom',category:'其他',name:'自訂',nameEn:''};
@@ -247,14 +244,14 @@ test('upgrades shared old type config once, preserves custom types and respects 
 
 test('composer automatically applies templates and preserves manual edits during game updates',async()=>{
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('   let previousTemplate='),end=source.indexOf('   const paintTypes=',start);
- const fields={environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},title:{value:''}};
+ const fields={environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},titleZh:{value:''},titleEn:{value:''}};
  const nodes=new Map(),form={elements:fields,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
  const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
- vm.runInContext('autoTitle()',context);assert.ok(fields.messageZh.value.includes('遊戲 ID： 001'));assert.ok(fields.messageEn.value.includes('Game Name： Test'));
- fields.messageZh.value='人工修改';fields.gameId.value='002';vm.runInContext('autoTitle()',context);assert.equal(fields.messageZh.value,'人工修改');assert.ok(fields.messageEn.value.includes('Game Name： Next'));
+ vm.runInContext('autoTitle()',context);assert.equal(fields.titleZh.value,releaseTemplate('flow-uat').titleZh);assert.equal(fields.titleEn.value,releaseTemplate('flow-uat').titleEn);
+ fields.messageZh.value='人工修改';fields.gameId.value='002';vm.runInContext('autoTitle()',context);assert.equal(fields.messageZh.value,'人工修改');assert.equal(fields.messageEn.value,releaseTemplate('flow-uat').messageEn);
  fields.environment.value='materials';assert.equal(vm.runInContext('replaceTemplate()',context),false);assert.equal(fields.messageZh.value,'人工修改');
- context.confirm=()=>true;assert.equal(vm.runInContext('replaceTemplate()',context),true);assert.ok(fields.messageZh.value.includes('素材補充通知'));assert.ok(fields.messageZh.value.includes('遊戲 ID： 002'));assert.ok(fields.messageEn.value.includes('Marketing Materials Update'));
+ context.confirm=()=>true;assert.equal(vm.runInContext('replaceTemplate()',context),true);assert.match(fields.titleZh.value,/素材補充通知/);assert.match(fields.titleEn.value,/Marketing Materials Update/);assert.match(fields.messageZh.value,/補充提供/);
 });
 
 test('description fields grow to longest content, stay equal, and shrink for shorter templates',async()=>{
@@ -311,7 +308,7 @@ test('notification resource links open the matching Game ID in both languages an
  assert.equal(context.notificationMessageMarkup('<img src=x onerror=alert(1)>','100001'),'&lt;img src=x onerror=alert(1)&gt;');
  assert.doesNotMatch(context.notificationMessageMarkup('遊戲素材：',''),/<button/);
  const template=releaseTemplate('flow-uat',{id:'100001',name:'Power Dragon'});
- assert.match(template.messageZh,/遊戲清單： GAME ID 100001/);assert.match(template.messageEn,/Marketing Resources： GAME ID 100001/);
+ assert.doesNotMatch(template.messageZh,/遊戲清單/);assert.doesNotMatch(template.messageEn,/Marketing Resources/);
 });
 test('notification game opener uses the authorized customer catalog and rejects inaccessible games',async()=>{
  const app=await readFile(new URL('../app.js',import.meta.url),'utf8');
@@ -321,4 +318,17 @@ test('notification game opener uses the authorized customer catalog and rejects 
   openGameAssetsFromRecords:(...args)=>{opened=args;}};
  vm.createContext(context);vm.runInContext(body,context);await context.openNotificationGame('100001');assert.equal(opened[0].id,'100001');assert.equal(opened[4],true);
  opened=null;await assert.rejects(context.openNotificationGame('100003'),/access denied/);assert.equal(opened,null);
+});
+
+test('bilingual titles persist through recipient payloads, support legacy fallback and validate length',async()=>{
+ const item=make({titleZh:'中文標題',titleEn:'English title'});
+ assert.equal(item.title,'中文標題');assert.equal(publicReleaseNotification(item).titleEn,'English title');
+ assert.throws(()=>make({titleEn:'x'.repeat(201)}));assert.equal(make().titleZh,'龍門天下測試上架');
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
+ const start=source.indexOf('function notificationTitle('),end=source.indexOf('function notificationGameMarkup(',start);
+ let en=false;const context={english:()=>en,esc:value=>String(value)};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ assert.equal(context.notificationTitle(item),'中文標題');en=true;assert.equal(context.notificationTitle(item),'English title');assert.equal(context.notificationTitle({title:'Legacy'}),'Legacy');
+ const html=context.notificationTitleMarkup(item,true);assert.match(html,/中文標題/);assert.match(html,/English title/);
+ const gameStart=source.indexOf('function notificationGameMarkup('),gameEnd=source.indexOf('function notificationMessage(',gameStart);vm.runInContext(source.slice(gameStart,gameEnd),context);
+ assert.match(context.notificationGameMarkup(item),/data-notification-game="001"/);
 });
