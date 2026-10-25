@@ -134,3 +134,36 @@ test('game selection defaults only assigned existing groups, without duplicates 
 test('malformed group assignments never default to all recipients',()=>{
  for(const groupIds of [null,'a',{},undefined])assert.deepEqual(defaultReleaseGroupIds('game',{game:{groupIds}},groups),[]);
 });
+
+test('notification images survive delivery as descriptors without embedding large image data',()=>{
+ const image={id:'image-123',name:'遊戲海報.png',data:'private-image-bytes'};
+ const item=make({images:[image]});
+ assert.deepEqual(item.images,[{id:'image-123',name:'遊戲海報.png'}]);
+ assert.deepEqual(publicReleaseNotification(item).images,item.images);
+ assert.equal(JSON.stringify(item).includes('private-image-bytes'),false);
+});
+test('rejects invalid, duplicate and excessive notification images',()=>{
+ for(const images of [[{id:'../bad',name:'x'}],[{id:'x',name:'a'},{id:'x',name:'b'}],Array.from({length:4},(_,i)=>({id:'image-'+i,name:'x'})),[null],{}])assert.throws(()=>make({images}),/圖片/);
+ assert.equal(make().images,undefined);
+});
+test('image descriptors remain available to selected customers and disappear on withdrawal',async()=>{
+ const store=await mockStore({'omniplay-group-views/a':{enabled:true},'omniplay-group-views/b':{enabled:true}});
+ await store.publish(make({images:[{id:'poster-1',name:'poster.jpg'}]}));
+ assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications[0].images[0].id,'poster-1');
+ assert.equal(store.data.get('omniplay-group-views/b').releaseNotifications,undefined);
+ await store.withdraw('n1');assert.deepEqual(store.data.get('omniplay-group-views/a').releaseNotifications,[]);
+});
+
+test('image file storage validates payloads and keeps bytes separate from notification copies',async()=>{
+ const source=await readFile(new URL('../release-notification-images.js',import.meta.url),'utf8'),data=new Map();
+ const context={console,doc:(_db,...parts)=>parts.join('/'),setDoc:async(ref,value)=>data.set(ref,value),getDocFromServer:async ref=>({exists:()=>data.has(ref),data:()=>data.get(ref)})};
+ vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
+ const image={id:'poster-1',data:'data:image/jpeg;base64,/9j/2Q=='};
+ await context.uploadReleaseImages({},'n1',[image]);assert.equal(data.get('omniplay-release-notifications/n1/images/poster-1').data,image.data);
+ assert.equal(await context.readReleaseImage({},'n1','poster-1'),image.data);
+ await assert.rejects(context.uploadReleaseImages({},'n1',[{...image,data:'https://untrusted.example/image.jpg'}]),/無效/);
+ await assert.rejects(context.uploadReleaseImages({},'n1',[{...image,data:'data:image/jpeg;base64,'+'a'.repeat(400000)}]),/無效/);
+ await assert.rejects(context.readReleaseImage({},'n1','missing'),/載入/);
+ await assert.rejects(context.prepareReleaseImage({type:'image/svg+xml',size:10}),/JPG/);
+ await assert.rejects(context.prepareReleaseImage({type:'image/jpeg',size:11*1024*1024}),/10 MB/);
+});
