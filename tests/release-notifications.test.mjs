@@ -40,7 +40,7 @@ async function mockStore(seed={}){
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
- return{data,publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
+ return{data,edit:(item,revision)=>context.editReleaseNotification({},item,revision),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
 }
 test('publishes only selected groups atomically, preserves permission fields, retries once per ID',async()=>{
  const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
@@ -263,4 +263,34 @@ test('description fields grow to longest content, stay equal, and shrink for sho
  const zh={style:{},scrollHeight:510},en={style:{},scrollHeight:650},form={elements:{messageZh:zh,messageEn:en}};
  context.resizeReleaseMessageFields(form);assert.equal(zh.style.height,'652px');assert.equal(en.style.height,'652px');
  zh.scrollHeight=100;en.scrollHeight=140;context.resizeReleaseMessageFields(form);assert.equal(zh.style.height,'160px');assert.equal(en.style.height,'160px');
+});
+
+test('editing atomically updates retained recipients, adds new recipients, and removes old copies',async()=>{
+ const store=await mockStore({'omniplay-group-views/a':{enabled:true,allowedPages:['keep']},'omniplay-group-views/b':{enabled:true}});
+ const original=make();await store.publish(original);
+ const changed=make({groupIds:['b'],messageZh:'更新的中文',messageEn:'Updated English',images:[{id:'poster',name:'poster.jpg'}]});
+ await store.edit({...changed,createdBy:'editor',createdByName:'Editor'},original.createdAt);
+ assert.deepEqual(store.data.get('omniplay-group-views/a').releaseNotifications,[]);
+ const copy=store.data.get('omniplay-group-views/b').releaseNotifications[0];
+ assert.equal(copy.messageZh,'更新的中文');assert.equal(copy.messageEn,'Updated English');assert.equal(copy.images[0].id,'poster');
+ assert.equal(copy.createdAt,original.createdAt);assert.ok(copy.updatedAt);
+ for(const key of ['groupIds','groupNames','createdBy','createdByName','updatedBy','updatedByName'])assert.equal(key in copy,false);
+ const source=store.data.get('omniplay-release-notifications/n1');assert.equal(source.createdBy,'admin');assert.equal(source.updatedBy,'editor');
+ assert.deepEqual(store.data.get('omniplay-group-views/a').allowedPages,['keep']);
+ await assert.rejects(store.edit(changed,original.createdAt),/其他管理員修改/);
+});
+test('editing disabled recipients or withdrawn notifications fails without partial changes',async()=>{
+ const store=await mockStore({'omniplay-group-views/a':{enabled:true},'omniplay-group-views/b':{enabled:false}});
+ const original=make();await store.publish(original);
+ await assert.rejects(store.edit(make({groupIds:['b']}),original.createdAt),/停用/);
+ assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications.length,1);
+ await store.withdraw('n1');await assert.rejects(store.edit(original,original.createdAt),/撤回/);
+});
+test('group badges expose only own group to recipients, and updated notifications become unread',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function notificationReadKey('),end=source.indexOf('export async function withdrawReleaseNotification(',start),context={esc:value=>String(value)};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const item={id:'n',groupNames:['Support','OKBET']};
+ assert.match(context.recipientGroupsMarkup(item,true,''),/Support/);assert.match(context.recipientGroupsMarkup(item,true,''),/OKBET/);
+ const customer=context.recipientGroupsMarkup(item,false,'OKBET');assert.match(customer,/OKBET/);assert.doesNotMatch(customer,/Support/);
+ assert.equal(context.notificationReadKey(item),'n');assert.notEqual(context.notificationReadKey({...item,updatedAt:'new'}),'n');
 });
