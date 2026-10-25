@@ -137,11 +137,11 @@ service cloud.firestore {
         && request.resource.data.username == member().username
         && request.resource.data.name == member().name
         && request.resource.data.groupName == member().groupName
-        && request.resource.data.action in ['login', 'download']
+        && request.resource.data.action in ['login', 'logout', 'download']
         && request.resource.data.item is string && request.resource.data.item.size() <= 180
         && request.resource.data.createdAt == request.time && request.resource.data.createdAtIso is string;
       allow create: if isOwner() && request.resource.data.authUid == request.auth.uid
-        && request.resource.data.action in ['login', 'download'] && request.resource.data.createdAt == request.time;
+        && request.resource.data.action in ['login', 'logout', 'download'] && request.resource.data.createdAt == request.time;
     }
   }
 }
