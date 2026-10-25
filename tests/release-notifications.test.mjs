@@ -180,3 +180,20 @@ test('paste area focuses without opening file picker; only explicit button opens
  listeners.paste({clipboardData:{files:[]},preventDefault:()=>prevented++});assert.equal(prevented,1);
  choose.onclick();assert.equal(opens,1);input.onchange();assert.equal(received[1][0].name,'chosen.png');
 });
+
+test('stores independent Chinese and English messages and retains legacy compatibility',()=>{
+ const item=make({messageZh:' 中文說明\n第二行 ',messageEn:' English description '});
+ assert.equal(item.messageZh,'中文說明\n第二行');assert.equal(item.messageEn,'English description');
+ assert.equal(item.message,item.messageZh);assert.equal(publicReleaseNotification(item).messageEn,item.messageEn);
+ assert.equal(make({message:'舊版說明'}).messageZh,'舊版說明');
+ assert.equal(make({messageZh:'',messageEn:'English only'}).message,'English only');
+ for(const field of ['messageZh','messageEn'])assert.throws(()=>make({[field]:'x'.repeat(2001)}),/2000/);
+});
+test('customer display follows language selection with fallback for single-language and legacy notifications',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function notificationMessage('),end=source.indexOf('function bilingualMessageMarkup(',start);let en=false;
+ const context={english:()=>en};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const item={messageZh:'中文',messageEn:'English',message:'legacy'};
+ assert.equal(context.notificationMessage(item),'中文');en=true;assert.equal(context.notificationMessage(item),'English');
+ assert.equal(context.notificationMessage({message:'舊通知'}),'舊通知');assert.equal(context.notificationMessage({messageZh:'只有中文'}),'只有中文');
+ en=false;assert.equal(context.notificationMessage({messageEn:'English only'}),'English only');
+});
