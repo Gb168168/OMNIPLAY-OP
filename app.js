@@ -1,4 +1,4 @@
-import { installReleaseNotifications } from './release-notifications.js?v=20261025-management-table-1';
+import { installReleaseNotifications } from './release-notifications.js?v=20261025-single-table-header-1';
 import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261021-group-values-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261021-group-values-1';
