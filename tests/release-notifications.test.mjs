@@ -249,10 +249,18 @@ test('composer automatically applies templates and preserves manual edits during
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('   let previousTemplate='),end=source.indexOf('   const paintTypes=',start);
  const fields={environment:{value:'flow-uat'},gameId:{value:'001'},templateVariant:{value:'standard'},messageZh:{value:''},messageEn:{value:''},title:{value:''}};
  const nodes=new Map(),form={elements:fields,querySelector:selector=>{if(!nodes.has(selector))nodes.set(selector,{});return nodes.get(selector)}};
- const context={form,preview:{hidden:false},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
+ const context={form,preview:{hidden:false},resizeReleaseMessageFields:()=>{},releaseTemplate,notificationTypes:normalizeReleaseTypes(undefined),games:new Map([['001',{id:'001',name:'Test',mandarinName:'測試'}],['002',{id:'002',name:'Next',mandarinName:'下一款'}]]),previousAutoTitle:'',confirm:()=>false};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  vm.runInContext('autoTitle()',context);assert.ok(fields.messageZh.value.includes('遊戲 ID： 001'));assert.ok(fields.messageEn.value.includes('Game Name： Test'));
  fields.messageZh.value='人工修改';fields.gameId.value='002';vm.runInContext('autoTitle()',context);assert.equal(fields.messageZh.value,'人工修改');assert.ok(fields.messageEn.value.includes('Game Name： Next'));
  fields.environment.value='materials';assert.equal(vm.runInContext('replaceTemplate()',context),false);assert.equal(fields.messageZh.value,'人工修改');
  context.confirm=()=>true;assert.equal(vm.runInContext('replaceTemplate()',context),true);assert.ok(fields.messageZh.value.includes('素材補充通知'));assert.ok(fields.messageZh.value.includes('遊戲 ID： 002'));assert.ok(fields.messageEn.value.includes('Marketing Materials Update'));
+});
+
+test('description fields grow to longest content, stay equal, and shrink for shorter templates',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function resizeReleaseMessageFields('),end=source.indexOf('function styles()',start),context={};
+ vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ const zh={style:{},scrollHeight:510},en={style:{},scrollHeight:650},form={elements:{messageZh:zh,messageEn:en}};
+ context.resizeReleaseMessageFields(form);assert.equal(zh.style.height,'652px');assert.equal(en.style.height,'652px');
+ zh.scrollHeight=100;en.scrollHeight=140;context.resizeReleaseMessageFields(form);assert.equal(zh.style.height,'160px');assert.equal(en.style.height,'160px');
 });
