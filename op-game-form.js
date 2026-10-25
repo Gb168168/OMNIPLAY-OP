@@ -1,6 +1,6 @@
 import { openGroupFieldEditor } from './group-field-editor.js?v=20261021-group-values-1';
 import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-values-1';
-import { mountPagcorApproval } from './pagcor-approval.js?v=20261021-preview-2';
+import { mountPagcorApproval } from './pagcor-approval.js?v=20261025-hide-empty-approval-1';
 import { downloadGameList } from './game-list-export.js?v=20261021-styled-excel-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
@@ -108,3 +108,4 @@ const draw=()=>{const term=search.value.trim().toLowerCase(),filtered=games.filt
 
 
 /* Clickable game status summary filters */
+
