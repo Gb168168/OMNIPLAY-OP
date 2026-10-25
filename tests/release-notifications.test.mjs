@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds} from '../release-notification-model.js';
+import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds,DEFAULT_NOTIFICATION_TYPES,normalizeReleaseTypes,changeReleaseTypes} from '../release-notification-model.js';
 const groups=[{id:'a',name:'客戶 A'},{id:'b',name:'客戶 B'}];
 const make=(overrides={})=>buildReleaseNotification({environment:'test',title:'龍門天下測試上架',message:'請安排驗收',releaseAt:'2026-10-14T16:00+08:00',groupIds:['a'],...overrides},{uid:'admin',name:'管理者',id:'n1',game:{id:'001',name:'Power Dragon',mandarinName:'龍門天下',version:'2.0.0'},groups,now:'2026-10-14T07:00:00.000Z'});
 test('validates environment, game, recipients, length and dates; stores Taipei time as UTC',()=>{
@@ -196,4 +196,25 @@ test('customer display follows language selection with fallback for single-langu
  assert.equal(context.notificationMessage(item),'中文');en=true;assert.equal(context.notificationMessage(item),'English');
  assert.equal(context.notificationMessage({message:'舊通知'}),'舊通知');assert.equal(context.notificationMessage({messageZh:'只有中文'}),'只有中文');
  en=false;assert.equal(context.notificationMessage({messageEn:'English only'}),'English only');
+});
+
+test('default notification types preserve requested groups, names and order',()=>{
+ assert.deepEqual(normalizeReleaseTypes(undefined).map(type=>[type.category,type.name]),[['流程','上架 UAT'],['流程','上架 PORD'],['首發','首發平台 UAT'],['首發','首發平台 PORD'],['首發','其他平台(首發後) UAT'],['首發','其他平台(首發後) PORD'],['特選遊戲','特選遊戲 UAT'],['特選遊戲','特選遊戲 PORD']]);
+ const types=normalizeReleaseTypes(undefined);types[0].name='changed';assert.equal(DEFAULT_NOTIFICATION_TYPES[0].name,'上架 UAT');
+});
+test('types can be added and deleted including all defaults without resurrection',()=>{
+ const custom={id:'custom-uat',category:'流程',name:'維護 UAT',nameEn:'Maintenance UAT'};
+ const types=changeReleaseTypes(undefined,{add:custom});assert.equal(types.length,9);
+ assert.throws(()=>changeReleaseTypes(types,{add:custom}),/已存在/);
+ assert.equal(changeReleaseTypes(types,{removeId:'custom-uat'}).length,8);
+ let empty=types;for(const type of types)empty=changeReleaseTypes(empty,{removeId:type.id});
+ assert.deepEqual(normalizeReleaseTypes(empty),[]);
+});
+test('custom type snapshots survive deletion and customer delivery; unknown current selections fail closed',()=>{
+ const types=normalizeReleaseTypes(undefined),context={uid:'admin',id:'n',game:{id:'1'},groups,types};
+ const input={environment:'first-uat',title:'首發',releaseAt:'2026-10-25',groupIds:['a']};
+ const item=buildReleaseNotification(input,context);assert.equal(item.typeName,'首發平台 UAT');assert.equal(publicReleaseNotification(item).typeNameEn,'First-launch Platform UAT');
+ const remaining=changeReleaseTypes(types,{removeId:'first-uat'});assert.throws(()=>buildReleaseNotification(input,{...context,types:remaining}),/通知類型/);
+ assert.equal(item.typeName,'首發平台 UAT');assert.throws(()=>buildReleaseNotification(input,{...context,types:[]}),/通知類型/);
+ assert.equal(make().environment,'test');
 });
