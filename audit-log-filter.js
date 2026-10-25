@@ -1,4 +1,4 @@
-import { auditDate, auditMeta, auditSessions, auditOperations, logoutLabel } from './audit-history-model.js?v=20261025-audit-tabs-1';
+import { auditDate, auditMeta, auditSessions, auditOperations, logoutLabel } from './audit-history-model.js?v=20261025-audit-tabs-2';
 import { getDoc } from './member-access.js?v=20261021-group-values-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,collection,doc,getDocs,query,orderBy,limit}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
