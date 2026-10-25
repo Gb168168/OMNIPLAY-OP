@@ -20,3 +20,5 @@ export function filterReleaseGames(games,records,groups,groupId='',query=''){
  const term=String(query||'').trim().toLowerCase();
  return games.filter(game=>(!groupId||(Array.isArray(records[game.id]?.groupIds)&&records[game.id].groupIds.includes(groupId)))&&(!term||[game.id,game.name,game.mandarinName].some(value=>String(value||'').toLowerCase().includes(term))));
 }
+
+export function defaultReleaseGroupIds(gameId,records,groups){const assigned=new Set(Array.isArray(records[gameId]?.groupIds)?records[gameId].groupIds:[]);return groups.filter(group=>assigned.has(group.id)).map(group=>group.id);}
