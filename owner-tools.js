@@ -37,39 +37,51 @@ if (session?.superAdmin) {
     finally { resync.disabled = false; }
   };
   button.onclick = async () => {
-    const dialog = document.createElement('dialog'); dialog.style.cssText = 'width:min(560px,calc(100vw - 32px));padding:24px;border:1px solid #cbd5e1;border-radius:16px'; document.body.append(dialog);
+    const dialog = document.createElement('dialog'); dialog.className = 'owner-permissions-dialog'; dialog.setAttribute('aria-labelledby', 'ownerPermissionsTitle'); dialog.setAttribute('aria-describedby', 'ownerPermissionsHelp'); document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove());
-    const title = document.createElement('h2'); title.textContent = session.bootstrap ? '設定最高管理者 Rondo' : '管理員權限'; dialog.append(title);
-    const message = document.createElement('p'); message.setAttribute('role', 'status'); dialog.append(message);
+    const title = document.createElement('h2'); title.textContent = session.bootstrap ? '設定最高管理者 Rondo' : '管理員權限'; title.id = 'ownerPermissionsTitle';
+    const header = document.createElement('div'); header.className = 'owner-permissions-head';
+    const heading = document.createElement('div'), eyebrow = document.createElement('div'); eyebrow.className = 'eyebrow'; eyebrow.textContent = 'ACCESS MANAGEMENT'; heading.append(eyebrow, title);
+    const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.className = 'icon-close'; dismiss.textContent = '×'; dismiss.setAttribute('aria-label', '關閉管理員權限'); dismiss.onclick = () => dialog.close(); header.append(heading, dismiss); dialog.append(header);
+    const body = document.createElement('div'); body.className = 'owner-permissions-body'; dialog.append(body);
+    const help = document.createElement('p'); help.id = 'ownerPermissionsHelp'; help.className = 'owner-permissions-help'; body.append(help);
+    const message = document.createElement('p'); message.setAttribute('role', 'status'); message.className = 'owner-permissions-status'; body.append(message);
     const close = document.createElement('button'); close.type = 'button'; close.className = 'secondary'; close.textContent = '關閉'; close.onclick = () => dialog.close();
     if (session.bootstrap) {
-      message.textContent = '先發布新版 Firebase 規則。交接後，請用 Rondo 和下方設定的密碼登入；原信箱不再具有網站管理權限。';
+      help.textContent = '先發布新版 Firebase 規則。交接後，請用 Rondo 和下方設定的密碼登入；原信箱不再具有網站管理權限。';
       const form = document.createElement('form'), label = document.createElement('label'), input = document.createElement('input');
       label.textContent = 'Rondo 登入密碼'; input.type = 'password'; input.required = true; input.autocomplete = 'new-password'; input.style.cssText = 'display:block;width:100%;margin:12px 0'; label.append(input);
-      const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'primary'; submit.textContent = '建立 Rondo 並交接'; form.append(label, submit); dialog.append(form);
+      const submit = document.createElement('button'); submit.type = 'submit'; submit.className = 'primary'; submit.textContent = '建立 Rondo 並交接'; form.append(label, submit); body.append(form); form.className = 'dialog-form owner-transfer-form';
       form.onsubmit = async event => {
-        event.preventDefault(); submit.disabled = true; close.disabled = true; message.textContent = '正在建立、驗證並交接 Rondo…';
+        event.preventDefault(); submit.disabled = true; close.disabled = true; dismiss.disabled = true; message.textContent = '正在建立、驗證並交接 Rondo…';
         try { await transferToRondo(input.value); input.value = ''; location.reload(); }
-        catch (error) { message.textContent = error.message; submit.disabled = false; close.disabled = false; }
+        catch (error) { message.textContent = error.message; submit.disabled = false; close.disabled = false; dismiss.disabled = false; }
       };
     } else {
-      message.textContent = '只有 Rondo 能指定或取消管理員。其他管理員可以編輯網站、查看登入紀錄，但不能任免管理員或讀取人員密碼。';
+      help.textContent = '只有 Rondo 能指定或取消管理員。其他管理員可以編輯網站、查看登入紀錄，但不能任免管理員或讀取人員密碼。';
+      const list = document.createElement('div'); list.className = 'owner-permissions-list'; body.append(list);
+      message.textContent = '正在載入人員…';
       try {
         const profiles = await listMemberProfiles();
-        for (const profile of profiles.filter(item => item.enabled)) {
-          const row = document.createElement('div'); row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0';
-          const name = document.createElement('span'); name.textContent = profile.username + ' · ' + (profile.groupName || ''); row.append(name);
-          if (profile.owner) { const badge = document.createElement('strong'); badge.textContent = '最高管理者'; row.append(badge); }
+        const enabled = profiles.filter(item => item.enabled);
+        message.textContent = enabled.length ? '' : '目前沒有啟用的人員。';
+        for (const profile of enabled) {
+          const row = document.createElement('div'); row.className = 'owner-permissions-row';
+          const identity = document.createElement('div'); identity.className = 'owner-permissions-identity';
+          const avatar = document.createElement('span'); avatar.className = 'owner-permissions-avatar'; avatar.textContent = Array.from(profile.username || '?')[0]; avatar.setAttribute('aria-hidden', 'true');
+          const details = document.createElement('div'), name = document.createElement('strong'), group = document.createElement('small'); name.textContent = profile.username; group.textContent = profile.groupName || '未指定群組'; details.append(name, group); identity.append(avatar, details); row.append(identity);
+          if (profile.owner) { const badge = document.createElement('strong'); badge.className = 'owner-permissions-badge'; badge.textContent = '最高管理者'; row.append(badge); }
           else {
-            const select = document.createElement('select');
+            const select = document.createElement('select'); select.setAttribute('aria-label', profile.username + ' 的角色');
             for (const [value, text] of [['member', '一般使用者'], ['admin', '管理員']]) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); }
             select.value = profile.role === 'admin' ? 'admin' : 'member';
             select.onchange = async () => { select.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; } }; row.append(select);
           }
-          dialog.append(row);
+          list.append(row);
         }
       } catch (error) { message.textContent = error.message; }
     }
-    dialog.append(close); dialog.showModal();
+    const footer = document.createElement('div'); footer.className = 'owner-permissions-footer';
+    const hint = document.createElement('small'); hint.textContent = session.bootstrap ? '最高管理者交接' : '權限變更於下次登入生效'; footer.append(hint, close); dialog.append(footer); dialog.showModal();
   };
 }
