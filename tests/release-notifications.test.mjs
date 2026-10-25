@@ -167,3 +167,16 @@ test('image file storage validates payloads and keeps bytes separate from notifi
  await assert.rejects(context.prepareReleaseImage({type:'image/svg+xml',size:10}),/JPG/);
  await assert.rejects(context.prepareReleaseImage({type:'image/jpeg',size:11*1024*1024}),/10 MB/);
 });
+
+test('paste area focuses without opening file picker; only explicit button opens picker',async()=>{
+ const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function bindReleaseImagePicker('),end=source.indexOf('function styles()',start);
+ let opens=0,focuses=0,received=[],prevented=0;const choose={},paste={focus:()=>focuses++},listeners={},input={files:[{type:'image/png',name:'chosen.png'}],click:()=>opens++},form={querySelector:selector=>selector==='[data-choose-images]'?choose:paste,addEventListener:(type,fn)=>listeners[type]=fn};
+ const context={};vm.createContext(context);vm.runInContext(source.slice(start,end),context);
+ context.bindReleaseImagePicker(form,input,files=>received.push(Array.from(files)));
+ paste.onclick();assert.equal(focuses,1);assert.equal(opens,0);
+ const image={type:'image/png',name:'clipboard.png'};
+ listeners.paste({clipboardData:{files:[image]},preventDefault:()=>prevented++});
+ assert.equal(opens,0);assert.equal(prevented,1);assert.equal(received[0][0],image);
+ listeners.paste({clipboardData:{files:[]},preventDefault:()=>prevented++});assert.equal(prevented,1);
+ choose.onclick();assert.equal(opens,1);input.onchange();assert.equal(received[1][0].name,'chosen.png');
+});
