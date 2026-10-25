@@ -474,3 +474,28 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
  #workspace.op-form-page .op-game-stat{gap:10px;padding:6px 10px;min-height:36px}
  #workspace.op-form-page .op-game-stat span{font-size:11px}
 }
+
+/* Administrator role management */
+dialog.owner-permissions-dialog{width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;border:1px solid #dce5f0;border-radius:20px;background:#fff;color:#172033;box-shadow:0 24px 80px #172b4d33;overflow:auto}
+.owner-permissions-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px 26px 20px;border-bottom:1px solid #e9eef5}
+.owner-permissions-head h2{margin:6px 0 0;font-size:22px;letter-spacing:.02em}
+.owner-permissions-head .eyebrow{color:#647c9c;font-size:10px}
+.owner-permissions-body{padding:20px 26px 24px}
+.owner-permissions-help{margin:0 0 20px;padding:13px 15px;border:1px solid #dce8f7;border-radius:12px;background:#f3f7fd;color:#52657e;font-size:13px;line-height:1.8}
+.owner-permissions-status{margin:0 0 14px;color:#315f9a;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.owner-permissions-status:empty{display:none}
+.owner-permissions-list{display:grid;gap:8px}
+.owner-permissions-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 14px;border:1px solid #e5ebf3;border-radius:12px;background:#fff}
+.owner-permissions-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.owner-permissions-avatar{display:grid;place-items:center;flex:0 0 38px;height:38px;border-radius:11px;background:#edf3fc;color:#486b9c;font-size:15px;font-weight:700}
+.owner-permissions-identity>div{min-width:0}
+.owner-permissions-identity strong{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.owner-permissions-identity small{display:block;margin-top:4px;font-size:12px;color:#8190a5;overflow-wrap:anywhere}
+.owner-permissions-row select{flex:0 0 128px;width:128px;min-height:38px;padding:8px 10px;border:1px solid #d5e0ee;border-radius:9px;background:#f8fafd;color:#334966;font-size:13px;cursor:pointer}
+.owner-permissions-row select:disabled{opacity:.55;cursor:wait}
+.owner-permissions-dialog :is(button,select,input):focus-visible{outline:3px solid #8bb7f2;outline-offset:3px}
+.owner-permissions-badge{flex-shrink:0;padding:7px 12px;border:1px solid #d7e6fc;border-radius:999px;background:#edf4ff;color:#3665a2;font-size:12px;font-weight:600}
+.owner-permissions-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 26px;border-top:1px solid #e9eef5;background:#fafbfd}
+.owner-permissions-footer small{color:#8391a5;font-size:12px}
+.owner-transfer-form{padding:0}
+@media(max-width:480px){.owner-permissions-head{padding:20px}.owner-permissions-body{padding:16px}.owner-permissions-row{padding:12px;gap:10px;flex-wrap:wrap}.owner-permissions-identity{flex:1 1 150px}.owner-permissions-row select{flex-basis:120px;width:120px}.owner-permissions-footer{padding:16px}.owner-permissions-avatar{flex-basis:32px;height:32px}}
