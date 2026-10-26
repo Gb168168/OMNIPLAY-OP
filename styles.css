@@ -537,3 +537,18 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
  .compact-workspace-menu .resource-preview{width:100%;box-sizing:border-box}
 }
 @media(max-width:360px){html .sidebar.compact-navigation{padding-left:8px;padding-right:8px;gap:5px}html .sidebar.compact-navigation>.brand{font-size:12px}.compact-navigation>.session-controls .secondary,.compact-navigation>.session-controls>.customer-language,.compact-navigation>.session-controls .account-settings>summary{width:30px;min-width:30px}}
+
+/* Keep the primary admin action beside the brand at every width. */
+@media(max-width:1200px),(hover:none) and (pointer:coarse){
+ html .sidebar.compact-navigation{gap:6px}
+ html .sidebar.compact-navigation>.brand{flex:0 1 auto;font-size:12px;white-space:nowrap}
+ html .sidebar.compact-navigation>#addCategoryBtn{order:2;flex:0 0 auto;width:auto;min-height:34px;margin:0;padding:7px 9px;font-size:12px;white-space:nowrap;border-radius:8px}
+ html[data-theme] .sidebar.compact-navigation>.session-controls{order:3;margin-left:auto}
+}
+@media(max-width:380px){
+ html .sidebar.compact-navigation{padding-left:8px;padding-right:8px;gap:4px}
+ html .sidebar.compact-navigation>.brand{font-size:11px;letter-spacing:-.4px}
+ html .sidebar.compact-navigation>#addCategoryBtn{padding:7px 6px;font-size:11px}
+ .compact-navigation .workspace-menu-toggle{width:30px;flex-basis:30px}
+ .compact-navigation>.session-controls .secondary,.compact-navigation>.session-controls>.customer-language,.compact-navigation>.session-controls .account-settings>summary{width:30px;min-width:30px}
+}
