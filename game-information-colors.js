@@ -25,7 +25,7 @@ function visibleCellColors(cell,target){
 }
 export function installInformationColors({workspace,columns,admin,settings,save,getValues,getNote,editHeaderNote,editCellNote}){
  let current=settings&&typeof settings==='object'?settings:{};
- let preview=null,activeDialog=null,menu=null,selecting=false,finishSelection=()=>{},selectionClick=null,selectionKeydown=null;
+ let preview=null,activeDialog=null,activeDialogClose=null,menu=null,selecting=false,finishSelection=()=>{},selectionClick=null,selectionKeydown=null;
  const style=document.createElement('style');style.id='giCustomColors';document.querySelector('#giCustomColors')?.remove();document.head.append(style);
  const get=()=>preview||current;
  const apply=()=>{
@@ -63,7 +63,7 @@ export function installInformationColors({workspace,columns,admin,settings,save,
  }
  const persist=async (next,note)=>{await save(next,note);current=structuredClone(next);};
  function open(tab='table',context=null,restored={}){
-  if(!admin)return;closeMenu();activeDialog?.close();const original=structuredClone(current),draft=structuredClone(restored.draft||current);preview=draft;selectedFields=new Set(context?.key?[context.key]:[]);
+  if(!admin)return;closeMenu();if(activeDialog){activeDialog.removeEventListener('close',activeDialogClose);activeDialog.close();activeDialogClose?.();}const original=structuredClone(current),draft=structuredClone(restored.draft||current);preview=draft;selectedFields=new Set(context?.key?[context.key]:[]);
   draft.table||={};draft.columns||={};draft.cells||={};draft.labels||={};draft.rules||=[];
   const dialog=document.createElement('dialog');activeDialog=dialog;dialog.className='gi-dialog gi-color-dialog'+(['cell','columns'].includes(tab)?' gi-quick-color-dialog':'');dialog.innerHTML='<form class="gi-form"><h3>'+({cell:'顏色與備註',columns:'欄位調色',table:'表格外觀',labels:'標籤顏色',rules:'自動套色'}[tab]||'調色')+'</h3><div class="gi-color-panel"></div><div class="gi-actions"><button type="button" data-reset>恢復預設</button><output role="status"></output><button type="button" data-cancel>取消</button><button type="submit">儲存</button></div></form>';
   document.body.append(dialog);const panel=dialog.querySelector('.gi-color-panel'),status=dialog.querySelector('output');let mode=tab,fields=restored.fields?[...restored.fields]:context?.fields?[...context.fields]:context?.key?[context.key]:[],labelKind='released',noteText=restored.noteText??(context?.id?getNote(context.id,context.key):''),ruleFields=[],ruleText='',ruleMode='contains',ruleStyle={};
@@ -73,7 +73,7 @@ export function installInformationColors({workspace,columns,admin,settings,save,
    const en=localStorage.getItem('omniplay-customer-language')==='en',tools=document.createElement('div');tools.className='gi-copy-colors';const button=document.createElement('button');button.type='button';button.textContent=en?'Copy Colors from Another Cell':'從其他格複製顏色';const select=document.createElement('select');select.setAttribute('aria-label',en?'Colors to Copy':'要複製的顏色');for(const [value,label]of [['both',en?'Text & Background':'文字＋底色'],['color',en?'Text Only':'只複製文字色'],['bg',en?'Background Only':'只複製底色']]){const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option)}tools.append(button,select);panel.append(tools);
    button.onclick=()=>{
     if(mode==='columns'&&!fields.length){status.textContent=en?'Select at least one column':'請選擇至少一欄';return}
-    const kind=select.value,kept={draft:structuredClone(draft),noteText,fields:[...fields]};dialog.close();
+    const kind=select.value,kept={draft:structuredClone(draft),noteText,fields:[...fields]};dialog.removeEventListener('close',closeDialog);dialog.close();closeDialog();
     const banner=document.createElement('div');banner.className='gi-color-source-banner';banner.setAttribute('role','status');const message=document.createElement('span');message.textContent=en?'Select the source cell. Scroll to find it; Esc cancels.':'請點選要複製顏色的來源格，可捲動尋找；按 Esc 取消。';const cancel=document.createElement('button');cancel.type='button';cancel.textContent=en?'Cancel':'取消取色';banner.append(message,cancel);workspace.append(banner);workspace.classList.add('gi-picking-color');selecting=true;
     finishSelection=()=>{selecting=false;workspace.classList.remove('gi-picking-color');banner.remove();workspace.removeEventListener('click',selectionClick,true);document.removeEventListener('keydown',selectionKeydown,true);selectionClick=null;selectionKeydown=null;finishSelection=()=>{};};
     const restore=notice=>{finishSelection();if(workspace.classList.contains('game-info-page')&&workspace.querySelector('.gi-table'))open(mode,context,{...kept,notice});};
@@ -99,7 +99,7 @@ export function installInformationColors({workspace,columns,admin,settings,save,
    apply();
   };
   dialog.querySelector('[data-reset]').onclick=()=>{if(mode==='table')draft.table={};if(mode==='columns')fields.forEach(field=>delete draft.columns[field]);if(mode==='cell'&&context)delete draft.cells[context.id]?.[context.key];if(mode==='labels')delete draft.labels[labelKind];if(mode==='rules'){draft.rules=[];ruleFields=[];ruleText='';ruleStyle={}}render()};
-  dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{preview=null;selectedFields.clear();finishSelection();apply();dialog.remove();if(activeDialog===dialog)activeDialog=null});
+  const closeDialog=()=>{preview=null;selectedFields.clear();finishSelection();apply();dialog.remove();if(activeDialog===dialog){activeDialog=null;activeDialogClose=null;}};activeDialogClose=closeDialog;dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.addEventListener('close',closeDialog);
   dialog.querySelector('form').onsubmit=async event=>{event.preventDefault();if(mode==='columns'&&!fields.length){status.textContent='請選擇至少一欄';return}if((ruleText.trim()||ruleFields.length||Object.keys(ruleStyle).length)){status.textContent='請先按「加入規則並預覽」，或清空未加入的條件';return}const buttons=[...dialog.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);status.textContent='儲存中…';try{await persist(draft,context?.id?{id:context.id,key:context.key,text:noteText.trim()}:null);status.textContent='已儲存';dialog.close()}catch(error){current=original;status.textContent='儲存失敗：'+error.message;buttons.forEach(b=>b.disabled=false)}};
   render();if(restored.notice)status.textContent=restored.notice;dialog.showModal();
  }
@@ -115,6 +115,7 @@ export function installInformationColors({workspace,columns,admin,settings,save,
  const observer=new MutationObserver(()=>{if(!workspace.classList.contains('game-info-page')||!workspace.querySelector('.gi-table')){closeMenu();activeDialog?.close();finishSelection();workspace.removeEventListener('click',selectionClick,true);workspace.removeEventListener('keydown',selectionKeydown);style.remove();css.remove();document.removeEventListener('click',outside);document.removeEventListener('keydown',escape);observer.disconnect()}});observer.observe(workspace,{childList:true,attributes:true,attributeFilter:['class']});
  return {apply,open};
 }
+
 
 
 
