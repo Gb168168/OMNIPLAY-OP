@@ -552,3 +552,19 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
  .compact-navigation .workspace-menu-toggle{width:30px;flex-basis:30px}
  .compact-navigation>.session-controls .secondary,.compact-navigation>.session-controls>.customer-language,.compact-navigation>.session-controls .account-settings>summary{width:30px;min-width:30px}
 }
+
+/* Published custom categories stay beside the brand in the customer header. */
+.shared-category-shortcuts{order:1;display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0;max-width:45vw;overflow-x:auto;scrollbar-width:none}
+.shared-category-shortcuts::-webkit-scrollbar{display:none}
+.shared-category-shortcuts .platform-custom-category{flex:0 0 auto}
+.shared-category-shortcuts summary{white-space:nowrap;font-size:13px;padding:8px 10px}
+.shared-category-shortcuts .platform-custom-category>div{position:fixed;width:300px;max-width:calc(100vw - 24px);max-height:60dvh;overflow:auto;box-sizing:border-box;z-index:10001}
+@media(max-width:1200px),(hover:none) and (pointer:coarse){
+ html .sidebar.compact-navigation>.shared-category-shortcuts{order:2;flex:1 1 auto;max-width:none;min-width:48px;margin:0}
+ .shared-category-shortcuts summary{font-size:12px;padding:7px 9px}
+ .customer-portal .sidebar.compact-navigation>.brand{flex:0 0 auto}
+}
+@media(max-width:480px){
+ .customer-portal .sidebar.compact-navigation>.brand{font-size:10px;letter-spacing:-.4px}
+ .shared-category-shortcuts summary{font-size:11px;padding:7px}
+}
