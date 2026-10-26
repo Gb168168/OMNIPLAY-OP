@@ -1,6 +1,7 @@
+import {installGameSourceUpdates} from './game-source-updates.js?v=20261026-source-updates-1';
 import { renderApiManualPage } from './api-manual.js?v=20261026-source-locale-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-game-list-source-1';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-source-updates-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage, platformVisible } from './member-model.js?v=20261026-api-entry-editor-1';
 import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=20261026-api-entry-editor-1';
@@ -90,6 +91,8 @@ function migrateGameAssetPages(){
  return changed;
 }
 function workspaceDataSignature(){const data=payload();delete data.updatedAt;return JSON.stringify(data)}
+let pendingGameSourceFocus=null;
+async function openSourceUpdateGame(id,onReviewed){const category=state.categories.find(c=>(c.pages||[]).some(p=>p.gameInformation)),target=category?.pages.find(p=>p.gameInformation);if(!target)throw Error('找不到內部參考的遊戲資訊頁面');resourcePreviewGroup='';resourcePreviewPlatform='';pendingGameSourceFocus={id,onReviewed};state.activeCategoryId=category.id;state.activePageId=target.id;renderNav();await renderPage();}
 let customerPermissionsUnsubscribe=null;
 function watchCustomerPermissions(){
  const session=window.__omniplaySession;if(!session||session.canEdit||session.superAdmin||!session.groupId||customerPermissionsUnsubscribe)return;
@@ -125,7 +128,7 @@ if(window.__omniplayCanEdit&&sessionStorage.getItem('omniplay-shared-manual-sync
 if(loadedSignature!==null&&loadedSignature!==workspaceDataSignature())save();
 if(!$('#cloudStatus').textContent.startsWith('⚠️'))$('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ '+firebaseError(e);$('#emptyState').classList.remove('hidden');$('#emptyState').innerHTML='<div><h2>工作區載入失敗</h2><p>'+esc(e.message||'雲端連線異常')+'</p><button class="primary" data-retry-workspace>重新載入</button></div>';$('#emptyState [data-retry-workspace]').onclick=()=>location.reload();return}renderNav();
-if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustomerPermissions();installReleaseNotifications({db,state,openNotificationGame})}
+if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustomerPermissions();installReleaseNotifications({db,state,openNotificationGame});if(!isCustomerPortal())installGameSourceUpdates({db,openGame:openSourceUpdateGame});}
 function payload(){const categories=(state.categories||[]).map(category=>({...category,pages:(category.pages||[]).map(page=>{if(page.type!=='sheet')return page;const{snapshot,...metadata}=page;return metadata})}));return{categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){if(!window.__omniplayCanEdit)return;localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
@@ -232,7 +235,7 @@ const resourceEntry=customerSectionPages().find(entry=>entry.page?.id===p?.id);l
 if(resourceEntry&&canManageResources()){if(resourcePreviewGroup){const group=state.customerGroups.find(g=>g.id===resourcePreviewGroup);try{const customerSnapshot=await getDoc(doc(db,'omniplay-group-views',group.id));if(!customerSnapshot.exists()||!customerSnapshot.data().enabled)throw new Error('此群組尚未同步');resourceState=customerSnapshot.data()}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(firebaseError(error))+'</div>';return}resourcePage=resourceState.categories.flatMap(c=>c.pages||[]).find(item=>item.id===p.id);resourceReadonly=true;if(!resourcePage){$('#workspace').innerHTML='<div class="notice">這個群組沒有此頁面的查看權限。</div>';return}if(resourcePage.customerOpGame)resourcePage={...resourcePage,previewGroupId:group.id,previewPlatformIds:approvalPreviewPlatformIds()}}else if(p.customerOpGame){resourcePage={...p,customerOpGame:false};}$('#pageTitle').textContent=customerSectionLabel(resourceEntry.section);$('#breadcrumb').textContent=resourcePreviewGroup?'平台視角 / 群組預覽（唯讀）':'平台視角 / 管理模式';}
 if(resourceReadonly&&resourcePage?.type==='sheet'&&!resourcePage.customerOpGame){const data=firstSheet(resourcePage.snapshot)?.cellData||{};$('#workspace').innerHTML='<div class="notice">客戶群組預覽（唯讀）</div><table>'+Object.entries(data).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,row])=>'<tr>'+Object.entries(row).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,cell])=>'<td>'+esc(cellValue(cell))+'</td>').join('')+'</tr>').join('')+'</table>';return}
 if(!p){if(!c)$('#emptyState').innerHTML='<div><h2>目前沒有分類</h2><p>按「新增分類」開始建立工作區。</p></div>';if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
-return}if(p?.gameInformation)return renderGameInformationPage({state,page:p,saveWorkspace:()=>{save();renderNav()},readOnly:!!resourcePreviewGroup,previewGroupId:resourcePreviewGroup||null,previewPlatformIds:approvalPreviewPlatformIds()});if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state:resourceState,page:resourcePage,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(resourcePage,[],resourceReadonly)}
+return}if(p?.gameInformation){const focus=pendingGameSourceFocus;pendingGameSourceFocus=null;return renderGameInformationPage({state,page:p,saveWorkspace:()=>{save();renderNav()},readOnly:!!resourcePreviewGroup,previewGroupId:resourcePreviewGroup||null,previewPlatformIds:approvalPreviewPlatformIds(),focusGameId:focus?.id||null,onRecordSaved:focus?.onReviewed});}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state:resourceState,page:resourcePage,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(resourcePage,[],resourceReadonly)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
 function cellValue(cell){let value=cell;for(let i=0;i<4&&value&&typeof value==='object'&&'v'in value;i++)value=value.v;return value&&typeof value==='object'?'':(value??'')}
 function normalizedHeader(value){const key=String(value??'').toLowerCase().replace(/%/g,' percent ').replace(/[^a-z0-9]+/g,' ').trim();return key==='list of games'?'game name english':key}
@@ -408,6 +411,7 @@ load();
 
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});});
 window.addEventListener('resize',()=>document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>menu.open=false));
+
 
 
 
