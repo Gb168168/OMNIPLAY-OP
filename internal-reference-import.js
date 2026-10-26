@@ -84,6 +84,7 @@ function openImport(){
  };dialog.showModal();
 }
 const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='更新內部資料';button.style.cssText='font-size:12px;padding:6px 10px';button.onclick=openImport;
-const title=document.querySelector('#pageTitle'),update=()=>{button.hidden=!window.__omniplayCanEdit||!['Game List_Online','遊戲資訊'].includes(title?.textContent?.trim());};
+const title=document.querySelector('#pageTitle'),update=()=>{button.hidden=!window.__omniplayCanEdit||!['Game List_Online','遊戲資訊','Game Information'].includes(title?.textContent?.trim());};
 document.querySelector('#addPageBtn')?.parentElement?.prepend(button);if(title)new MutationObserver(update).observe(title,{childList:true,subtree:true,characterData:true});update();
+
 
