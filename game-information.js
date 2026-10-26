@@ -1,5 +1,5 @@
 import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-values-1';
-import {installInformationColors} from './game-information-colors.js?v=20261026-table-notes-1';
+import {installInformationColors} from './game-information-colors.js?v=20261026-expanded-palette-1';
 import {getDoc,setDoc} from './member-access.js?v=20261026-api-entry-editor-1';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
 import {uniqueGames,openGameAssetsFromRecords} from './op-game-form.js?v=20261026-table-notes-2';
