@@ -1,4 +1,4 @@
-import { openGroupFieldEditor } from './group-field-editor.js?v=20261021-group-values-1';
+import { openGroupFieldEditor } from './group-field-editor.js?v=20261026-platform-visibility-1';
 import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-values-1';
 import { mountPagcorApproval } from './pagcor-approval.js?v=20261025-hide-empty-approval-1';
 import { downloadGameList } from './game-list-export.js?v=20261026-ui-language-1';
@@ -6,7 +6,7 @@ import { gameListRows, preferredGameRows } from './game-list-source.js?v=2026102
 import { automaticGameFolders } from './resource-links.js?v=20261009-auto-game-links-1';
 export { storedAsset, downloadAsset, uniqueGames };
 export function openGameAssetsFromRecords(game,state,saveWorkspace,data,readOnly=false,previewGroupId=null,previewPlatformIds=null){readOnly=readOnly||!!previewGroupId;installStyles();records=data.records||{};fieldOptions=data.fieldOptions||structuredClone(DEFAULT_FIELD_OPTIONS);const record=records[game.id]||(records[game.id]={});record.folders||=[];record.assetIds||=[];openAssetViewer(game,state,saveWorkspace,[],readOnly,previewGroupId,previewPlatformIds)}
-import { getDoc, setDoc, getCustomerGameCatalog } from './member-access.js?v=20261021-group-values-1';
+import { getDoc, setDoc, getCustomerGameCatalog } from './member-access.js?v=20261026-platform-visibility-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';import{getFirestore,doc}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';import{getStorage,ref as storageRef,uploadBytes,getDownloadURL,deleteObject}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js';
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'},app=getApps().length?getApps()[0]:initializeApp(cfg),db=getFirestore(app),storage=getStorage(app),rowsRef=doc(db,'omniplay','game-list-online-page'),recordsRef=doc(db,'omniplay','op-game-form-records');
 const esc=(value='')=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -108,5 +108,6 @@ const draw=()=>{const term=search.value.trim().toLowerCase(),filtered=games.filt
 
 
 /* Clickable game status summary filters */
+
 
 
