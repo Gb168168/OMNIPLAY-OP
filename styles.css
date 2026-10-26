@@ -503,3 +503,6 @@ dialog.owner-permissions-dialog{width:min(600px,calc(100vw - 32px));max-height:c
 #platformAdminPermissions>.owner-permissions-dialog{width:100%;max-width:none;margin:0 0 20px;border:1px solid #dce5f0;border-radius:16px;background:#fff;color:#172033;overflow:hidden;box-shadow:0 4px 18px #20385808}
 #platformAdminPermissions .owner-permissions-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
 .platform-list-workspace .customer-tools{flex-wrap:wrap;justify-content:flex-end}
+
+/* Keep workspace toolbars inside their own layer, below navigation dropdowns. */
+.main{isolation:isolate}
