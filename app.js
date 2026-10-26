@@ -1,4 +1,4 @@
-import {installGameSourceUpdates} from './game-source-updates.js?v=20261026-source-updates-1';
+import {installGameSourceUpdates} from './game-source-updates.js?v=20261026-source-ack-1';
 import { renderApiManualPage } from './api-manual.js?v=20261026-source-locale-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
 import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-source-updates-1';
