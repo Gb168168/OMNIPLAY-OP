@@ -9,7 +9,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const palette=['#223951','#FFFFFF','#F4F6F7','#EEF5FF','#FFE49A','#FFFF00','#B84900','#F00000','#A5DBFF','#E7E9ED','#4E5C52','#1000FF'];
 const defaults={color:'#223951',bg:'#FFFFFF',alternate:'#F4F6F7',headerColor:'#FFFFFF',headerBg:'#4E5C52'};
 const labelKinds=[['released','已發行標籤','.gi-status-released'],['coming','即將發行標籤','.gi-status-coming'],['special','特選遊戲標籤','.gi-status-special'],['other','其他狀態標籤','.gi-status-other'],['yes','Yes 標籤','.gi-answer:not(.gi-answer-no):not(.gi-answer-progress)'],['no','No 標籤','.gi-answer-no'],['progress','In Progress 標籤','.gi-answer-progress'],['jackpot','OP Jackpot 標籤','.gi-jackpot-main'],['jackpotGroup','其他彩金標籤','.gi-jackpot-group']];
-export function installInformationColors({workspace,columns,admin,settings,save,getValues,getNote}){
+export function installInformationColors({workspace,columns,admin,settings,save,getValues,getNote,editHeaderNote,editCellNote}){
  let current=settings&&typeof settings==='object'?settings:{};
  let preview=null,activeDialog=null,menu=null,selecting=false,finishSelection=()=>{},selectionClick=null,selectionKeydown=null;
  const style=document.createElement('style');style.id='giCustomColors';document.querySelector('#giCustomColors')?.remove();document.head.append(style);
@@ -78,10 +78,11 @@ export function installInformationColors({workspace,columns,admin,settings,save,
   const more=document.createElement('details');more.className='gi-more-colors';const summary=document.createElement('summary');summary.textContent='其他顏色設定';more.append(summary);const options=document.createElement('div');options.className='gi-more-options';
   for(const [mode,label] of [['table','表格外觀'],['labels','標籤顏色'],['rules','自動套色']]){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{more.open=false;open(mode)};options.append(b)}more.append(options);
   tools?.prepend(more);
-  workspace.oncontextmenu=event=>{const td=event.target.closest('td[data-gi-game][data-gi-col]'),th=event.target.closest('th[data-gi-header]');if(!td&&!th)return;event.preventDefault();if(td)open('cell',{id:td.dataset.giGame,key:td.dataset.giCol});else open('columns',{fields:[th.dataset.giHeader]})};
+  workspace.oncontextmenu=event=>{const td=event.target.closest('td[data-gi-game][data-gi-col]'),th=event.target.closest('th[data-gi-header]');if(!td&&!th)return;event.preventDefault();closeMenu();const en=localStorage.getItem('omniplay-customer-language')==='en';menu=document.createElement('div');menu.className='gi-context-menu';menu.setAttribute('role','menu');const actions=td?[[en?'Add / Edit Cell Note':'新增／編輯資料格備註',()=>editCellNote?.(td.dataset.giGame,td.dataset.giCol)],[en?'Cell Colors':'資料格顏色',()=>open('cell',{id:td.dataset.giGame,key:td.dataset.giCol})]]:[[en?'Add / Edit Header Note':'新增／編輯標題備註',()=>editHeaderNote?.(th.dataset.giHeader)],[en?'Column Colors':'欄位顏色',()=>open('columns',{fields:[th.dataset.giHeader]})]];for(const [label,action]of actions){const button=document.createElement('button');button.type='button';button.setAttribute('role','menuitem');button.textContent=label;button.onclick=()=>{closeMenu();action()};menu.append(button)}document.body.append(menu);const box=menu.getBoundingClientRect();menu.style.left=Math.max(8,Math.min(event.clientX,innerWidth-box.width-8))+'px';menu.style.top=Math.max(8,Math.min(event.clientY,innerHeight-box.height-8))+'px';menu.querySelector('button').focus();};
 
  }
  const outside=event=>{if(menu&&!menu.contains(event.target))closeMenu()};const escape=event=>{if(event.key==='Escape')closeMenu()};document.addEventListener('click',outside);document.addEventListener('keydown',escape);workspace.querySelector('.gi-scroll')?.addEventListener('scroll',closeMenu);
  const observer=new MutationObserver(()=>{if(!workspace.classList.contains('game-info-page')||!workspace.querySelector('.gi-table')){closeMenu();activeDialog?.close();finishSelection();workspace.removeEventListener('click',selectionClick,true);workspace.removeEventListener('keydown',selectionKeydown);style.remove();css.remove();document.removeEventListener('click',outside);document.removeEventListener('keydown',escape);observer.disconnect()}});observer.observe(workspace,{childList:true,attributes:true,attributeFilter:['class']});
  return {apply,open};
 }
+
