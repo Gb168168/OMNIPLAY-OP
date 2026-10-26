@@ -1,5 +1,5 @@
 import {snapshotGameRows} from './game-list-source.js?v=20261026-source-grid-1';
-import {getDoc,setDoc} from './member-access.js?v=20261026-platform-visibility-1';
+import {getDoc,setDoc} from './member-access.js?v=20261026-shared-manual-1';
 import {getApps} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import {getFirestore,doc} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
@@ -86,6 +86,7 @@ function openImport(){
 const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent='更新內部資料';button.style.cssText='font-size:12px;padding:6px 10px';button.onclick=openImport;
 const title=document.querySelector('#pageTitle'),update=()=>{button.hidden=!window.__omniplayCanEdit||!['Game List_Online','遊戲資訊','Game Information'].includes(title?.textContent?.trim());};
 document.querySelector('#addPageBtn')?.parentElement?.prepend(button);if(title)new MutationObserver(update).observe(title,{childList:true,subtree:true,characterData:true});update();
+
 
 
 
