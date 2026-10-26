@@ -1,4 +1,4 @@
-import {installGameSourceUpdates} from './game-source-updates.js?v=20261026-source-ack-1';
+import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-buttons-1';
 import { renderApiManualPage } from './api-manual.js?v=20261026-source-locale-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
 import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-shared-game-profile-1';
@@ -411,6 +411,7 @@ load();
 
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});});
 window.addEventListener('resize',()=>document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>menu.open=false));
+
 
 
 
