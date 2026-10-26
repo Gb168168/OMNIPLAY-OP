@@ -7,7 +7,8 @@ export function snapshotGameRows(snapshot){
  if(start<0)return null;
  const merge=(sheet.mergeData||[]).find(m=>m.startRow===header&&m.startColumn===start);
  const first=merge?merge.endRow+1:header+2;
- const read=(r,c)=>{const direct=sheet.cellData[r]?.[c];if(text(value(direct)))return value(direct);const merged=(sheet.mergeData||[]).find(m=>r>=m.startRow&&r<=m.endRow&&c>=m.startColumn&&c<=m.endColumn);return merged?value(sheet.cellData[merged.startRow]?.[merged.startColumn]):value(direct)};
+ const formatted=cell=>{const v=value(cell),style=typeof cell?.s==='string'?snapshot.styles?.[cell.s]:cell?.s,pattern=style?.n?.pattern||'';if(typeof v==='number'&&/%/.test(pattern)){const places=(pattern.match(/\.(0+)%/)?.[1]||'').length;return(v*100).toFixed(places)+'%';}return v};
+ const read=(r,c)=>{const direct=sheet.cellData[r]?.[c];if(text(value(direct)))return formatted(direct);const merged=(sheet.mergeData||[]).find(m=>r>=m.startRow&&r<=m.endRow&&c>=m.startColumn&&c<=m.endColumn);return merged?formatted(sheet.cellData[merged.startRow]?.[merged.startColumn]):formatted(direct)};
  let previous=null;return Object.keys(sheet.cellData).map(Number).filter(r=>r>=first).sort((a,b)=>a-b).map(r=>{const row=Array.from({length:19},(_,c)=>read(r,start+c));if(!text(row[0])){const versionId=text(row[1]).match(/^(\d{5,})-/)?.[1];if(previous&&text(row[2])&&text(row[2])===text(previous[2]))row[0]=previous[0];else if(versionId)row[0]=versionId}if(/^\d{5,}$/.test(text(row[0])))previous=row;return row}).filter(row=>/^\d{5,}$/.test(text(row[0])));
 }
 export function gameListRows(data={}){
@@ -21,3 +22,4 @@ export function preferredGameRows(rows=[]){
 }
 
 export function compareGameIds(left,right){const a=String(left??'').trim(),b=String(right??'').trim();if(!a)return b?1:0;if(!b)return-1;return a.localeCompare(b,'en',{numeric:true});}
+
