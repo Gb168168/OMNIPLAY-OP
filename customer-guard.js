@@ -27,7 +27,7 @@
     const fsMod=await import('https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js');
     const app=appMod.getApps().length?appMod.getApps()[0]:appMod.initializeApp(firebaseConfig);
     const db=fsMod.getFirestore(app);
-    const access=await import('./member-access.js?v=20261026-platform-visibility-1');
+    const access=await import('./member-access.js?v=20261026-shared-manual-1');
     return {fsMod:{...fsMod,getDoc:access.getDoc,setDoc:access.setDoc},ref:fsMod.doc(db,'omniplay','workspace')};
   }
 
@@ -236,3 +236,4 @@
   simplifyCustomerManagement();
   scheduleGroupDragSort();
 })();
+
