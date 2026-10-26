@@ -1,3 +1,4 @@
+import {installMobilePreview} from './mobile-preview.js?v=20261027-mobile-preview-1';
 import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-buttons-1';
 import { renderApiManualPage } from './api-manual.js?v=20261027-visible-answer-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
@@ -128,7 +129,7 @@ if(window.__omniplayCanEdit&&sessionStorage.getItem('omniplay-shared-manual-sync
 if(loadedSignature!==null&&loadedSignature!==workspaceDataSignature())save();
 if(!$('#cloudStatus').textContent.startsWith('⚠️'))$('#cloudStatus').textContent='☁️ Firestore 雲端資料'}catch(e){console.error(e);
 $('#cloudStatus').textContent='⚠️ '+firebaseError(e);$('#emptyState').classList.remove('hidden');$('#emptyState').innerHTML='<div><h2>工作區載入失敗</h2><p>'+esc(e.message||'雲端連線異常')+'</p><button class="primary" data-retry-workspace>重新載入</button></div>';$('#emptyState [data-retry-workspace]').onclick=()=>location.reload();return}renderNav();
-if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustomerPermissions();installReleaseNotifications({db,state,openNotificationGame});if(!isCustomerPortal())installGameSourceUpdates({db,openGame:openSourceUpdateGame});}
+if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustomerPermissions();installReleaseNotifications({db,state,openNotificationGame});if(!isCustomerPortal()){installGameSourceUpdates({db,openGame:openSourceUpdateGame});installMobilePreview();}}
 function payload(){const categories=(state.categories||[]).map(category=>({...category,pages:(category.pages||[]).map(page=>{if(page.type!=='sheet')return page;const{snapshot,...metadata}=page;return metadata})}));return{categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){if(!window.__omniplayCanEdit)return;localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
@@ -411,6 +412,7 @@ load();
 
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});});
 window.addEventListener('resize',()=>document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>menu.open=false));
+
 
 
 
