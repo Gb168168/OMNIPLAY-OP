@@ -430,10 +430,10 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
 }
 
 /* Compact game-directory chrome leaves the viewport for game rows. */
-.main:has(>#workspace.op-form-page)>.topbar{padding:7px 18px;gap:12px;min-height:42px}
-.main:has(>#workspace.op-form-page)>.topbar>div:first-child{display:flex;align-items:center;gap:14px;min-width:0;flex-wrap:wrap}
-.main:has(>#workspace.op-form-page)>.topbar h1{font-size:17px;margin:0;line-height:1.4}
-.main:has(>#workspace.op-form-page)>.topbar .breadcrumb{font-size:11px}
+.main:has(>#workspace:is(.op-form-page,.game-info-page,.game-list-native-page))>.topbar{padding:7px 18px;gap:12px;min-height:42px}
+.main:has(>#workspace:is(.op-form-page,.game-info-page,.game-list-native-page))>.topbar>div:first-child{display:flex;align-items:center;gap:14px;min-width:0;flex-wrap:wrap}
+.main:has(>#workspace:is(.op-form-page,.game-info-page,.game-list-native-page))>.topbar h1{font-size:17px;margin:0;line-height:1.4}
+.main:has(>#workspace:is(.op-form-page,.game-info-page,.game-list-native-page))>.topbar .breadcrumb{font-size:11px}
 #workspace.op-form-page{padding:8px 18px 12px!important}
 #workspace.op-form-page .op-form-head{margin-bottom:8px;gap:12px;align-items:center}
 #workspace.op-form-page .op-form-head .eyebrow,
@@ -447,8 +447,8 @@ html[data-theme="light"] .category-pages{box-shadow:0 8px 24px rgba(31,50,75,.12
 #workspace.op-form-page .op-game-stat strong{font-size:17px;line-height:1.2}
 #workspace.op-form-page .op-game-stat-active{box-shadow:none}
 @media(max-width:760px){
- .main:has(>#workspace.op-form-page)>.topbar{flex-direction:row;align-items:center;padding:6px 10px;gap:8px}
- .main:has(>#workspace.op-form-page)>.topbar .actions{width:auto}
+ .main:has(>#workspace:is(.op-form-page,.game-info-page,.game-list-native-page))>.topbar{flex-direction:row;align-items:center;padding:6px 10px;gap:8px}
+ .main:has(>#workspace:is(.op-form-page,.game-info-page,.game-list-native-page))>.topbar .actions{width:auto}
  #workspace.op-form-page .op-form-head{gap:6px}
  #workspace.op-form-page .op-form-tools{display:flex;width:100%;gap:8px}
  #workspace.op-form-page .op-form-search{min-width:0;flex:1;width:auto}
