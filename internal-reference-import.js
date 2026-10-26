@@ -50,6 +50,9 @@ function openImport(){
    output.textContent='線上清單已更新；正在更新遊戲資訊…';
    for(const row of data.information){const{id,...fields}=row;next[id]={...prior[id],...fields,gameInformationGame:true,gameInformationDeleted:false,updatedAt};}
    await setDoc(recordsRef,{records:next,updatedAt},{merge:true});
+   const checkedSource=await getDoc(sourceRef),checkedRecords=await getDoc(recordsRef);
+   if(checkedSource.data()?.rowsJson!==JSON.stringify(data.onlineRows)||checkedSource.data()?.snapshotJson!==snapshotJson)throw Error('線上清單儲存後比對未通過，請重試');
+   for(const row of data.information)for(const key of informationKeys)if(checkedRecords.data()?.records?.[row.id]?.[key]!==row[key])throw Error('遊戲資訊 '+row.id+' 儲存後比對未通過，請重試');
    // Keep the native editor from restoring an older local draft on the next visit.
    try{localStorage.removeItem('omniplay-game-list-draft-v1');}catch{}
    window.dispatchEvent(new CustomEvent('omniplay-game-list-updated',{detail:{rows:data.onlineRows}}));
