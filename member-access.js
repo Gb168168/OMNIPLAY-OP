@@ -5,7 +5,7 @@ import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc, getDocFromServer,
   setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
-  groupDocumentIds, projectGroupGameDocument, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261021-group-values-1';
+  groupDocumentIds, projectGroupGameDocument, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261026-platform-visibility-1';
 
 
 function databaseError(error, action, path) {
@@ -312,5 +312,6 @@ export async function getCustomerGameCatalog(db = getFirestore(), previewGroupId
   if (!snapshot.exists()) throw new Error('客戶版遊戲資料尚未同步，請聯絡管理員');
   return snapshot.data();
 }
+
 
 
