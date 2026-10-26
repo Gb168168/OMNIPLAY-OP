@@ -1,4 +1,4 @@
-import {installTableNotes} from './table-notes.js?v=20261026-table-notes-2';
+import {installTableNotes} from './table-notes.js?v=20261026-notes-copy-fix-1';
 import { openGroupFieldEditor } from './group-field-editor.js?v=20261026-api-entry-editor-1';
 import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-values-1';
 import { mountPagcorApproval } from './pagcor-approval.js?v=20261025-hide-empty-approval-1';
@@ -109,6 +109,7 @@ const draw=()=>{const term=search.value.trim().toLowerCase(),filtered=games.filt
 
 
 /* Clickable game status summary filters */
+
 
 
 
