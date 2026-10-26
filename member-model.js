@@ -48,6 +48,13 @@ export function isInternalReferenceCategory(category) {
   return String(category?.name || '').replace(/^\s*📁\s*/, '').trim() === '內部參考，請勿外流';
 }
 
+// Visibility is an additional gate; existing group grants still apply.
+export function platformVisible(category, page = null) {
+  if (isInternalReferenceCategory(category)) return false;
+  const manual = [category?.name, category?.displayName].some(name => String(name || '').replace(/^\s*📁\s*/, '').trim() === '操作手冊');
+  return category?.platformVisible !== false && (!manual || category.platformVisible === true) && page?.platformVisible !== false;
+}
+function internalGroup(group) { return ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group?.name || '').trim()); }
 export const CUSTOMER_OP_PAGE = 'page_op_game_customer';
 export const CUSTOMER_OP_DOCUMENT = 'op-game-customer-records';
 export function ensureCustomerOpPage(workspace) {
@@ -72,7 +79,7 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null,
     records[id] = Object.fromEntries(fields.filter(key => ['string','number','boolean'].includes(typeof sourceRecord[key])).map(key => [key, sourceRecord[key]]));
   }
   const assetLinks = {}, allowed = group ? effectiveGroupPages(workspace, group) : new Set();
-  const pages = (workspace.categories || []).filter(category => !isInternalReferenceCategory(category)).flatMap(category => category.pages || []).filter(page => allowed.has(page.id) && ['files','photos'].includes(page.type));
+  const pages = (workspace.categories || []).filter(category => !isInternalReferenceCategory(category)).flatMap(category => category.pages || []).filter(page => allowed.has(page.id) && ['files','photos'].includes(page.type) && (internalGroup(group) || (workspace.categories || []).some(category => (category.pages || []).includes(page) && platformVisible(category,page))));
   const findFolder = (folders, id) => { for (const folder of folders || []) { if (folder.id === id) return folder; const nested = findFolder(folder.folders,id); if (nested) return nested; } return null; };
   for (const id of Object.keys(records)) {
     const links = [], seen = new Set(), sourceRecord = source[id] || {};
@@ -91,6 +98,12 @@ export function projectGroupGameDocument(id, value, rowData, recordData, group, 
   const internal = ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim());
   if (!internal && id === 'op-game-form-records') return { records: customerGameCatalog(rowData, recordData, group, workspace).records, updatedAt: value?.updatedAt || '' };
   if (!internal && id === 'game-list-online-page') return { rowsJson: customerGameCatalog(rowData, recordData, group, workspace).rowsJson, updatedAt: value?.updatedAt || '' };
+  // Keep previously granted document IDs usable for sync, but replace hidden
+  // page copies with a tombstone so an old direct URL cannot reveal their data.
+  if (!internal && /^sheet-/.test(id)) {
+    const entry=(workspace.categories||[]).flatMap(category=>(category.pages||[]).map(page=>({category,page}))).find(({page})=>id==='sheet-'+page.id || id.startsWith('sheet-'+page.id+'-chunk-'));
+    if (entry && !platformVisible(entry.category,entry.page)) return {restricted:true};
+  }
   return withoutCredentials(value);
 }
 
@@ -105,7 +118,7 @@ export function groupWorkspace(workspace, group) {
   const allowed = effectiveGroupPages(workspace, group), platformAccess =
     ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) && allowed.has(PLATFORM_PERMISSION);
   const categories = (workspace.categories || []).map(category => ({ ...category,
-    pages: (category.pages || []).filter(page => allowed.has(page.id)) })).filter(category => category.pages.length);
+    pages: (category.pages || []).filter(page => allowed.has(page.id) && (internalGroup(group) || platformVisible(category,page))) })).filter(category => category.pages.length);
   const result = {
     categories, customerGroups: platformAccess ? workspace.customerGroups : [group],
     customers: platformAccess ? workspace.customers : [],
@@ -153,4 +166,5 @@ export function hydratePasswords(workspace, secrets) {
   }
   return result;
 }
+
 
