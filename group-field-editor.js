@@ -1,5 +1,5 @@
 import { getFirestore, doc, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { syncMembersAndViews } from './member-access.js?v=20261021-group-values-1';
+import { syncMembersAndViews } from './member-access.js?v=20261026-platform-visibility-1';
 import { LINKED_GAME_FIELDS, createFieldRule, assignFieldGroup, normalizeFieldRules, resolveLinkedValue } from './group-field-values.js?v=20261021-group-values-1';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function openGroupFieldEditor({game, record, groups, onSaved}) {
@@ -68,3 +68,4 @@ export function openGroupFieldEditor({game, record, groups, onSaved}) {
   document.body.append(dialog); draw(); dialog.showModal();
   return dialog;
 }
+
