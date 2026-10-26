@@ -1,4 +1,4 @@
-const value=cell=>cell&&typeof cell==='object'&&'v' in cell?cell.v:cell??'';
+const value=cell=>cell?.p?.body?.dataStream?cell.p.body.dataStream.replace(/\r\n$/,'').replace(/\r/g,'\n'):cell&&typeof cell==='object'&&'v' in cell?cell.v:cell??'';
 const text=v=>String(v??'').trim();
 const na=v=>/^n\s*\/\s*a$/i.test(text(v));
 export function snapshotGameRows(snapshot){
