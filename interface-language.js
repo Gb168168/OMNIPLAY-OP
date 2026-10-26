@@ -56,7 +56,7 @@ Game List_Online 連動資料|Game List_Online Linked Data
 內部參考|Internal Reference
 內部參考，請勿外流|Internal Reference — Do Not Distribute
 平台視角|Platform View
-👁 平台視角|👁 Platform View
+🖥️ 平台視角|🖥️ Platform View
 平台資源|Platform Resources
 工作區|Workspace
 OMNIPLAY / 客戶參考文件|OMNIPLAY / Customer Resources
