@@ -66,6 +66,7 @@ function openImport(){
    await window.disposeGameListOnlinePage?.();
    const source=await getDoc(sourceRef),raw=source.data()||{},records=await getDoc(recordsRef),prior=records.data()?.records||{},updatedAt=new Date().toISOString(),next={};
    let snapshot=null;if(raw.snapshotJson)snapshot=JSON.parse(raw.snapshotJson);
+   if(data.onlineSnapshot&&snapshot?.resources)data.onlineSnapshot.resources=structuredClone(snapshot.resources);
    const snapshotJson=data.onlineSnapshot?JSON.stringify(data.onlineSnapshot):replaceReferenceSnapshot(snapshot,data.onlineRows);
    await setDoc(sourceRef,{rowsJson:JSON.stringify(data.onlineRows),snapshotJson,gameListLayoutVersion:'',updatedAt},{merge:true});
    output.textContent='線上清單已更新；正在更新遊戲資訊…';
