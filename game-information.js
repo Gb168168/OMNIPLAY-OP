@@ -1,8 +1,8 @@
 import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-values-1';
 import {installInformationColors} from './game-information-colors.js?v=20261013-simple-colors-2';
-import {getDoc,setDoc} from './member-access.js?v=20261026-platform-visibility-1';
+import {getDoc,setDoc} from './member-access.js?v=20261026-shared-manual-1';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
-import {uniqueGames,openGameAssetsFromRecords} from './op-game-form.js?v=20261026-platform-visibility-1';
+import {uniqueGames,openGameAssetsFromRecords} from './op-game-form.js?v=20261026-shared-manual-1';
 import {getApps,initializeApp} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import {getFirestore,doc} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 const config={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
@@ -90,6 +90,7 @@ export async function renderGameInformationPage({state,page,saveWorkspace,readOn
  colorManager=installInformationColors({workspace:w,columns,admin,settings:colorSettings,getValues:id=>{const game=games.find(item=>item.id===id);return game?details(game):{}},getNote:(id,key)=>{const note=cellNotes[id]?.[key];return typeof note==='string'?note:note?.text||''},save:async (settings,note)=>{const updatedAt=new Date().toISOString(),payload={gameInformationColorsJson:{[page.id]:JSON.stringify(settings)},updatedAt};let next;if(note){next={text:note.text,author:String(window.__omniplaySession?.username||'管理員'),updatedAt};payload.gameInformationCellNotes={[page.id]:{[note.id]:{[note.key]:next}}}}await setDoc(recordsRef,payload,{merge:true});if(note){(cellNotes[note.id]||(cellNotes[note.id]={}))[note.key]=next;draw()}}});
  draw();
 }
+
 
 
 
