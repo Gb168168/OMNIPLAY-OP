@@ -507,27 +507,33 @@ dialog.owner-permissions-dialog{width:min(600px,calc(100vw - 32px));max-height:c
 /* Keep workspace toolbars inside their own layer, below navigation dropdowns. */
 .main{isolation:isolate}
 
-/* Compact phone header: account row, then a single scrolling navigation row. */
-@media(max-width:800px){
- .sidebar{padding:8px 12px 6px;gap:6px 8px;align-items:center;overflow:visible}
- .sidebar>.brand{order:0;flex:1 1 auto;min-width:0;font-size:14px;padding:3px 0;letter-spacing:-.25px}
- html[data-theme] .sidebar>.session-controls{order:1;position:static;flex:0 0 auto;width:auto;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;gap:4px}
- .sidebar>.session-controls>.login-user{display:none}
- .sidebar>.session-controls .secondary,.sidebar>.session-controls>.customer-language,.sidebar>.session-controls .account-settings>summary{display:grid;place-items:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;font-size:18px;border-radius:9px}
- .sidebar>.session-controls #releaseNotificationBell{display:flex;align-items:center;justify-content:center;gap:0;position:relative}
- .sidebar>.session-controls [data-bell-label]{font-size:0}
- .sidebar>.session-controls [data-bell-label]:before{content:'🔔';font-size:17px}
- .sidebar>.session-controls .release-badge{position:absolute;right:-3px;top:-4px;min-width:15px;padding:1px 3px;font-size:9px;line-height:14px}
- .mobile-navigation{order:2;display:flex;align-items:center;gap:6px;flex:0 0 100%;width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:3px 0 5px}
- .mobile-navigation::-webkit-scrollbar{display:none}
- .mobile-navigation>#addCategoryBtn,.mobile-navigation>#customerBtn{flex:0 0 auto;white-space:nowrap;min-height:34px;padding:7px 10px;font-size:12px;border-radius:8px;margin:0}
- .mobile-navigation>.category-list,.customer-portal .mobile-navigation>.category-list{display:flex;flex:0 0 auto;flex-wrap:nowrap;gap:6px;min-width:0;padding:0;margin:0}
- .mobile-navigation .category,.mobile-navigation .platform-view-entry,.mobile-navigation .resource-entry,.mobile-navigation .platform-custom-category{flex:0 0 auto;margin:0}
- .mobile-navigation .category-head{min-height:34px;padding:6px 9px;gap:6px;font-size:12px;white-space:nowrap}
- .mobile-navigation .category-head>span{white-space:nowrap;overflow-wrap:normal}
- .mobile-navigation .side-action,.mobile-navigation .customer-section,.mobile-navigation .platform-custom-category summary{min-height:34px;padding:7px 10px;border-radius:8px;white-space:nowrap;font-size:12px}
- .mobile-navigation .category.menu-open>.category-pages,.mobile-navigation .platform-custom-category[open]>div{position:fixed;top:var(--mobile-menu-top,96px);left:12px;right:12px;width:auto;max-width:none;max-height:calc(100dvh - var(--mobile-menu-top,96px) - 20px);overflow:auto;padding:8px;border:1px solid #cdd8e7;border-radius:12px;box-shadow:0 8px 24px #1f324b25;z-index:100}
- .sidebar>.resource-navigation{order:3;flex:0 0 100%;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:6px 0 2px;scrollbar-width:none}
- .sidebar>.resource-navigation .resource-entry{flex:0 0 auto}
- .sidebar>.resource-navigation .customer-section,.sidebar>.resource-navigation .resource-preview{min-height:34px;white-space:nowrap;padding:7px 10px;font-size:12px}
+
+/* Confine wide tables to their own scroll containers, including mobile Safari. */
+html,body{width:100%;max-width:100%;overflow-x:hidden}
+#app{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+.workspace,.op-game-card,.gi-scroll{min-width:0;max-width:100%;box-sizing:border-box}
+@media(max-width:1200px),(hover:none) and (pointer:coarse){
+ html .sidebar.compact-navigation{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;padding:9px 12px;min-height:58px;box-sizing:border-box;overflow:visible}
+ html .sidebar.compact-navigation>.brand{order:1;flex:1 1 auto;min-width:0;padding:0;font-size:14px;letter-spacing:-.3px}
+ .workspace-menu-toggle{order:0;flex:0 0 36px;width:36px;height:36px;display:grid;place-items:center;border:1px solid #d7e1ee;background:#f5f8fd;color:#29496f;border-radius:10px;font-size:21px;cursor:pointer}
+ html[data-theme] .sidebar.compact-navigation>.session-controls{order:2;position:static;flex:0 0 auto;width:auto;margin:0;padding:0;gap:4px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none}
+ .compact-navigation>.session-controls>.login-user{display:none}
+ .compact-navigation>.session-controls .secondary,.compact-navigation>.session-controls>.customer-language,.compact-navigation>.session-controls .account-settings>summary{display:grid;place-items:center;width:34px;min-width:34px;height:34px;min-height:34px;padding:0;font-size:18px;border-radius:9px}
+ .compact-navigation #releaseNotificationBell{position:relative;display:flex;align-items:center;justify-content:center;gap:0}
+ .compact-navigation [data-bell-label]{font-size:0}
+ .compact-navigation [data-bell-label]:before{content:'🔔';font-size:17px}
+ .compact-navigation .release-badge{position:absolute;right:-3px;top:-4px;min-width:15px;padding:1px 3px;font-size:9px;line-height:14px}
+ .compact-workspace-menu{display:none;position:absolute;left:12px;top:calc(100% + 6px);width:min(360px,calc(100vw - 24px));max-height:calc(100dvh - 86px);overflow:auto;overscroll-behavior:contain;padding:10px;box-sizing:border-box;border:1px solid #d8e3f0;border-radius:14px;background:#fff;box-shadow:0 12px 36px #20365126;z-index:100}
+ .compact-workspace-menu.is-open{display:flex;flex-direction:column;gap:7px}
+ .compact-workspace-menu>#addCategoryBtn,.compact-workspace-menu>#customerBtn{width:100%;min-height:42px;margin:0;padding:10px 12px;text-align:left;font-size:14px;box-sizing:border-box}
+ .compact-workspace-menu>.category-list,.customer-portal .compact-workspace-menu>.category-list{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:7px;margin:0;padding:0;width:100%}
+ .compact-workspace-menu .category{width:100%;min-width:0;max-width:none;box-sizing:border-box}
+ .compact-workspace-menu .category-head{min-height:42px;box-sizing:border-box;padding:10px 12px;font-size:14px}
+ .compact-workspace-menu .category-head>span{white-space:normal;overflow-wrap:anywhere}
+ .compact-workspace-menu .category-pages,.compact-workspace-menu .platform-custom-category>div{position:static;width:100%;max-width:none;box-shadow:none;border:0;border-top:1px solid #e2e9f3;border-radius:0;padding:6px;box-sizing:border-box}
+ .compact-workspace-menu .side-action,.compact-workspace-menu .customer-section,.compact-workspace-menu .platform-custom-category summary{width:100%;text-align:left;white-space:normal;min-height:42px;padding:10px 12px;font-size:14px;box-sizing:border-box}
+ .compact-workspace-menu .resource-entry{display:block;width:100%}
+ .compact-workspace-menu>.resource-navigation{display:flex;flex-direction:column;gap:6px;margin:0;padding:9px 0 0;border-top:1px solid #e0e8f3}
+ .compact-workspace-menu .resource-preview{width:100%;box-sizing:border-box}
 }
+@media(max-width:360px){html .sidebar.compact-navigation{padding-left:8px;padding-right:8px;gap:5px}html .sidebar.compact-navigation>.brand{font-size:12px}.compact-navigation>.session-controls .secondary,.compact-navigation>.session-controls>.customer-language,.compact-navigation>.session-controls .account-settings>summary{width:30px;min-width:30px}}
