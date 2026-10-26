@@ -43,7 +43,7 @@ export function installGameSourceUpdates({db,openGame}){
  const acknowledge=(id,revision)=>runTransaction(db,async tx=>{const snap=await tx.get(monitorRef);const patch=removeReviewedUpdate(snap.data()||{},id,revision);if(patch)tx.set(monitorRef,patch,{merge:true});});
  const list=async()=>{
   dialog?.close();const current=document.createElement('dialog');dialog=current;current.className='source-updates-dialog';const h=document.createElement('h3'),intro=document.createElement('p'),status=document.createElement('p'),items=document.createElement('div'),close=document.createElement('button'),retry=document.createElement('button');status.setAttribute('role','status');status.style.cssText='font-size:12px;color:#617894';
-  h.textContent=t('Game List_Online 資料更新','Game List_Online Updates');intro.textContent=t('點選遊戲可前往遊戲資訊補設群組與資料；儲存成功後清除此提醒。','Select a game to edit its details and groups. Saving clears its current reminder.');close.type='button';close.textContent=t('關閉','Close');close.onclick=()=>current.close();retry.type='button';retry.textContent=t('重新檢查','Check Again');retry.style.marginRight='8px';retry.onclick=()=>checkNow().catch(()=>{});current.append(h,intro,status,items,retry,close);
+  h.textContent=t('Game List_Online 資料更新','Game List_Online Updates');intro.textContent=t('點選遊戲可前往遊戲資訊補設群組與資料；儲存成功後清除此提醒。','Select a game to edit its details and groups. Saving clears its current reminder.');close.type='button';close.textContent=t('關閉','Close');close.onclick=()=>current.close();retry.type='button';retry.textContent=t('重新檢查','Check Again');retry.className='ui-btn ui-btn-primary';close.className='ui-btn';retry.onclick=()=>checkNow().catch(()=>{});const actions=document.createElement('footer');actions.className='source-update-actions';actions.append(retry,close);current.append(h,intro,status,items,actions);
   const redraw=()=>{
    if(!current.isConnected)return;status.textContent=failure||(checking?t('正在檢查已儲存的資料…','Checking saved data…'):ready?t('偵測已啟用；最後檢查：','Monitoring enabled; last checked: ')+lastChecked:t('正在建立資料基準…','Establishing the data baseline…'));retry.disabled=checking>0;items.replaceChildren();
    const entries=Object.values(pending).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
@@ -63,3 +63,4 @@ export function installGameSourceUpdates({db,openGame}){
  },showError);
  const languageObserver=new MutationObserver(paint);languageObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});renderButton();window.addEventListener('beforeunload',()=>{sourceStop();monitorStop();languageObserver.disconnect()},{once:true});return{open:list,check:checkNow,acknowledge};
 }
+
