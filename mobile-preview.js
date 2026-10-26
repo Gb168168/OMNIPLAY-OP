@@ -13,7 +13,7 @@ export function installMobilePreview(){
  const menu=document.querySelector('.account-settings-menu');if(!menu)return;
  const button=document.createElement('button');button.type='button';button.id='mobilePreviewButton';button.className='secondary';
  const en=document.documentElement.lang.startsWith('en');button.textContent=en?'Mobile Preview':'手機預覽';
- button.onclick=()=>{const url=new URL('./mobile-preview.html',location.href);const current=new URL(location.href);for(const key of PREVIEW_KEYS){const value=current.searchParams.get(key);if(value)url.searchParams.set(key,value);}window.open(url.href,'_blank','noopener');};
+ button.onclick=()=>{const url=new URL('./mobile-preview.html',location.href);const current=new URL(location.href);for(const key of PREVIEW_KEYS){const value=current.searchParams.get(key);if(value)url.searchParams.set(key,value);}location.assign(url.href);};
  menu.append(button);
 }
 
