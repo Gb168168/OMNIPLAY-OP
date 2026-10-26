@@ -1,9 +1,9 @@
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-status-filters-1';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-ui-language-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage } from './member-model.js?v=20261021-group-values-1';
 import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog } from './member-access.js?v=20261021-group-values-1';
-import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261026-collapse-details-1';
+import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261026-ui-language-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -168,7 +168,7 @@ function renderCustomerNav(internal=false){let root=$('#categoryList');if(intern
  if(!internal)for(const id of ['addCategoryBtn','addPageBtn','customerBtn'])$('#'+id).classList.add('hidden');
  if(internal){const select=document.createElement('select');select.className='resource-preview';select.setAttribute('aria-label','客戶群組畫面預覽');select.innerHTML='<option value="">管理模式（可編輯）</option>'+state.customerGroups.filter(g=>!isInternalGroup(g)).map(g=>`<option value="${esc(g.id)}">預覽：${esc(g.name)}</option>`).join('');select.value=resourcePreviewGroup;select.onchange=()=>{resourcePreviewGroup=select.value;resourcePreviewPlatform='';renderNav();renderPage()};root.append(select);if(resourcePreviewGroup){const platformSelect=document.createElement('select');platformSelect.className='resource-preview';platformSelect.setAttribute('aria-label','個別平台畫面預覽');platformSelect.innerHTML='<option value="">群組共同可見內容</option>'+(state.customers||[]).filter(platform=>platform.groupId===resourcePreviewGroup).map(platform=>`<option value="${esc(platform.id)}">${esc(platform.name)} · ${esc(platform.domain||'未填域名')}</option>`).join('');platformSelect.value=resourcePreviewPlatform;platformSelect.onchange=()=>{resourcePreviewPlatform=platformSelect.value;renderPage()};root.append(platformSelect)}}
  let language=$('#customerLanguage');if(!language){language=document.createElement('button');language.id='customerLanguage';language.type='button';language.className='secondary customer-language';const controls=document.querySelector('.session-controls')||document.querySelector('.sidebar');controls.insertBefore(language,controls.querySelector('.account-settings'));language.onclick=()=>{customerLanguage=customerLanguage==='zh'?'en':'zh';try{localStorage.setItem('omniplay-customer-language',customerLanguage)}catch{}renderNav();renderPage()}}
- language.textContent='🌐';language.removeAttribute('title');language.setAttribute('aria-label',customerLanguage==='zh'?'切換英文':'Switch to Chinese');if(!internal)document.documentElement.lang=customerLanguage==='en'?'en':'zh-Hant';document.documentElement.classList.remove('access-loading');}
+ language.textContent='🌐';language.removeAttribute('title');language.setAttribute('aria-label',customerLanguage==='zh'?'切換英文':'Switch to Chinese');document.documentElement.lang=customerLanguage==='en'?'en':'zh-Hant';document.documentElement.classList.remove('access-loading');}
 
 
 function renameWorkspaceItem(item,kind){if(!isAdminWorkspaceView())return;const name=prompt('重新命名'+kind+'：',item.displayName||item.name)?.trim();if(!name||name===(item.displayName||item.name))return;item.displayName=name;save();renderNav();renderPage()}
@@ -390,6 +390,7 @@ delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
 saveNow()});
 load();
+
 
 
 
