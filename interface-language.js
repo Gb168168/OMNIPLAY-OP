@@ -5,7 +5,7 @@
  const pairs = String.raw`
 操作手冊|User Manual
 平台可見|Visible to Platforms
-關閉時僅管理端可見；開啟後依群組權限顯示。|Off: management only. On: shown according to group permissions.
+關閉時僅管理端可見；開啟後所有平台都可查看。|Off: management only. On: visible to all platforms.
 此分類僅管理端可見；請先在分類的 ⋯ 開啟平台可見。|This category is internal. Enable Visible to Platforms in its ⋯ menu first.
 頁面操作|Page Actions
 Game List_Online 連動資料|Game List_Online Linked Data
@@ -851,4 +851,5 @@ Rondo 的登入身分驗證失敗|Rondo's login identity verification failed
  document.addEventListener('DOMContentLoaded',()=>refresh());
  refresh();
 })();
+
 
