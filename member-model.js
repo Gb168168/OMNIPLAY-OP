@@ -54,6 +54,17 @@ export function platformVisible(category, page = null) {
   const manual = [category?.name, category?.displayName].some(name => String(name || '').replace(/^\s*📁\s*/, '').trim() === '操作手冊');
   return category?.platformVisible !== false && (!manual || category.platformVisible === true) && page?.platformVisible !== false;
 }
+export function explicitlyShared(category,page){return platformVisible(category,page)&&(category.platformVisible===true||page.platformVisible===true);}
+function sharedSheet(page,sources){
+ const source=sources?.get('sheet-'+page.id);let snapshot=page.snapshot;
+ if(source?.format==='json-chunks-v1'){
+  const chunks=Array.from({length:Number(source.chunkCount)},(_,index)=>sources.get('sheet-'+page.id+'-chunk-'+index)?.data);
+  if(chunks.some(chunk=>typeof chunk!=='string'))throw Error('手冊資料尚未完整儲存，請稍後重試');
+  snapshot=JSON.parse(chunks.join(''));
+ }else if(typeof source?.snapshotJson==='string')snapshot=JSON.parse(source.snapshotJson);
+ else if(source?.snapshot)snapshot=source.snapshot;
+ return {...page,snapshot:snapshot||{name:page.name},platformShared:true};
+}
 function internalGroup(group) { return ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group?.name || '').trim()); }
 export const CUSTOMER_OP_PAGE = 'page_op_game_customer';
 export const CUSTOMER_OP_DOCUMENT = 'op-game-customer-records';
@@ -114,11 +125,11 @@ export function effectiveGroupPages(workspace, group) {
   if (internal) for (const id of privateIds) allowed.add(id);
   return allowed;
 }
-export function groupWorkspace(workspace, group) {
+export function groupWorkspace(workspace, group, sources = null) {
   const allowed = effectiveGroupPages(workspace, group), platformAccess =
     ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) && allowed.has(PLATFORM_PERMISSION);
   const categories = (workspace.categories || []).map(category => ({ ...category,
-    pages: (category.pages || []).filter(page => allowed.has(page.id) && (internalGroup(group) || platformVisible(category,page))) })).filter(category => category.pages.length);
+    pages: (category.pages || []).filter(page => (allowed.has(page.id)||explicitlyShared(category,page)) && (internalGroup(group) || platformVisible(category,page))).map(page=>!internalGroup(group)&&explicitlyShared(category,page)&&page.type==='sheet'&&!page.customerOpGame?sharedSheet(page,sources):page) })).filter(category => category.pages.length);
   const result = {
     categories, customerGroups: platformAccess ? workspace.customerGroups : [group],
     customers: platformAccess ? workspace.customers : [],
@@ -127,7 +138,9 @@ export function groupWorkspace(workspace, group) {
     platformImportVersion: workspace.platformImportVersion || 0, updatedAt: workspace.updatedAt || '',
     allowedPages: [...allowed], enabled: true,
   };
-  return withoutCredentials(result);
+  const view=withoutCredentials(result);
+  if(new TextEncoder().encode(JSON.stringify(view)).length>900000)throw Error('平台手冊內容過大，請改用檔案或連結分享');
+  return view;
 }
 export function groupDocumentIds(workspace, group, sourceIds) {
   const allowed = effectiveGroupPages(workspace, group);
@@ -166,5 +179,6 @@ export function hydratePasswords(workspace, secrets) {
   }
   return result;
 }
+
 
 
