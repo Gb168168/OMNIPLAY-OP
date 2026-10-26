@@ -67,7 +67,7 @@ function openImport(){
    const source=await getDoc(sourceRef),raw=source.data()||{},records=await getDoc(recordsRef),prior=records.data()?.records||{},updatedAt=new Date().toISOString(),next={};
    let snapshot=null;if(raw.snapshotJson)snapshot=JSON.parse(raw.snapshotJson);
    const snapshotJson=data.onlineSnapshot?JSON.stringify(data.onlineSnapshot):replaceReferenceSnapshot(snapshot,data.onlineRows);
-   await setDoc(sourceRef,{rowsJson:JSON.stringify(data.onlineRows),snapshotJson,updatedAt},{merge:true});
+   await setDoc(sourceRef,{rowsJson:JSON.stringify(data.onlineRows),snapshotJson,gameListLayoutVersion:'',updatedAt},{merge:true});
    output.textContent='線上清單已更新；正在更新遊戲資訊…';
    for(const row of data.information){const{id,...fields}=row;next[id]={...prior[id],...fields,gameInformationGame:true,gameInformationDeleted:false,updatedAt};}
    if(data.information.length)await setDoc(recordsRef,{records:next,updatedAt},{merge:true});
