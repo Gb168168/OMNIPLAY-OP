@@ -1,5 +1,5 @@
 import {getFirestore,collection,query,where,getDocs,doc,writeBatch} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import {setDoc,syncMembersAndViews} from './member-access.js?v=20261026-shared-manual-1';
+import {setDoc,syncMembersAndViews} from './member-access.js?v=20261026-api-entry-editor-1';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const OWNERS={ours:'我方處理',client:'客戶處理',both:'雙方配合',pending:'待確認'};
 export async function loadApiEntries(context){
@@ -27,7 +27,8 @@ export function importApiEntries(onSaved){
  input.onchange=async()=>{const file=input.files?.[0];if(!file)return;let progress=document.createElement('dialog');progress.style.cssText='padding:24px;border:1px solid #ccd9e9;border-radius:12px;max-width:500px';document.body.append(progress);progress.textContent='正在檢查匯入資料…';progress.showModal();
  try{const payload=JSON.parse(await file.text()),rows=payload.entries;if(!Array.isArray(rows)||!rows.length||rows.length>1000)throw Error('請提供 1–1000 則說明。');
  const entries=rows.map(item=>{if(!/^[a-zA-Z0-9_-]{1,100}$/.test(item.key||'')||!String(item.zh||'').trim())throw Error('說明格式或編號不正確');return{key:item.key,apiManualEntry:true,zh:String(item.zh).slice(0,200),en:String(item.en||'').slice(0,200),a:Math.max(1,Math.min(999,Number(item.a)||105)),owner:OWNERS[item.owner]?item.owner:'pending',answerZh:String(item.answerZh||'').slice(0,12000),answerEn:String(item.answerEn||'').slice(0,12000),internalNote:String(item.internalNote||'').slice(0,30000),sourceRefs:String(item.sourceRefs||'').slice(0,500),reviewStatus:String(item.reviewStatus||'待人工確認').slice(0,100),customerVisible:false,updatedAt:new Date().toISOString()};});
- const db=getFirestore();for(let start=0;start<entries.length;start+=100){const batch=writeBatch(db);for(const entry of entries.slice(start,start+100))batch.set(doc(db,'omniplay','api-manual-entry-'+entry.key),entry);await batch.commit();progress.textContent='已匯入 '+Math.min(start+100,entries.length)+' / '+entries.length+' 則；所有匯入內容均為內部可見。';}
+ const db=getFirestore(),existing=await getDocs(query(collection(db,'omniplay'),where('apiManualEntry','==',true))),savedKeys=new Set(existing.docs.map(item=>item.id));for(let start=0;start<entries.length;start+=100){const batch=writeBatch(db);for(const entry of entries.slice(start,start+100))if(!savedKeys.has('api-manual-entry-'+entry.key))batch.set(doc(db,'omniplay','api-manual-entry-'+entry.key),entry);await batch.commit();progress.textContent='已匯入 '+Math.min(start+100,entries.length)+' / '+entries.length+' 則；所有匯入內容均為內部可見。';}
  await syncMembersAndViews(db);progress.close();progress.remove();onSaved();
  }catch(error){progress.textContent='匯入未完成：'+error.message;const close=document.createElement('button');close.textContent='關閉';close.onclick=()=>{progress.close();progress.remove()};progress.append(close);}};input.click();
 }
+
