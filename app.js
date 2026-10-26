@@ -1,6 +1,6 @@
 import { renderApiManualPage } from './api-manual.js?v=20261026-source-locale-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-notes-copy-fix-1';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-collapsed-colors-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage, platformVisible } from './member-model.js?v=20261026-api-entry-editor-1';
 import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=20261026-api-entry-editor-1';
