@@ -125,11 +125,17 @@ export function effectiveGroupPages(workspace, group) {
   if (internal) for (const id of privateIds) allowed.add(id);
   return allowed;
 }
+export function projectApiManualPage(page,sources){
+ const entries=sources?[...sources.values()].filter(value=>value?.apiManualEntry===true):[];
+ const builtins=new Set(['gameCount','maxWinAmount','itemCategory','betSize','expirationTime','freeCardId','parent','rules']);
+ const publicEntries=entries.filter(entry=>entry.customerVisible===true&&String(entry.answerZh||entry.answerEn||'').trim());
+ return {...page,apiManualOverrides:entries.filter(entry=>builtins.has(entry.key)).map(entry=>entry.key),apiManualEntries:publicEntries.map((entry,index)=>({key:builtins.has(entry.key)?entry.key:'shared-'+index,zh:String(entry.zh||''),en:String(entry.en||''),a:Number(entry.a)||105,answerZh:String(entry.answerZh||''),answerEn:String(entry.answerEn||''),example:String(entry.example||''),hintZh:String(entry.hintZh||''),hintEn:String(entry.hintEn||'')}))};
+}
 export function groupWorkspace(workspace, group, sources = null) {
   const allowed = effectiveGroupPages(workspace, group), platformAccess =
     ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) && allowed.has(PLATFORM_PERMISSION);
   const categories = (workspace.categories || []).map(category => ({ ...category,
-    pages: (category.pages || []).filter(page => (allowed.has(page.id)||explicitlyShared(category,page)) && (internalGroup(group) || platformVisible(category,page))).map(page=>!internalGroup(group)&&explicitlyShared(category,page)&&page.type==='sheet'&&!page.customerOpGame?sharedSheet(page,sources):page) })).filter(category => category.pages.length);
+    pages: (category.pages || []).filter(page => (allowed.has(page.id)||explicitlyShared(category,page)) && (internalGroup(group) || platformVisible(category,page))).map(page=>{const projected=!internalGroup(group)&&explicitlyShared(category,page)&&page.type==='sheet'&&!page.customerOpGame?sharedSheet(page,sources):page;return !internalGroup(group)&&/^API$/i.test(String(page.name||'').trim())&&[category.name,category.displayName].some(name=>String(name||'').trim()==='操作手冊')?projectApiManualPage(projected,sources):projected;}) })).filter(category => category.pages.length);
   const result = {
     categories, customerGroups: platformAccess ? workspace.customerGroups : [group],
     customers: platformAccess ? workspace.customers : [],
@@ -179,6 +185,7 @@ export function hydratePasswords(workspace, secrets) {
   }
   return result;
 }
+
 
 
 
