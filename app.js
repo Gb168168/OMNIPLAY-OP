@@ -1,10 +1,10 @@
-import { renderApiManualPage } from './api-manual.js?v=20261026-1';
+import { renderApiManualPage } from './api-manual.js?v=20261026-api-entry-editor-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261025-balanced-compose-1';
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-shared-manual-1';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261026-api-entry-editor-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
-import { isInternalReferenceCategory, ensureCustomerOpPage, platformVisible } from './member-model.js?v=20261026-shared-manual-1';
-import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=20261026-shared-manual-1';
-import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261026-shared-manual-1';
+import { isInternalReferenceCategory, ensureCustomerOpPage, platformVisible } from './member-model.js?v=20261026-api-entry-editor-1';
+import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=20261026-api-entry-editor-1';
+import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261026-api-entry-editor-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -218,7 +218,7 @@ const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete,.p
 async function renderPage(){if(!isCustomerPortal()){syncResourceNavigation(customerSectionPages().some(entry=>entry.page?.id===state.activePageId));if(cat()&&isInternalReferenceCategory(cat())){resourcePreviewGroup='';resourcePreviewPlatform='';}}$('#gameInformationTooltip')?.remove();$('#resourceGameEditor')?.remove();dispose();rememberView('page');$('#customerBtn').classList.remove('active');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
-if(p&&/^API$/i.test(pageName)&&[c?.name,c?.displayName].some(name=>String(name||'').trim()==='操作手冊')){$('#workspace').classList.remove('hidden');$('#emptyState').classList.add('hidden');$('#breadcrumb').textContent=isCustomerPortal()?(customerLanguage==='en'?'OMNIPLAY / User Manual':'OMNIPLAY / 操作手冊'):'工作區 / 操作手冊';$('#pageTitle').textContent=p.displayName||p.name;return renderApiManualPage($('#workspace'));}
+if(p&&/^API$/i.test(pageName)&&[c?.name,c?.displayName].some(name=>String(name||'').trim()==='操作手冊')){$('#workspace').classList.remove('hidden');$('#emptyState').classList.add('hidden');$('#breadcrumb').textContent=isCustomerPortal()?(customerLanguage==='en'?'OMNIPLAY / User Manual':'OMNIPLAY / 操作手冊'):'工作區 / 操作手冊';$('#pageTitle').textContent=p.displayName||p.name;return renderApiManualPage($('#workspace'),{admin:!isCustomerPortal()&&!!window.__omniplayCanEdit,page:p});}
 if(p?.type==='sheet'&&!p.gameInformation&&!isOpGame&&!p.customerOpGame&&!p.snapshot){$('#workspace').classList.remove('hidden');$('#emptyState').classList.add('hidden');$('#workspace').innerHTML='<div class="notice">正在讀取此頁面的試算表資料…</div>';try{const snapshot=await workspaceRead(readStoredSheet(p));if(snapshot){p.snapshot=snapshot;sheetContentSignatures.set(p.id,JSON.stringify(snapshot))}}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(firebaseError(error))+' <button class="secondary" data-retry-sheet>重試</button></div>';$('#workspace [data-retry-sheet]').onclick=()=>renderPage();return}if(page()?.id!==p.id)return}
 if(p?.type==='sheet'&&!p.gameInformation&&!isOpGame&&!p.customerOpGame&&window.ensureSpreadsheetLibraries){$('#workspace').classList.remove('hidden');$('#workspace').innerHTML='<div class="notice">正在載入試算表功能…</div>';try{await window.ensureSpreadsheetLibraries()}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(error.message)+' <button class="secondary" data-retry-sheet>重試</button></div>';$('#workspace [data-retry-sheet]').onclick=()=>renderPage();return}}
 if(isGameList&&typeof window.renderGameListOnlinePage!=='function')normalizeGameListCells(p);
@@ -408,3 +408,4 @@ load();
 
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});});
 window.addEventListener('resize',()=>document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>menu.open=false));
+
