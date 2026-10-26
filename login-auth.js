@@ -1,5 +1,5 @@
 import { accessSession, BOOTSTRAP_UID, BOOTSTRAP_EMAIL } from './access-model.js?v=20261020-platform-1';
-import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261026-shared-manual-1';
+import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261026-api-entry-editor-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,doc,getDoc,collection,addDoc,getDocs,query,orderBy,limit,serverTimestamp,setDoc,updateDoc,onSnapshot,where,writeBatch}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import{getAuth,signInWithEmailAndPassword,signOut,setPersistence,browserLocalPersistence,browserSessionPersistence}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
@@ -14,7 +14,7 @@ function canViewAudit(session=window.__omniplaySession){return!!session&&(sessio
 async function recordAudit(account,action,item=''){try{await addDoc(auditRef(),{authUid:account.authUid||'',username:account.username||'',name:account.name||account.username||'',groupName:account.groupName||'',action,item:String(item||''),createdAt:serverTimestamp(),createdAtIso:new Date().toISOString()})}catch(error){console.warn('audit log',error)}}
 function auditAction(action){return ({login:'登入',logout:'登出',download:'下載'})[action]||'其他'}
 function auditTime(value){const date=value?.toDate?.()||new Date(value||0);return Number.isNaN(date.getTime())?'—':date.toLocaleString('zh-TW',{hour12:false})}
-async function showAuditLog(){const {openAudit}=await import('./audit-log-filter.js?v=20261026-shared-manual-1');return openAudit()}
+async function showAuditLog(){const {openAudit}=await import('./audit-log-filter.js?v=20261026-api-entry-editor-1');return openAudit()}
 
 const PRESENCE_KEY='omniplay-active-connection-v1';let presenceRef=null,presenceTimer=null,presenceUnsubscribe=null,presenceBusy=false;
 async function startPresence(session){const db=getFirestore();let id=sessionStorage.getItem(PRESENCE_KEY);if(!id){id=crypto.randomUUID();sessionStorage.setItem(PRESENCE_KEY,id)}presenceRef=doc(db,'omniplay-active-sessions',id);try{const existing=await getDoc(presenceRef);if(existing.exists()&&existing.data().revoked){await logout('forced');return}if(!existing.exists())await setDoc(presenceRef,{authUid:session.authUid,username:session.username,name:session.name||session.username,groupName:session.groupName||'',startedAt:serverTimestamp(),lastSeen:serverTimestamp(),active:true,revoked:false});else await updateDoc(presenceRef,{lastSeen:serverTimestamp(),active:true});
@@ -91,6 +91,7 @@ if(session){ void flushPendingLoginAudit();
  await new Promise(resolve=>{if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',resolve,{once:true});else resolve()});
  await showLogin();if(accessError)document.querySelector('#loginError').textContent=accessError;await new Promise(()=>{});
 }
+
 
 
 
