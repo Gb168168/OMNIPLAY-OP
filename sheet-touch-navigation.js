@@ -32,8 +32,9 @@
   toggle.type='button';toggle.className='sheet-touch-edit';toggle.onclick=()=>{if(!window.__omniplayCanEdit)return;cancelPan();editing=!editing;render();};bar.append(toggle);
   const stop=e=>{if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();};
   const down=e=>{
-   if(!browsing()||!['touch','pen'].includes(e.pointerType))return;
+   if(!browsing())return;
    stop(e);blurEditor();
+   if(!['touch','pen'].includes(e.pointerType))return;
    if(gesture)return;
    gesture={id:e.pointerId,x:e.clientX,y:e.clientY};
    try{container.setPointerCapture(e.pointerId);}catch{}
@@ -49,7 +50,7 @@
   const block=e=>{if(browsing())stop(e);};
   const focus=()=>{if(browsing())blurEditor();};
   const changed=()=>{cancelPan();editing=false;render();};
-  const listeners=[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['click',block],['dblclick',block],['contextmenu',block],['touchstart',block],['focusin',focus]];
+  const listeners=[['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',up],['click',block],['dblclick',block],['contextmenu',block],['mousedown',block],['touchstart',block],['focusin',focus]];
   for(const [type,handler]of listeners)container.addEventListener(type,handler,{capture:true,passive:false});
   media.addEventListener('change',changed);
   if(!document.getElementById('sheetTouchStyle')){
