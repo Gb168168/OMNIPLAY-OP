@@ -4,9 +4,9 @@
   if(!container||container.dataset.sheetTouchInstalled)return()=>{};
   container.dataset.sheetTouchInstalled='true';
   const media=matchMedia('(max-width:800px), (any-pointer:coarse)'),originalHeight=container.style.height;
-  const shell=document.createElement('div'),bar=document.createElement('div'),label=document.createElement('span'),toggle=document.createElement('button');
+  const shell=document.createElement('div'),bar=document.createElement('div'),label=document.createElement('span'),hint=document.createElement('span'),toggle=document.createElement('button');
   shell.className='sheet-touch-shell';shell.style.height=originalHeight||'100%';bar.className='sheet-touch-bar';bar.setAttribute('role','toolbar');bar.setAttribute('data-viewer-control','true');
-  const anchor=document.createComment('sheet-touch-position');container.before(anchor,shell);shell.append(bar,container);bar.append(label);
+  const anchor=document.createComment('sheet-touch-position');container.before(anchor,shell);shell.append(bar,container);label.className='sheet-touch-label';hint.className='sheet-touch-hint';bar.append(label,hint);
   let editing=false,gesture=null,raf=0,pendingX=0,pendingY=0,disposed=false;
   const en=()=>localStorage.getItem('omniplay-customer-language')==='en';
   const browsing=()=>media.matches&&!editing;
@@ -22,13 +22,11 @@
    bar.hidden=!media.matches;container.classList.toggle('sheet-touch-browse',browsing());
    shell.classList.toggle('sheet-touch-mobile',media.matches);container.style.height=media.matches?'calc(100% - 42px)':'100%';
    label.textContent=en()?(editing?'Editing':'Swipe to browse'):(editing?'編輯中':'滑動瀏覽');
+   hint.hidden=editing||!window.__omniplayCanEdit;hint.textContent=en()?'To make changes, tap Edit':'變更請點擊編輯';
    toggle.hidden=!window.__omniplayCanEdit;toggle.textContent=en()?(editing?'Done':'Edit'):(editing?'完成編輯':'編輯');toggle.setAttribute('aria-pressed',String(editing));
    bar.setAttribute('aria-label',en()?'Sheet touch controls':'試算表觸控操作');
    if(browsing())blurEditor();
   };
-  for(const [zh,english,text,x,y]of [['向左捲動','Scroll left','←',-180,0],['向上捲動','Scroll up','↑',0,-220],['向下捲動','Scroll down','↓',0,220],['向右捲動','Scroll right','→',180,0]]){
-   const button=document.createElement('button');button.type='button';button.textContent=text;button.title=en()?english:zh;button.setAttribute('aria-label',button.title);button.onclick=()=>scroll(x,y);bar.append(button);
-  }
   toggle.type='button';toggle.className='sheet-touch-edit';toggle.onclick=()=>{if(!window.__omniplayCanEdit)return;cancelPan();editing=!editing;render();};bar.append(toggle);
   const stop=e=>{if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();};
   const down=e=>{
@@ -59,8 +57,11 @@
     .sheet-touch-bar{height:42px;display:flex;align-items:center;gap:5px;padding:5px 9px;border-bottom:1px solid #d8e3f0;background:#f3f7fd;color:#3e5979;box-sizing:border-box;overflow:hidden}
     .sheet-touch-bar[hidden]{display:none!important}
     .sheet-touch-bar>span{flex:1;min-width:0;white-space:nowrap;font:600 12px/1.3 system-ui,sans-serif}
+    .sheet-touch-bar .sheet-touch-label{flex:0 0 auto}
+    .sheet-touch-bar .sheet-touch-hint{color:#c3313f;font-size:11px;white-space:normal;line-height:1.3;margin-left:4px}
+    .sheet-touch-bar .sheet-touch-hint[hidden]{display:none}
     .sheet-touch-bar button{flex:0 0 auto;min-width:30px;height:30px;min-height:30px;padding:4px 7px;border:1px solid #c8d7ea;border-radius:7px;background:#fff;color:#345c8b;cursor:pointer;font:600 13px/1.3 system-ui,sans-serif}
-    .sheet-touch-bar .sheet-touch-edit{margin-left:3px;padding:4px 10px;background:#e7f0ff;border-color:#b4cbed;white-space:nowrap}
+    .sheet-touch-bar .sheet-touch-edit{margin-left:auto;padding:4px 10px;background:#e7f0ff;border-color:#b4cbed;white-space:nowrap}
     .sheet-touch-bar .sheet-touch-edit[aria-pressed=true]{background:#326fd6;color:#fff;border-color:#326fd6}
     .viewer-mode .sheet-touch-bar button{pointer-events:auto!important;opacity:1}
     .sheet-touch-bar button:focus-visible{outline:2px solid #7ca9ec;outline-offset:2px}
@@ -77,3 +78,4 @@
   };
  };
 })();
+
