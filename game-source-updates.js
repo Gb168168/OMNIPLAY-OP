@@ -16,7 +16,8 @@ export function mergeSourceUpdates(previous,next,stamp){
  return{initialized:true,baselineJson:JSON.stringify(next),pendingJson:JSON.stringify(pending),updatedAt:stamp};
 }
 export function removeReviewedUpdate(data,id,revision){const pending=parse(data.pendingJson);if(pending[id]?.revision!==revision)return null;delete pending[id];return{pendingJson:JSON.stringify(pending)};}
-let installed=false;
+let installed=false,captureReview=null;
+export function captureSourceUpdateReview(id){return captureReview?.(String(id))||null;}
 export function installGameSourceUpdates({db,openGame}){
  if(installed||!window.__omniplayCanEdit)return null;
  const host=document.querySelector('.session-controls');if(!host)return null;installed=true;
@@ -40,7 +41,19 @@ export function installGameSourceUpdates({db,openGame}){
   try{const latest=await task;pending=parse(latest.pendingJson);ready=!!latest.initialized;lastChecked=new Date().toLocaleTimeString(en()?'en-GB':'zh-TW',{timeZone:'Asia/Taipei',hour12:false});return latest;}
   catch(error){showError(error);throw error;}finally{checking--;paint();}
  };
- const acknowledge=(id,revision)=>runTransaction(db,async tx=>{const snap=await tx.get(monitorRef);const patch=removeReviewedUpdate(snap.data()||{},id,revision);if(patch)tx.set(monitorRef,patch,{merge:true});});
+ const acknowledge=async(id,revision)=>{
+  const task=queue.catch(()=>{}).then(()=>runTransaction(db,async tx=>{
+   const [source,monitor]=await Promise.all([tx.get(sourceRef),tx.get(monitorRef)]);
+   if(!source.exists())throw Error(t('找不到 Game List_Online 資料','Game List_Online source is missing'));
+   const prior=monitor.data()||{},next=sourceGameIndex(gameListRows(source.data()));
+   const latest=prior.initialized&&JSON.stringify(next)===prior.baselineJson?prior:mergeSourceUpdates(prior,next,new Date().toISOString());
+   const patch=removeReviewedUpdate(latest,id,revision),result=patch?{...latest,...patch}:latest;
+   if(patch||latest!==prior)tx.set(monitorRef,result,{merge:true});return result;
+  }));queue=task;
+  try{const latest=await task;pending=parse(latest.pendingJson);failure='';paint();if(pending[id])throw Error(t('來源已有較新的更新，請重新開啟此遊戲確認。','The source has a newer update. Reopen this game to review it.'));}
+  catch(error){showError(error);throw error;}
+ };
+ captureReview=id=>{const revision=pending[id]?.revision;return revision?()=>acknowledge(id,revision):null;};
  const list=async()=>{
   dialog?.close();const current=document.createElement('dialog');dialog=current;current.className='source-updates-dialog';const h=document.createElement('h3'),intro=document.createElement('p'),status=document.createElement('p'),items=document.createElement('div'),close=document.createElement('button'),retry=document.createElement('button');status.setAttribute('role','status');status.style.cssText='font-size:12px;color:#617894';
   h.textContent=t('Game List_Online 資料更新','Game List_Online Updates');intro.textContent=t('點選遊戲可前往遊戲資訊補設群組與資料；儲存成功後清除此提醒。','Select a game to edit its details and groups. Saving clears its current reminder.');close.type='button';close.textContent=t('關閉','Close');close.onclick=()=>current.close();retry.type='button';retry.textContent=t('重新檢查','Check Again');retry.className='ui-btn ui-btn-primary';close.className='ui-btn';retry.onclick=()=>checkNow().catch(()=>{});const actions=document.createElement('footer');actions.className='source-update-actions';actions.append(retry,close);current.append(h,intro,status,items,actions);
@@ -48,7 +61,7 @@ export function installGameSourceUpdates({db,openGame}){
    if(!current.isConnected)return;status.textContent=failure||(checking?t('正在檢查已儲存的資料…','Checking saved data…'):ready?t('偵測已啟用；最後檢查：','Monitoring enabled; last checked: ')+lastChecked:t('正在建立資料基準…','Establishing the data baseline…'));retry.disabled=checking>0;items.replaceChildren();
    const entries=Object.values(pending).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
    if(!entries.length){if(!checking&&ready&&!failure)items.textContent=t('目前已儲存的資料與基準相同，沒有待處理更新。首次啟用前的變動不會回補。','No pending differences in saved data. Changes before initial activation are not backfilled.');return;}
-   for(const item of entries){const row=document.createElement('button');row.type='button';row.className='source-update-item';const title=document.createElement('strong'),info=document.createElement('small');title.textContent=(item.kind==='new'?t('新增','New'):t('更新','Updated'))+' · '+item.id+' · '+item.name;info.textContent=en()?'Updated source fields: '+item.columns.length:item.columns.map(c=>fields[c]).join('、');row.append(title,info);row.onclick=async()=>{current.close();toast?.remove();try{await openGame(item.id,()=>acknowledge(item.id,item.revision));}catch(error){showError(error)}};items.append(row);}
+   for(const item of entries){const row=document.createElement('button');row.type='button';row.className='source-update-item';const title=document.createElement('strong'),info=document.createElement('small');title.textContent=(item.kind==='new'?t('新增','New'):t('更新','Updated'))+' · '+item.id+' · '+item.name;info.textContent=en()?item.columns.length+' fields updated · Click to edit':item.columns.length+' 個欄位更新 · 點擊編輯';row.title=en()?'Updated source fields: '+item.columns.length:item.columns.map(c=>fields[c]).join('、');row.append(title,info);row.onclick=async()=>{current.close();toast?.remove();try{await openGame(item.id,()=>acknowledge(item.id,item.revision));}catch(error){showError(error)}};items.append(row);}
   };
   redrawDialog=redraw;current.addEventListener('close',()=>{current.remove();if(dialog===current){dialog=null;redrawDialog=null;}});document.body.append(current);current.showModal();await checkNow().catch(()=>{});
  };
@@ -63,4 +76,5 @@ export function installGameSourceUpdates({db,openGame}){
  },showError);
  const languageObserver=new MutationObserver(paint);languageObserver.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});renderButton();window.addEventListener('beforeunload',()=>{sourceStop();monitorStop();languageObserver.disconnect()},{once:true});return{open:list,check:checkNow,acknowledge};
 }
+
 
