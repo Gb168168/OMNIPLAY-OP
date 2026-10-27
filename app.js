@@ -267,7 +267,7 @@ w.className='workspace sheet-workspace';
 w.innerHTML='<div id="univerSheet" class="univer-sheet"></div>';
 try{const{createUniver}=window.UniverPresets,{LocaleType,mergeLocales}=window.UniverCore,{UniverSheetsCorePreset}=window.UniverPresetSheetsCore,l=window.UniverPresetSheetsCoreZhTW,z=LocaleType.ZH_TW||'zh-TW',x=createUniver({locale:z,locales:{[z]:mergeLocales(l)},presets:[UniverSheetsCorePreset({container:'univerSheet',disableTextFormatAlert:true,disableTextFormatMark:true})]});
 x.univerAPI.createWorkbook(p.snapshot||{name:p.name});
-currentUniver={univer:x.univer,api:x.univerAPI,page:p};currentUniver.autoSaveDisposable=x.univerAPI.addEvent?.(x.univerAPI.Event.CommandExecuted,()=>scheduleSheetSave());applyVisibleCellFixes(x.univerAPI,String(p.name||'').trim())}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
+currentUniver={univer:x.univer,api:x.univerAPI,page:p};currentUniver.autoSaveDisposable=x.univerAPI.addEvent?.(x.univerAPI.Event.CommandExecuted,command=>{if(!/(selection|scroll|activate|focus|hover|zoom|formula-bar)/i.test(String(command?.id||command?.commandId||command||'')))scheduleSheetSave();});applyVisibleCellFixes(x.univerAPI,String(p.name||'').trim())}catch(e){w.innerHTML=`<div class="notice">試算表載入失敗：${esc(e.message)}</div>`}}
 let resourceDisplayMode='thumbnails';try{resourceDisplayMode=localStorage.getItem('omniplay-resource-display')==='list'?'list':'thumbnails'}catch{}
 document.addEventListener('click',event=>document.querySelectorAll('.resource-folder-menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false}));
 document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('.resource-folder-menu[open]').forEach(menu=>menu.open=false)});
@@ -412,6 +412,7 @@ load();
 
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});});
 window.addEventListener('resize',()=>document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>menu.open=false));
+
 
 
 
