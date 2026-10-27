@@ -42,6 +42,12 @@ export function openApiEntryEditor(item={},onSaved,fieldContext=null){
 
  form.querySelector('[type=submit]').disabled=true;output.textContent='儲存並同步中…';try{await setDoc(doc(getFirestore(),'omniplay','api-manual-entry-'+key),entry);dialog.close();onSaved();}catch(error){output.textContent='儲存失敗：'+error.message;form.querySelector('[type=submit]').disabled=false;}};
  document.body.append(dialog);dialog.showModal();
+ // Keep fields compact while expanding for entered text, including existing notes.
+ const textareas=[...form.querySelectorAll('textarea')];
+ const resizeTextarea=textarea=>{textarea.style.height='auto';textarea.style.height=Math.min(Math.max(textarea.scrollHeight+2,42),400)+'px';textarea.style.overflowY=textarea.scrollHeight>400?'auto':'hidden';};
+ const resizeAll=()=>textareas.forEach(resizeTextarea);
+ textareas.forEach(textarea=>{textarea.rows=1;textarea.style.minHeight='42px';textarea.style.maxHeight='400px';textarea.style.resize='none';textarea.style.boxSizing='border-box';textarea.addEventListener('input',()=>resizeTextarea(textarea));});
+ resizeAll();window.addEventListener('resize',resizeAll);dialog.addEventListener('close',()=>window.removeEventListener('resize',resizeAll),{once:true});
 }
 export function importApiEntries(onSaved){
  if(!window.__omniplayCanEdit)return;const input=document.createElement('input');input.type='file';input.accept='.json,application/json';
