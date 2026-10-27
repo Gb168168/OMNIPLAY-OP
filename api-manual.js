@@ -1,4 +1,4 @@
-import {loadDocumentSnapshot,mountDocumentCopy} from './api-document-copy.js?v=20261027-sync-copy-1';
+import {loadDocumentSnapshot,mountDocumentCopy} from './api-document-copy.js?v=20261027-sync-copy-2';
 import {loadApiEntries,openApiEntryEditor,importApiEntries} from './api-manual-editor.js?v=20261027-field-notes-1';
 const ROOT='https://docs.jigaming777.com/zh/integration/';
 const SOURCES={revision:ROOT+'revisionHistory',104:ROOT+'providedByUs/cardAction/action104',105:ROOT+'providedByUs/cardAction/action105'};
@@ -32,7 +32,7 @@ export async function renderApiManualPage(workspace,context={}){
  const snapshotPromise=loadDocumentSnapshot().catch(()=>null);
  workspace.className='workspace api-manual-page';workspace.textContent=t('正在載入說明…','Loading explanations…');let loaded;
  try{loaded=await loadApiEntries(context);}catch(error){workspace.textContent=t('無法讀取說明：','Unable to load explanations: ')+error.message;return;}
- const copySnapshot=await snapshotPromise;if(copySnapshot)for(const [key,page] of Object.entries(copySnapshot.pages)){if(key.startsWith((en?'en':'zh')+':')&&String(page.url||'').startsWith('https://docs.jigaming777.com/'))sources[key.split(':')[1]]=page.url;}
+ let copySnapshot=await snapshotPromise;if(copySnapshot)for(const [key,page] of Object.entries(copySnapshot.pages)){if(key.startsWith((en?'en':'zh')+':')&&String(page.url||'').startsWith('https://docs.jigaming777.com/'))sources[key.split(':')[1]]=page.url;}
  const overridden=new Set(loaded.overrides),FAQ=[...DEFAULT_FAQ.filter(item=>!overridden.has(item.key)).map(item=>({...item,customerVisible:true,owner:'client'})),...loaded.entries.filter(item=>admin||item.customerVisible!==false)];
  let activeAction=String(context.apiAction||localStorage.getItem('omniplay-api-action')||105),selected='',mode='field';
  if(!sources[activeAction]&&!FAQ.some(item=>String(item.a)===activeAction))activeAction='revision';
@@ -91,6 +91,12 @@ export async function renderApiManualPage(workspace,context={}){
  if(copySnapshot){copyView=mountDocumentCopy(workspace.querySelector('[data-copy-host]'),{snapshot:copySnapshot,language:en?'en':'zh',onField:(field,trigger)=>openNotes(field.name,'field',trigger,field),onAction:key=>{select.value=String(key);changeAction();}});copyView.setZoom(zoomValue);}
  const changeAction=()=>{activeAction=select.value;localStorage.setItem('omniplay-api-action',activeAction);selected=actionEntries().flatMap(item=>entryParameters(item,activeAction))[0]||fields()[0]?.key||'';mode=selected?'field':'all';search.value='';paint();paintRawRecords();};
  select.onchange=changeAction;select.value=activeAction;changeAction();
+ // Refresh the reading copy without reloading Firebase notes or interrupting editors.
+ if(copyView&&typeof setInterval==='function'){
+  const copyRoot=workspace.querySelector('[data-copy-host]');let refreshing=false,pendingRefresh=false;
+  const refreshCopy=async()=>{if(refreshing||!copyRoot.isConnected)return;refreshing=true;try{const next=await loadDocumentSnapshot();if(next.lastChecked!==copySnapshot.lastChecked){copySnapshot=next;copyView.updateSnapshot(next);for(const [key,page] of Object.entries(next.pages)){if(!key.startsWith((en?'en':'zh')+':'))continue;const action=key.split(':')[1];if(String(page.url||'').startsWith('https://docs.jigaming777.com/'))sources[action]=page.url;if(![...select.querySelectorAll('option')].some(option=>option.value===action)){const option=document.createElement('option');option.value=action;option.textContent='Action '+action;select.append(option);}}pendingRefresh=true;}if(pendingRefresh&&!document.querySelector('dialog[open]')){source();pendingRefresh=false;}}catch{}finally{refreshing=false;}};
+  const timer=setInterval(refreshCopy,5*60*1000),cleanup=new MutationObserver(()=>{if(!copyRoot.isConnected){clearInterval(timer);cleanup.disconnect();}});cleanup.observe(workspace,{childList:true});
+ }
  const expand=workspace.querySelector('[data-expand]');const setExpanded=value=>{workspace.classList.toggle('api-reading-expanded',value);expand.setAttribute('aria-pressed',String(value));expand.textContent=value?t('返回一般畫面','Exit Expanded View'):t('展開閱讀','Expand Reading');};expand.onclick=()=>setExpanded(!workspace.classList.contains('api-reading-expanded'));workspace.onkeydown=event=>{if(event.key==='Escape'&&!noteDialog.open&&workspace.classList.contains('api-reading-expanded'))setExpanded(false);};
 }
 
