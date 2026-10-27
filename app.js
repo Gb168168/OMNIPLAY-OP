@@ -1,12 +1,12 @@
 import {installMobilePreview} from './mobile-preview.js?v=20261027-mobile-preview-1';
-import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-review-quota-1';
+import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-review-actions-1';
 import { renderApiManualPage } from './api-manual.js?v=20261027-visible-answer-1';
 import { installReleaseNotifications } from './release-notifications.js?v=20261027-notification-copy2-1';
-import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261027-review-quota-1';
+import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261027-review-actions-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage, platformVisible } from './member-model.js?v=20261026-api-entry-editor-1';
 import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=20261026-api-entry-editor-1';
-import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261027-review-quota-1';
+import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261027-review-actions-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
 import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -93,7 +93,7 @@ function migrateGameAssetPages(){
 }
 function workspaceDataSignature(){const data=payload();delete data.updatedAt;return JSON.stringify(data)}
 let pendingGameSourceFocus=null;
-async function openSourceUpdateGame(id,onReviewed){const category=state.categories.find(c=>(c.pages||[]).some(p=>p.gameInformation)),target=category?.pages.find(p=>p.gameInformation);if(!target)throw Error('找不到內部參考的遊戲資訊頁面');resourcePreviewGroup='';resourcePreviewPlatform='';pendingGameSourceFocus={id,onReviewed};state.activeCategoryId=category.id;state.activePageId=target.id;renderNav();await renderPage();}
+async function openSourceUpdateGame(id,destination='information'){const isTarget=p=>destination==='game-list'?p.type==='sheet'&&p.name==='OP GAME':p.gameInformation;const category=state.categories.find(c=>isInternalReferenceCategory(c)&&(c.pages||[]).some(isTarget)),target=category?.pages.find(isTarget);if(!target)throw Error(destination==='game-list'?'找不到內部參考的 Game List 頁面':'找不到內部參考的遊戲資訊頁面');resourcePreviewGroup='';resourcePreviewPlatform='';pendingGameSourceFocus={id};state.activeCategoryId=category.id;state.activePageId=target.id;renderNav();await renderPage();}
 let customerPermissionsUnsubscribe=null;
 function watchCustomerPermissions(){
  const session=window.__omniplaySession;if(!session||session.canEdit||session.superAdmin||!session.groupId||customerPermissionsUnsubscribe)return;
@@ -236,7 +236,7 @@ const resourceEntry=customerSectionPages().find(entry=>entry.page?.id===p?.id);l
 if(resourceEntry&&canManageResources()){if(resourcePreviewGroup){const group=state.customerGroups.find(g=>g.id===resourcePreviewGroup);try{const customerSnapshot=await getDoc(doc(db,'omniplay-group-views',group.id));if(!customerSnapshot.exists()||!customerSnapshot.data().enabled)throw new Error('此群組尚未同步');resourceState=customerSnapshot.data()}catch(error){$('#workspace').innerHTML='<div class="notice">'+esc(firebaseError(error))+'</div>';return}resourcePage=resourceState.categories.flatMap(c=>c.pages||[]).find(item=>item.id===p.id);resourceReadonly=true;if(!resourcePage){$('#workspace').innerHTML='<div class="notice">這個群組沒有此頁面的查看權限。</div>';return}if(resourcePage.customerOpGame)resourcePage={...resourcePage,previewGroupId:group.id,previewPlatformIds:approvalPreviewPlatformIds()}}else if(p.customerOpGame){resourcePage={...p,customerOpGame:false};}$('#pageTitle').textContent=customerSectionLabel(resourceEntry.section);$('#breadcrumb').textContent=resourcePreviewGroup?'平台視角 / 群組預覽（唯讀）':'平台視角 / 管理模式';}
 if(resourceReadonly&&resourcePage?.type==='sheet'&&!resourcePage.customerOpGame){const data=firstSheet(resourcePage.snapshot)?.cellData||{};$('#workspace').innerHTML='<div class="notice">客戶群組預覽（唯讀）</div><table>'+Object.entries(data).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,row])=>'<tr>'+Object.entries(row).sort((a,b)=>Number(a[0])-Number(b[0])).map(([,cell])=>'<td>'+esc(cellValue(cell))+'</td>').join('')+'</tr>').join('')+'</table>';return}
 if(!p){if(!c)$('#emptyState').innerHTML='<div><h2>目前沒有分類</h2><p>按「新增分類」開始建立工作區。</p></div>';if(c)$('#emptyState').innerHTML='<div><h2>這個分類還沒有頁面</h2><p>按右上角「新增頁面」開始。</p></div>';
-return}if(p?.gameInformation){const focus=pendingGameSourceFocus;pendingGameSourceFocus=null;return renderGameInformationPage({state,page:p,saveWorkspace:()=>{save();renderNav()},readOnly:!!resourcePreviewGroup,previewGroupId:resourcePreviewGroup||null,previewPlatformIds:approvalPreviewPlatformIds(),focusGameId:focus?.id||null,onRecordSaved:focus?.onReviewed});}if(isOpGame&&typeof window.renderOpGameFormPage==='function')return window.renderOpGameFormPage({state:resourceState,page:resourcePage,saveWorkspace:()=>{save();renderNav()}});if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(resourcePage,[],resourceReadonly)}
+return}if(p?.gameInformation){const focus=pendingGameSourceFocus;pendingGameSourceFocus=null;return renderGameInformationPage({state,page:p,saveWorkspace:()=>{save();renderNav()},readOnly:!!resourcePreviewGroup,previewGroupId:resourcePreviewGroup||null,previewPlatformIds:approvalPreviewPlatformIds(),focusGameId:focus?.id||null});}if(isOpGame&&typeof window.renderOpGameFormPage==='function'){const focus=pendingGameSourceFocus;pendingGameSourceFocus=null;return window.renderOpGameFormPage({state:resourceState,page:resourcePage,saveWorkspace:()=>{save();renderNav()},focusGameId:focus?.id||null});}if(isGameList&&typeof window.renderGameListOnlinePage==='function')return window.renderGameListOnlinePage($('#workspace'));p.type==='sheet'?sheet(p):files(resourcePage,[],resourceReadonly)}
 function firstSheet(snapshot){const id=snapshot?.sheetOrder?.[0];return id?snapshot.sheets?.[id]:null}
 function cellValue(cell){let value=cell;for(let i=0;i<4&&value&&typeof value==='object'&&'v'in value;i++)value=value.v;return value&&typeof value==='object'?'':(value??'')}
 function normalizedHeader(value){const key=String(value??'').toLowerCase().replace(/%/g,' percent ').replace(/[^a-z0-9]+/g,' ').trim();return key==='list of games'?'game name english':key}
@@ -412,6 +412,7 @@ load();
 
 document.addEventListener('pointerdown',event=>{document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});});
 window.addEventListener('resize',()=>document.querySelectorAll('#sharedCategoryShortcuts details[open]').forEach(menu=>menu.open=false));
+
 
 
 
