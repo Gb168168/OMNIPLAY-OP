@@ -22,7 +22,7 @@ const parameterName=value=>/^[A-Za-z][\w.\[\]-]{0,79}$/.test(String(value||''))?
 export function entryParameters(item,action){
  const explicit=parameterName(item.parameter)||parameterName(String(item.hintEn||'').match(/^Related field: ([\w.\[\]-]+)/)?.[1])||parameterName(String(item.hintZh||'').match(/^關聯欄位：([\w.\[\]-]+)/)?.[1]);
  if(explicit)return[explicit];
- if(parameterName(item.key)&&!/^shared-|^import-/.test(item.key)&&!['rules'].includes(item.key))return[item.key];
+ if(/^[A-Za-z]\w*$/.test(item.key||'')&&!['rules'].includes(item.key))return[item.key];
  const text=[item.zh,item.en,item.answerZh,item.answerEn,item.internalNote].filter(Boolean).join(' '),known=(ACTION_FIELDS[action]||[]).map(row=>row[0]);
  return known.filter(key=>new RegExp('(^|[^A-Za-z0-9_])'+key+'(?=$|[^A-Za-z0-9_])').test(text));
 }
