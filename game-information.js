@@ -2,7 +2,7 @@ import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-valu
 import {installInformationColors} from './game-information-colors.js?v=20261026-collapsed-colors-1';
 import {getDoc,setDoc} from './member-access.js?v=20261026-api-entry-editor-1';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
-import {uniqueGames,openGameAssetsFromRecords,openGameProfileEditor} from './op-game-form.js?v=20261027-editor-columns-1';
+import {uniqueGames,openGameAssetsFromRecords,openGameProfileEditor,gameInformationJackpotValues as jackpotValues} from './op-game-form.js?v=20261027-jackpot-options-1';
 import {getApps,initializeApp} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import {getFirestore,doc} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 const config={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
@@ -37,7 +37,7 @@ const columns=[
  ['note1','備註 1\n（可備註特選／首發遊戲資訊）','可備註特選／首發遊戲資訊。'],
  ['note2','備註 2\n（可備註聯名遊戲資訊）','可備註聯名遊戲資訊。']
 ];
-function jackpotValues(value){return [...new Set((Array.isArray(value)?value:[value]).flatMap(item=>String(item??'').replace(/(OP\s*Jackpot)\s+(?!Alphabet\b)(?=\S)/ig,'$1\n').split(/[\n,，;；|/／]+/)).map(v=>v.trim()).filter(Boolean))];}
+
 
 export function mergeInformationGames(source,records){const map=new Map(source.map(game=>[game.id,{...game}]));for(const [id,r] of Object.entries(records||{})){if(!r.gameInformationGame)continue;const game=map.get(id)||{id,name:'',progressiveJackpotGroup:''};if(typeof r.gameInformationName==='string')game.name=r.gameInformationName;map.set(id,game);}return [...map.values()].filter(game=>!records?.[game.id]?.gameInformationDeleted).sort((a,b)=>String(a.id).localeCompare(String(b.id),'en',{numeric:true}));}
 export function parseInformationTable(text){const rows=[],seen=new Set();for(const [index,line] of String(text).replace(/\r/g,'').split('\n').entries()){if(!line.trim())continue;const cells=line.split('\t');if(!/^\d+$/.test(cells[0]?.trim())){if(rows.length===0&&/遊戲.?ID|Game.?ID/i.test(cells[0]||''))continue;throw Error('第 '+(index+1)+' 列的 Game ID 不正確');}if(cells.length<11)throw Error('第 '+(index+1)+' 列需有 11 個欄位');const [id,mandarinName,gameInformationName,jackpot,status,releaseDate,pagcor,freeSpin,plannedReleaseDate,note1,note2,highlight]=cells.map(v=>v.trim());if(seen.has(id))throw Error('Game ID '+id+' 重複');seen.add(id);for(const date of [releaseDate,plannedReleaseDate])if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date))throw Error(id+' 的日期請使用 YYYY-MM-DD');rows.push({id,mandarinName,gameInformationName,jackpot:jackpotValues(jackpot).join('\n'),status,releaseDate,pagcor,freeSpin,plannedReleaseDate,note1,note2,plannedReleaseHighlight:highlight==='blue',gameInformationGame:true});}if(!rows.length)throw Error('請貼上至少一款遊戲');return rows;}
@@ -86,6 +86,7 @@ export async function renderGameInformationPage({state,page,saveWorkspace,readOn
  colorManager=installInformationColors({workspace:w,columns,admin,settings:colorSettings,editHeaderNote:editHeader,editCellNote:(id,key)=>{const game=games.find(item=>item.id===id);if(game)editCell(game,key)},getValues:id=>{const game=games.find(item=>item.id===id);return game?details(game):{}},getNote:(id,key)=>{const note=cellNotes[id]?.[key];return typeof note==='string'?note:note?.text||''},save:async (settings,note)=>{const updatedAt=new Date().toISOString(),payload={gameInformationColorsJson:{[page.id]:JSON.stringify(settings)},updatedAt};let next;if(note){next={text:note.text,author:String(window.__omniplaySession?.username||'管理員'),updatedAt};payload.gameInformationCellNotes={[page.id]:{[note.id]:{[note.key]:next}}}}await setDoc(recordsRef,payload,{merge:true});if(note){(cellNotes[note.id]||(cellNotes[note.id]={}))[note.key]=next;draw()}}});
  draw();if(focusGameId&&admin){const game=games.find(item=>item.id===String(focusGameId));if(!game)throw Error('找不到此遊戲資訊：'+focusGameId);w.querySelector('.gi-search').value=String(focusGameId);draw();const row=w.querySelector('[data-gi-game="'+CSS.escape(String(focusGameId))+'"]')?.closest('tr');row?.classList.add('gi-source-update-focus');row?.scrollIntoView({block:'center'});await edit(game);}
 }
+
 
 
 
