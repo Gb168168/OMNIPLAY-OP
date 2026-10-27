@@ -18,9 +18,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Test synchronization safeguards
+        run: python -m unittest discover -s tests -p test_api_document_sync.py
       - name: Fetch and validate public API documentation
         run: python scripts/sync-api-docs.py
       - name: Commit snapshot and request Pages rebuild
@@ -33,5 +37,6 @@ jobs:
           git add api-docs/snapshot.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Sync public API documentation reading copy'
+          git pull --rebase origin main
           git push origin HEAD:main
           gh api --method POST "repos/$REPO/pages/builds"
