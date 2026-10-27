@@ -1,5 +1,5 @@
 import {loadDocumentSnapshot,mountDocumentCopy} from './api-document-copy.js?v=20261027-section-notes-1';
-import {loadApiEntries,openApiEntryEditor,importApiEntries} from './api-manual-editor.js?v=20261027-note-sections-2';
+import {loadApiEntries,openApiEntryEditor,importApiEntries} from './api-manual-editor.js?v=20261027-live-preview-1';
 const ROOT='https://docs.jigaming777.com/zh/integration/';
 const SOURCES={revision:ROOT+'revisionHistory',104:ROOT+'providedByUs/cardAction/action104',105:ROOT+'providedByUs/cardAction/action105'};
 for(const id of [1,2,3,4,11])SOURCES[id]=ROOT+'providedToUs/action/action'+id;
