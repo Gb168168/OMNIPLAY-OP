@@ -2,7 +2,7 @@ import { resolveLinkedGame } from './group-field-values.js?v=20261021-group-valu
 import {installInformationColors} from './game-information-colors.js?v=20261026-collapsed-colors-1';
 import {getDoc,setDoc} from './member-access.js?v=20261026-api-entry-editor-1';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
-import {uniqueGames,openGameAssetsFromRecords,openGameProfileEditor,gameInformationJackpotValues as jackpotValues} from './op-game-form.js?v=20261027-review-save-1';
+import {uniqueGames,openGameAssetsFromRecords,openGameProfileEditor,gameInformationJackpotValues as jackpotValues} from './op-game-form.js?v=20261027-review-quota-1';
 import {getApps,initializeApp} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import {getFirestore,doc} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 const config={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
@@ -86,6 +86,7 @@ export async function renderGameInformationPage({state,page,saveWorkspace,readOn
  colorManager=installInformationColors({workspace:w,columns,admin,settings:colorSettings,editHeaderNote:editHeader,editCellNote:(id,key)=>{const game=games.find(item=>item.id===id);if(game)editCell(game,key)},getValues:id=>{const game=games.find(item=>item.id===id);return game?details(game):{}},getNote:(id,key)=>{const note=cellNotes[id]?.[key];return typeof note==='string'?note:note?.text||''},save:async (settings,note)=>{const updatedAt=new Date().toISOString(),payload={gameInformationColorsJson:{[page.id]:JSON.stringify(settings)},updatedAt};let next;if(note){next={text:note.text,author:String(window.__omniplaySession?.username||'管理員'),updatedAt};payload.gameInformationCellNotes={[page.id]:{[note.id]:{[note.key]:next}}}}await setDoc(recordsRef,payload,{merge:true});if(note){(cellNotes[note.id]||(cellNotes[note.id]={}))[note.key]=next;draw()}}});
  draw();if(focusGameId&&admin){const game=games.find(item=>item.id===String(focusGameId));if(!game)throw Error('找不到此遊戲資訊：'+focusGameId);w.querySelector('.gi-search').value=String(focusGameId);draw();const row=w.querySelector('[data-gi-game="'+CSS.escape(String(focusGameId))+'"]')?.closest('tr');row?.classList.add('gi-source-update-focus');row?.scrollIntoView({block:'center'});await edit(game);}
 }
+
 
 
 
