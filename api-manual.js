@@ -1,3 +1,4 @@
+import {HISTORICAL_ACTION_NOTES} from './api-action-history.js?v=20261030-1';
 import {loadDocumentSnapshot,mountDocumentCopy,documentNoteTargets,documentFieldExample} from './api-document-copy.js?v=20261030-wide-doc-1';
 import {loadApiEntries,openApiEntryEditor,importApiEntries} from './api-manual-editor.js?v=20261030-source-example-1';
 const ROOT='https://docs.jigaming777.com/zh/integration/';
@@ -7,6 +8,7 @@ for(const id of [21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,41,42,43,
 for(const id of [72,73,74])SOURCES[id]=ROOT+'providedByUs/jackpotAction/action'+id;
 for(const id of [106,107])SOURCES[id]=ROOT+'providedByUs/cardAction/action'+id;
 const DEFAULT_FAQ=[
+ ...HISTORICAL_ACTION_NOTES,
  {key:'gameCount',zh:'遊戲場次',en:'Game Count',a:105,answerZh:'gameCount 是免費旋轉卡提供的遊戲場次，不能超過 Action 104 回傳的 maxGameCount。',answerEn:'gameCount sets the number of games for a free spin card. It must not exceed maxGameCount returned by Action 104.',example:'gameCount = 10',hintZh:'範例：設定 10 場；可設上限以 Action 104 為準。',hintEn:'Example: 10 games. The allowed limit comes from Action 104.'},
  {key:'maxWinAmount',zh:'最高贏分',en:'Maximum Winnings',a:105,answerZh:'maxWinAmount 是最高贏分設定，不能超過 Action 104 回傳的 maxWinAmount。僅免費旋轉卡必填。',answerEn:'maxWinAmount sets the maximum winnings and must not exceed the value returned by Action 104. Required for free spin cards only.',example:'maxWinAmount = 10000',hintZh:'以 PHP 為例：₱10,000 代表設定的最高贏分為 ₱10,000；不是所有代理固定的上限。',hintEn:'PHP example: ₱10,000 means a configured maximum of ₱10,000. It is not a fixed limit for every agent.'},
  {key:'itemCategory',zh:'卡片類型',en:'Card Type',a:105,answerZh:'1 是免費遊戲卡，2 是免費旋轉卡。gameCount 與 maxWinAmount 僅在免費旋轉卡必填。',answerEn:'1 is a free game card; 2 is a free spin card. gameCount and maxWinAmount are required for free spin cards only.',example:'itemCategory = 2'},
