@@ -66,8 +66,8 @@ def extract(html,action):
   for child in n.children:walk(child)
  walk(main)
  title=next((b['text'] for b in blocks if b['kind']=='heading' and b['level']==1),'')
- if not title or (action!='revision' and not re.search(r'Action\s*'+re.escape(action)+r'\b',title,re.I)):raise ValueError('Unexpected document title')
- if action!='revision' and not fields:raise ValueError('API parameter table missing')
+ if not title or (action.isdigit() and not re.search(r'Action\s*'+re.escape(action)+r'\b',title,re.I)):raise ValueError('Unexpected document title')
+ if action.isdigit() and not fields:raise ValueError('API parameter table missing')
  if len(blocks)<2:raise ValueError('Incomplete document')
  return {'title':title,'blocks':blocks,'fields':list(fields.values())}
 def fetch_page(lang,action,path,previous,stamp):
@@ -91,7 +91,13 @@ def sync(target):
   for anchor in parser.root.all('a'):
    url=urllib.parse.urljoin(ORIGIN,anchor.attrs.get('href',''));parts=urllib.parse.urlparse(url)
    match=re.fullmatch(r'/zh/integration/(provided(?:ByUs|ToUs)/(?:action|cardAction|jackpotAction)/action(\d+))/?',parts.path)
-   if parts.scheme=='https' and parts.netloc=='docs.jigaming777.com' and match:PATHS[match[2]]=match[1]
+   if parts.scheme=='https' and parts.netloc=='docs.jigaming777.com':
+    if match:PATHS[match[2]]=match[1]
+    else:
+     general=re.fullmatch(r'/zh/integration/([A-Za-z0-9_/]+)/?',parts.path)
+     if general:
+      path=general[1].rstrip('/');key='revision' if path=='revisionHistory' else path.replace('/','_')
+      PATHS[key]=path
  stamp=datetime.now(timezone.utc).isoformat(timespec='seconds');old=json.loads(target.read_text()) if target.exists() else {};pages=dict(old.get('pages',{}));failures=[];changes=[]
  def job(lang,action,path):
   key=lang+':'+action;prior=pages.get(key,{})
