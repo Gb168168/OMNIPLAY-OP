@@ -70,7 +70,7 @@ export function mountDocumentCopy(host,{snapshot,language='zh',onAction,onField,
  function show(action){
   const page=snapshot.pages[language+':'+action];if(!page)return null;
   if(renderedAction===action&&renderedHash===page.hash)return page;const previousScroll=renderedAction===action?main.scrollTop:0;renderedAction=action;renderedHash=page.hash;
-  nav.innerHTML='<strong>'+t('API 文件','API Documentation')+'</strong>'+pages.map(([key,item])=>'<button type="button" data-copy-action="'+esc(key.split(':')[1])+'"'+(key===language+':'+action?' aria-current="page"':'')+'>'+esc(item.title)+'</button>').join('');
+  renderNav(action);
   main.replaceChildren();const targets=documentNoteTargets(page);
   for(const [blockIndex,block] of page.blocks.entries()){let element;
    if(block.kind==='heading'){element=document.createElement('h'+Math.max(1,Math.min(4,Number(block.level)||2)));element.textContent=block.text;}
