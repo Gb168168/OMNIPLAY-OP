@@ -1,6 +1,6 @@
 import {HISTORICAL_ACTION_NOTES} from './api-action-history.js?v=20261030-1';
 import {loadDocumentSnapshot,mountDocumentCopy,documentNoteTargets,documentFieldExample} from './api-document-copy.js?v=20261030-wide-doc-1';
-import {loadApiEntries,openApiEntryEditor,importApiEntries,deleteApiEntry} from './api-manual-editor.js?v=20261030-source-example-1';
+import {loadApiEntries,openApiEntryEditor,importApiEntries,deleteApiEntry} from './api-manual-editor.js?v=20261030-delete-visible-2';
 const ROOT='https://docs.jigaming777.com/zh/integration/';
 const SOURCES={revision:ROOT+'revisionHistory',104:ROOT+'providedByUs/cardAction/action104',105:ROOT+'providedByUs/cardAction/action105'};
 for(const id of [1,2,3,4,11])SOURCES[id]=ROOT+'providedToUs/action/action'+id;
