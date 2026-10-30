@@ -59,6 +59,9 @@ export async function renderApiManualPage(workspace,context={}){
 .api-manual-wide .api-manual-tabs>.api-note-tools{position:relative}
 .api-manual-wide .api-manual-tabs>.api-note-tools>summary{position:static;line-height:32px}
 .api-manual-wide .api-manual-tabs>.api-note-tools>.api-note-tools-content{position:absolute;right:0;top:100%;z-index:30;width:min(340px,calc(100vw - 40px));margin-top:6px;box-shadow:0 12px 35px #1e355822;background:#fff}
+/* Admin tools must not inherit the narrow trigger width. */
+.api-manual-wide .api-manual-tabs>.api-note-tools[open]>.api-note-tools-content{position:fixed!important;top:clamp(76px,15vh,150px)!important;right:24px!important;left:auto!important;width:360px!important;min-width:280px!important;max-width:calc(100vw - 48px)!important;max-height:min(68dvh,620px)!important;overflow-x:hidden!important;overflow-y:auto!important;box-sizing:border-box!important;z-index:10050!important;padding:14px!important;background:#fff!important;box-shadow:0 14px 45px #142b4c33!important;border:1px solid #dce5ef!important;border-radius:12px!important;white-space:normal!important}
+.api-manual-wide .api-manual-tabs>.api-note-tools[open]>.api-note-tools-content .api-manager-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:950px){.api-manual-wide .api-manual-doc{height:auto;max-height:none;min-height:500px;flex:1}.api-manual-wide .api-manual-columns{width:100%}}
 `;document.head.append(style);}
  const actions=[...new Set([...Object.keys(sources),...FAQ.map(item=>String(item.a)).filter(key=>/^\d+$/.test(key))])].filter(key=>key!=='revision').sort((a,b)=>Number(a)-Number(b));
