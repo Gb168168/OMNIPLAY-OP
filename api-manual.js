@@ -1,4 +1,4 @@
-import {loadDocumentSnapshot,mountDocumentCopy,documentNoteTargets,documentFieldExample} from './api-document-copy.js?v=20261030-source-example-1';
+import {loadDocumentSnapshot,mountDocumentCopy,documentNoteTargets,documentFieldExample} from './api-document-copy.js?v=20261030-nav-groups-1';
 import {loadApiEntries,openApiEntryEditor,importApiEntries} from './api-manual-editor.js?v=20261030-source-example-1';
 const ROOT='https://docs.jigaming777.com/zh/integration/';
 const SOURCES={revision:ROOT+'revisionHistory',104:ROOT+'providedByUs/cardAction/action104',105:ROOT+'providedByUs/cardAction/action105'};
