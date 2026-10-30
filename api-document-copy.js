@@ -35,18 +35,36 @@ export function mountDocumentCopy(host,{snapshot,language='zh',onAction,onField,
  host.className='api-doc-native';
  const pageList=()=>Object.entries(snapshot.pages).filter(([key])=>key.startsWith(language+':')).sort(([a],[b])=>a.endsWith(':revision')?-1:b.endsWith(':revision')?1:Number(a.split(':')[1])-Number(b.split(':')[1]));let pages=pageList(),renderedAction='',renderedHash='';
  const nav=document.createElement('nav'),main=document.createElement('article');nav.className='api-copy-nav';nav.setAttribute('aria-label',t('API 文件導覽','API Documentation Navigation'));main.className='api-copy-main';host.replaceChildren(nav,main);
- const navGroup=item=>/\/cardAction\//.test(item.url||'')?'card':/\/jackpotAction\//.test(item.url||'')?'jackpot':'actions';
  const navOpen=new Map();
  const renderNav=action=>{
   nav.querySelectorAll('details[data-nav-group]').forEach(group=>navOpen.set(group.dataset.navGroup,group.open));
   const button=([key,item])=>'<button type="button" data-copy-action="'+esc(key.split(':')[1])+'"'+(key===language+':'+action?' aria-current="page"':'')+'>'+esc(item.title)+'</button>';
-  const revision=pages.filter(([key])=>key.endsWith(':revision'));
-  renderNav(action);
-   [['actions',t('功能項目','Functions')],['jackpot',t('彩金功能項目','Jackpot Functions')],['card',t('卡片功能項目','Card Functions')]].map(([id,label])=>{
-    const entries=pages.filter(([key,item])=>!key.endsWith(':revision')&&navGroup(item)===id);if(!entries.length)return '';
-    const active=entries.some(([key])=>key===language+':'+action);
-    return '<details data-nav-group="'+id+'"'+(active||navOpen.get(id)?' open':'')+'><summary>'+label+'</summary><div class="api-copy-nav-items">'+entries.map(button).join('')+'</div></details>';
-   }).join('');
+  const path=entry=>String(entry[1].url||'').split('/integration/')[1]||'';
+  const under=(entries,prefix)=>entries.filter(entry=>path(entry).startsWith(prefix));
+  const ordered=entries=>entries.slice().sort((a,b)=>{
+   const order=['notice','dataType','transferWallet','seamlessWallet','callingMethod','java','php','csharp','golang','javascript','error','currency','lang'];
+   const rank=entry=>{const tail=path(entry).split('/').pop(),index=order.indexOf(tail);return index<0?100:Number(index);};
+   return rank(a)-rank(b)||Number(a[0].split(':')[1])-Number(b[0].split(':')[1]);
+  });
+  const group=(id,label,entries,body)=>{
+   if(!entries.length)return '';const active=entries.some(([key])=>key===language+':'+action);
+   return '<details data-nav-group="'+id+'"'+(active||navOpen.get(id)?' open':'')+'><summary>'+label+'</summary><div class="api-copy-nav-items">'+(body??ordered(entries).map(button).join(''))+'</div></details>';
+  };
+  const provided=(prefix,zh,en)=>{
+   const entries=under(pages,prefix+'/'),normal=under(entries,prefix+'/action/'),jackpot=under(entries,prefix+'/jackpotAction/'),card=under(entries,prefix+'/cardAction/');
+   const leaves=entries.filter(entry=>!normal.includes(entry)&&!jackpot.includes(entry)&&!card.includes(entry));
+   return group(prefix,t(zh,en),entries,ordered(leaves).map(button).join('')+
+    group(prefix+'-actions',t('功能項目','Functions'),normal)+group(prefix+'-jackpot',t('彩金功能項目','Jackpot Functions'),jackpot)+group(prefix+'-card',t('卡片功能項目','Card Functions'),card));
+  };
+  const known=entry=>/^(revisionHistory|procedure\/|providedToUs\/|providedByUs\/|sampleCode\/|appendix\/)/.test(path(entry));
+  nav.innerHTML='<strong>'+t('API 文件','API Documentation')+'</strong>'+
+   pages.filter(([key])=>key.endsWith(':revision')).map(button).join('')+
+   group('procedure',t('流程說明','Integration Process'),under(pages,'procedure/'))+
+   provided('providedToUs','提供給我方的 API','APIs Provided to Us')+
+   provided('providedByUs','我方提供的 API','APIs Provided by Us')+
+   group('sampleCode',t('範例程式','Sample Code'),under(pages,'sampleCode/'))+
+   group('appendix',t('附錄','Appendix'),under(pages,'appendix/'))+
+   group('other',t('其他文件','Other Documentation'),pages.filter(entry=>!known(entry)));
  };
  const stamp=()=>new Date(snapshot.lastChecked).toLocaleString(en?'en-GB':'zh-TW',{timeZone:'Asia/Taipei',hour12:false});
  function show(action){
