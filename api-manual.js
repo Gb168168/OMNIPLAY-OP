@@ -35,7 +35,7 @@ export async function renderApiManualPage(workspace,context={}){
  workspace.className='workspace api-manual-page api-manual-wide';workspace.textContent=t('正在載入說明…','Loading explanations…');let loaded;
  try{loaded=await loadApiEntries(context);}catch(error){workspace.textContent=t('無法讀取說明：','Unable to load explanations: ')+error.message;return;}
  let copySnapshot=await snapshotPromise;if(copySnapshot)for(const [key,page] of Object.entries(copySnapshot.pages)){if(key.startsWith((en?'en':'zh')+':')&&String(page.url||'').startsWith('https://docs.jigaming777.com/'))sources[key.split(':')[1]]=page.url;}
- const overridden=new Set(loaded.overrides),FAQ=[...DEFAULT_FAQ.filter(item=>!overridden.has(item.key)).map(item=>({...item,customerVisible:true,owner:'client'})),...loaded.entries.filter(item=>admin||item.customerVisible!==false)];
+ const overridden=new Set(loaded.overrides),FAQ=[...DEFAULT_FAQ.filter(item=>!overridden.has(item.key)&&(admin||item.customerVisible!==false)).map(item=>({...item,customerVisible:item.customerVisible!==false,owner:item.owner||'client'})),...loaded.entries.filter(item=>admin||item.customerVisible!==false)];
  let activeAction=String(context.apiAction||localStorage.getItem('omniplay-api-action')||105),selected='',mode='field';
  if(!sources[activeAction]&&!FAQ.some(item=>String(item.a)===activeAction))activeAction='revision';
  const reload=()=>renderApiManualPage(workspace,{...context,apiAction:activeAction});
