@@ -64,3 +64,31 @@ export function mountDocumentCopy(host,{snapshot,language='zh',onAction,onField,
  return{show,setZoom:value=>host.style.setProperty('--doc-scale',String(value/100)),get stamp(){return stamp();},updateSnapshot:next=>{snapshot=next;pages=pageList();},getFields:action=>documentNoteTargets(snapshot.pages[language+':'+action]||{}).fields,getPage:action=>snapshot.pages[language+':'+action]};
 }
 
+
+export function documentFieldExample(page,key){
+ const scoped=String(key).match(/^(request|response)\.(.+)$/);if(!scoped)return '';
+ const wanted=scoped[1],parameter=scoped[2];if(!/^[A-Za-z][\w.[\]-]*$/.test(parameter))return '';
+ let scope='';
+ for(const block of page?.blocks||[]){
+  if(block.kind==='heading'){
+   if(/請求|请求|Request|Input/i.test(block.text))scope='request';
+   else if(/返回|回應|响应|Response|Return/i.test(block.text))scope='response';
+   else if(block.level<=2)scope='';
+  }
+  if(block.kind!=='code'||scope!==wanted)continue;
+  // Read complete JSON objects, including commented/multiple examples.
+  const source=String(block.text||'');let start=-1,depth=0,quoted=false,escaped=false;
+  for(let i=0;i<source.length;i++){
+   const c=source[i];
+   if(quoted){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c==='"')quoted=false;continue;}
+   if(c==='"'&&start>=0){quoted=true;continue;}
+   if(c==='{'||c==='['){if(depth===0)start=i;depth++;}
+   else if((c==='}'||c===']')&&depth>0){depth--;if(depth===0){
+    try{let value=JSON.parse(source.slice(start,i+1));const parts=parameter.replace(/\[(\d*)\]/g,'.$1').split('.');for(const part of parts){if(Array.isArray(value)&&part==='')value=value[0];else if(value!==null&&typeof value==='object'&&Object.hasOwn(value,part))value=value[part];else{value=undefined;break;}}
+     if(value!==undefined)return parameter+' = '+JSON.stringify(value,null,2);
+    }catch{}start=-1;
+   }}
+  }
+ }
+ return '';
+}
