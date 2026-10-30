@@ -98,6 +98,10 @@ service cloud.firestore {
           && member().groupId in get(/databases/$(database)/documents/omniplay-release-notifications/$(notificationId)).data.groupIds);
       }
     }
+    match /omniplay-api-guide/{entryId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
     match /omniplay/{documentId} {
       allow read: if isAdmin();
       allow create, update, delete: if isOwner() && documentId != 'game-release-notifications';
