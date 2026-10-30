@@ -1,4 +1,4 @@
-import {getFirestore,collection,query,where,getDocs,doc,writeBatch} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import {getFirestore,collection,query,where,getDocs,doc,deleteDoc,writeBatch} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import {setDoc,syncMembersAndViews} from './member-access.js?v=20261026-api-entry-editor-1';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const OWNERS={ours:'我方處理',client:'客戶處理',both:'雙方配合',pending:'待確認'};
@@ -61,3 +61,16 @@ export function importApiEntries(onSaved){
 
 
 
+
+/** Delete a saved note, or suppress a built-in note with an override tombstone. */
+export async function deleteApiEntry(item,onSaved,{builtIn=false}={}){
+ if(!window.__omniplayCanEdit||!item?.key)return;
+ const title=item.zh||item.en||item.key;
+ if(!window.confirm('確定刪除「'+title+'」？此操作無法復原。'))return;
+ try{
+  const ref=doc(getFirestore(),'omniplay','api-manual-entry-'+item.key);
+  if(builtIn){await setDoc(ref,{key:item.key,a:Number(item.a),apiManualEntry:true,deleted:true,customerVisible:false,updatedAt:new Date().toISOString()});}
+  else await deleteDoc(ref);
+  onSaved?.();
+ }catch(error){window.alert('刪除失敗：'+error.message);}
+}
