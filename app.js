@@ -765,21 +765,30 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-pill{display:inline-block;padding:4px 9px;border-radius:6px;background:#eaf2ff;color:#295fb4;font-size:12px;font-weight:600}
 .platform-list-workspace .platform-directory .platform-muted{color:#9aa5b5}
 .platform-list-workspace .platform-directory .platform-notes{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>按平台名稱展開子平台；每個子平台可獨立設定所屬群組及 GAME LIST 權限。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplaySession?.superAdmin ? '<button class="secondary" id="platformAdminPermissionsBtn" aria-expanded="false" aria-controls="platformAdminPermissions">管理員權限</button>' : ''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增主表格</button></div></div><div id="platformAdminPermissions"></div><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:35%">主表格／平台名稱</th><th style="width:34%">客戶域名</th><th style="width:31%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong><span>按右上「新增主表格」開始</span></div></section>`;
+</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>平台名稱或客戶域名相同的資料會自動歸在一起，所有子平台預設展開。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplaySession?.superAdmin ? '<button class="secondary" id="platformAdminPermissionsBtn" aria-expanded="false" aria-controls="platformAdminPermissions">管理員權限</button>' : ''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增主表格</button></div></div><div id="platformAdminPermissions"></div><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:35%">主表格／平台名稱</th><th style="width:34%">客戶域名</th><th style="width:31%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong><span>按右上「新增主表格」開始</span></div></section>`;
 const permissionsButton=$('#platformAdminPermissionsBtn');
 if(permissionsButton)permissionsButton.onclick=async()=>{if(!window.showOmniplayPermissions)return;await window.showOmniplayPermissions($('#platformAdminPermissions'));permissionsButton.setAttribute('aria-expanded',String(!!$('#platformAdminPermissions').firstElementChild))};
 const rows=$('#platformRows');
 if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
 const parentGroups=new Map();
-customers.forEach(u=>{const normalized=String(u.name||'').trim().toLocaleLowerCase(),key=u.parentId||('legacy:'+normalized);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
+// 同平台名稱、同客戶域名或同一主表格 ID，任一條件相同即歸為一組（含間接關聯）。
+const parents=customers.map((_,i)=>i);
+const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
+const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
+const nameIndex=new Map(),domainIndex=new Map(),parentIndex=new Map();
+customers.forEach((u,i)=>{
+ const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase(),parent=String(u.parentId||'').trim();
+ [[name,nameIndex],[domain,domainIndex],[parent,parentIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
+});
+customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
 parentGroups.forEach((children,parentId)=>{
- const parentName=children[0].parentName||children[0].name||'未命名';
- const hasParentId=children.some(u=>u.parentId);
+ const names=[...new Set(children.map(u=>u.name).filter(Boolean))];const parentName=children[0].parentName||names[0]||'未命名';
+ const hasParentId=children.some(u=>u.parentId);const existingParentId=children.find(u=>u.parentId)?.parentId;
  const tr=document.createElement('tr');tr.className='platform-parent-row';
  const domains=[...new Set(children.map(u=>u.domain||u.username).filter(Boolean))];
- tr.innerHTML=`<td><button type="button" class="platform-expand" aria-expanded="false"><span class="platform-chevron">▸</span><span>${esc(parentName)}</span><span class="platform-count-pill">${children.length} 個平台</span></button></td><td><span class="platform-domains">${esc(domains.join('、')||'—')}</span></td><td><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除</button></div></td>`;
+ tr.innerHTML=`<td><button type="button" class="platform-expand" aria-expanded="true"><span class="platform-chevron">▾</span><span>${esc(parentName)}</span><span class="platform-count-pill">${children.length} 個平台</span></button></td><td><span class="platform-domains">${esc(domains.join('、')||'—')}</span></td><td><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除</button></div></td>`;
  rows.append(tr);
- const details=document.createElement('tr');details.className='platform-child-row';details.style.display='none';
+ const details=document.createElement('tr');details.className='platform-child-row';details.style.display='table-row';
  const cell=document.createElement('td');cell.colSpan=3;
  const panel=document.createElement('div');panel.className='platform-child-panel';
  const table=document.createElement('table');table.innerHTML='<thead><tr><th style="width:19%">平台名稱</th><th style="width:15%">客戶域名</th><th style="width:17%">所屬群組 / GAME LIST 權限</th><th style="width:12%">對接進度</th><th style="width:12%">上線日期</th><th style="width:11%">備註</th><th style="width:14%;text-align:right">操作</th></tr></thead>';
@@ -791,8 +800,8 @@ parentGroups.forEach((children,parentId)=>{
  tbody.append(child)});
  const toggle=tr.querySelector('.platform-expand');
  toggle.onclick=()=>{const expanded=details.style.display==='none';details.style.display=expanded?'table-row':'none';toggle.setAttribute('aria-expanded',String(expanded));toggle.querySelector('.platform-chevron').textContent=expanded?'▾':'▸'};
- tr.querySelector('.platform-add-child').onclick=()=>openCustomerDialog('',null,hasParentId?parentId:uid('parent'),parentName,hasParentId?null:children[0]);
- tr.querySelector('.platform-rename-parent').onclick=()=>{const next=prompt('主表格名稱：',parentName)?.trim();if(!next)return;const id=hasParentId?parentId:uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=next});save();renderCustomers()};
+ tr.querySelector('.platform-add-child').onclick=()=>{const id=existingParentId||uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=parentName});save();openCustomerDialog('',null,id,parentName)};
+ tr.querySelector('.platform-rename-parent').onclick=()=>{const next=prompt('主表格名稱：',parentName)?.trim();if(!next)return;const id=existingParentId||uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=next});save();renderCustomers()};
  tr.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm(`確定刪除「${parentName}」及其 ${children.length} 個子平台？`))return;const ids=new Set(children.map(u=>u.id));state.customers=state.customers.filter(u=>!ids.has(u.id));save();renderCustomers()};
 });
 $('#groupManagerBtn').onclick=openGroupManager;
