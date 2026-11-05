@@ -485,7 +485,7 @@ const PLATFORM_IMPORT_VERSION=2,IMPORTED_PLATFORMS=[
  ]
 ];
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
-let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,saveQueue=Promise.resolve();
+let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,editingParentId=null,editingParentName='',saveQueue=Promise.resolve();
 const PLATFORM_LIST_PERMISSION='system_all_platforms';
 
 async function openNotificationGame(gameId){
@@ -743,18 +743,39 @@ $('#breadcrumb').textContent='系統管理';
 $('#pageTitle').textContent='所有平台列表';
 $('#addPageBtn').disabled=true;
 const groups=state.customerGroups,customers=state.customers,liveCount=customers.filter(u=>u.progress==='正式上線').length;
-w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>集中查看所有平台資料，並可直接調整分類、進度與所屬群組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplaySession?.superAdmin ? '<button class="secondary" id="platformAdminPermissionsBtn" aria-expanded="false" aria-controls="platformAdminPermissions">管理員權限</button>' : ''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><div id="platformAdminPermissions"></div><section class="admin-card platform-table-card"><div class="platform-table-wrap"><table class="platform-table"><thead><tr><th>客戶名稱</th><th>客戶域名</th><th>客戶群組</th><th>對接進度</th><th>上線日期</th><th>備註說明</th><th>所屬群組</th><th>操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><div>🏢</div><strong>尚未建立平台</strong><span>按右上「新增平台」開始</span></div></section>`;
+w.innerHTML=`<div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>集中查看所有平台資料，並可直接調整分類、進度與所屬群組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplaySession?.superAdmin ? '<button class="secondary" id="platformAdminPermissionsBtn" aria-expanded="false" aria-controls="platformAdminPermissions">管理員權限</button>' : ''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><div id="platformAdminPermissions"></div><section class="admin-card platform-table-card"><div class="platform-table-wrap"><table class="platform-table"><thead><tr><th>主表格／平台名稱</th><th>客戶域名</th><th>GAME LIST 權限</th><th>對接進度</th><th>上線日期</th><th>備註說明</th><th>所屬群組</th><th>操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><div>🏢</div><strong>尚未建立平台</strong><span>按右上「新增平台」開始</span></div></section>`;
 const permissionsButton=$('#platformAdminPermissionsBtn');
 if(permissionsButton)permissionsButton.onclick=async()=>{if(!window.showOmniplayPermissions)return;await window.showOmniplayPermissions($('#platformAdminPermissions'));permissionsButton.setAttribute('aria-expanded',String(!!$('#platformAdminPermissions').firstElementChild))};
 const rows=$('#platformRows');
 if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
-customers.forEach(u=>{const selectedGroup=groups.find(g=>g.id===u.groupId);const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${esc(u.customerType||'未設定')}</td><td>${esc(u.progress||'未設定')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td>${esc(selectedGroup?.name||'未設定')}</td><td><div class="platform-actions"><button type="button" class="platform-edit">編輯</button><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
-tr.querySelector('.platform-edit').onclick=()=>openCustomerDialog(u.groupId,u);
-tr.querySelector('.permission-btn').onclick=()=>{const selectedGroup=state.customerGroups.find(g=>g.id===u.groupId);if(!selectedGroup){alert('請先選擇所屬群組');return}editGroupPermissions(selectedGroup)};
-tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定要刪除平台「${u.name}」嗎？\n刪除後無法復原。`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
-rows.append(tr)});
+const parentGroups=new Map();
+customers.forEach(u=>{const key=u.parentId||u.id;if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
+parentGroups.forEach((children,parentId)=>{
+ const parentName=children[0].parentName||children[0].name||'未命名';
+ const isMulti=children.some(u=>u.parentId);
+ const tr=document.createElement('tr');
+ tr.className='platform-parent-row';
+ tr.innerHTML=`<td><button type="button" class="platform-expand" aria-expanded="false" style="font-weight:700">▸ ${esc(parentName)} <small>(${children.length} 個平台)</small></button></td><td>${esc([...new Set(children.map(u=>u.domain||u.username).filter(Boolean))].join('、')||'—')}</td><td colspan="5">子平台可分別設定 GAME LIST 權限群組</td><td><div class="platform-actions"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除</button></div></td>`;
+ rows.append(tr);
+ const details=document.createElement('tr');details.className='platform-child-row';details.hidden=true;
+ const cell=document.createElement('td');cell.colSpan=8;cell.style.padding='10px 18px 16px 36px';
+ const table=document.createElement('table');table.className='platform-table';table.style.width='100%';
+ table.innerHTML='<thead><tr><th>平台名稱</th><th>客戶域名</th><th>GAME LIST 權限群組</th><th>客戶群組</th><th>對接進度</th><th>上線日期</th><th>備註</th><th>操作</th></tr></thead>';
+ const tbody=document.createElement('tbody');table.append(tbody);cell.append(table);details.append(cell);rows.append(details);
+ children.forEach(u=>{const selectedGroup=groups.find(g=>g.id===u.groupId);const child=document.createElement('tr');
+ child.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${esc(selectedGroup?.name||'未設定')}</td><td>${esc(u.customerType||'—')}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-actions"><button type="button" class="platform-edit">編輯</button><button type="button" class="permission-btn">設定權限</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+ child.querySelector('.platform-edit').onclick=()=>openCustomerDialog(u.groupId,u);
+ child.querySelector('.permission-btn').onclick=()=>{if(!selectedGroup){alert('請先選擇 GAME LIST 權限群組');return}editGroupPermissions(selectedGroup)};
+ child.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定刪除子平台「${u.name}」？`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
+ tbody.append(child)});
+ tr.querySelector('.platform-expand').onclick=()=>{details.hidden=!details.hidden;tr.querySelector('.platform-expand').setAttribute('aria-expanded',String(!details.hidden));tr.querySelector('.platform-expand').textContent=(details.hidden?'▸ ':'▾ ')+parentName+' ('+children.length+' 個平台)'};
+ tr.querySelector('.platform-add-child').onclick=()=>openCustomerDialog('',null,isMulti?parentId:uid('parent'),parentName,isMulti?null:children[0]);
+ tr.querySelector('.platform-rename-parent').onclick=()=>{const next=prompt('主表格名稱：',parentName)?.trim();if(!next)return;const id=isMulti?parentId:uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=next});save();renderCustomers()};
+ tr.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm(`確定刪除「${parentName}」及其 ${children.length} 個子平台？`))return;const ids=new Set(children.map(u=>u.id));state.customers=state.customers.filter(u=>!ids.has(u.id));save();renderCustomers()};
+});
 $('#groupManagerBtn').onclick=openGroupManager;
-$('#newPlatform').onclick=()=>openCustomerDialog()}
+$('#newPlatform').onclick=()=>{const name=prompt('請輸入主表格名稱：')?.trim();if(!name)return;openCustomerDialog('',null,uid('parent'),name)};
+}
 function renderGroup(g){g.allowedPages||=[];
 const w=$('#workspace'),members=state.customers.filter(u=>u.groupId===g.id);
 $('#breadcrumb').textContent='系統管理 / 群組分類';
@@ -773,7 +794,7 @@ $('#groupPermission').onclick=()=>editGroupPermissions(g)}
 function fillCustomerOptionSelect(id,items,allowEmpty=false){const sel=$(id);
 sel.innerHTML=(allowEmpty?'<option value="">未設定</option>':'')+items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
 $('#groupDialog').showModal();
-setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId,customer=null){editingCustomerId=customer?.id||null;
+setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId,customer=null,parentId=null,parentName='',adoptCustomer=null){editingCustomerId=customer?.id||null;editingParentId=parentId||customer?.parentId||null;editingParentName=parentName||customer?.parentName||'';if(adoptCustomer){adoptCustomer.parentId=editingParentId;adoptCustomer.parentName=editingParentName;save()}
 $('#customerDialogTitle').textContent=customer?'編輯平台':'建立平台';
 $('#customerSubmitBtn').textContent=customer?'儲存變更':'建立平台';
 ['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
@@ -838,9 +859,9 @@ save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name)return;
-const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
+const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim(),...(editingParentId?{parentId:editingParentId,parentName:editingParentName}:{})};
 if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
-editingCustomerId=null;
+editingCustomerId=null;editingParentId=null;editingParentName='';
 save();
 $('#customerDialog').close();
 renderCustomers()};
