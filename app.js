@@ -485,7 +485,7 @@ const PLATFORM_IMPORT_VERSION=2,IMPORTED_PLATFORMS=[
  ]
 ];
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
-let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,editingParentId=null,editingParentName='',saveQueue=Promise.resolve();
+let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,editingParentId=null,editingParentName='',editingAdoptCustomerId=null,saveQueue=Promise.resolve();
 const PLATFORM_LIST_PERMISSION='system_all_platforms';
 
 async function openNotificationGame(gameId){
@@ -565,9 +565,9 @@ state.customerProgressOptions||=[...DEFAULT_CUSTOMER_PROGRESS];
 state.customerCommAppOptions||=[...DEFAULT_COMM_APPS];
 state.customers.map(u=>u.commApp).filter(Boolean).forEach(value=>{if(!state.customerCommAppOptions.includes(value))state.customerCommAppOptions.push(value)});
 if(window.__omniplayCanEdit&&(Number(state.platformImportVersion)||0)<PLATFORM_IMPORT_VERSION){
-const existingByDomain=new Map(),existingByName=new Map();
-state.customers.forEach(customer=>{const domain=String(customer.domain||customer.username||'').trim().toLowerCase(),name=String(customer.name||'').replace(/\s+/g,' ').trim().toLowerCase();if(domain&&!existingByDomain.has(domain))existingByDomain.set(domain,customer);if(name&&!existingByName.has(name))existingByName.set(name,customer)});
-IMPORTED_PLATFORMS.forEach(([name,domain,customerType,progress,launchDate,notes])=>{const domainKey=domain.toLowerCase(),nameKey=name.toLowerCase();let found=(domainKey&&existingByDomain.get(domainKey))||(!domainKey&&existingByName.get(nameKey));if(!found&&domainKey&&['egct'].includes(domainKey))found=existingByName.get(nameKey);if(found){const data={name,domain,customerType,progress,launchDate,notes};Object.entries(data).forEach(([field,value])=>{if(value&&found[field]!==value)found[field]=value})}else{found={id:uid('usr'),name,domain,customerType,progress,launchDate,notes,commApp:'',groupId:''};state.customers.push(found)}if(domainKey)existingByDomain.set(domainKey,found);existingByName.set(nameKey,found)});
+const existingByPlatform=new Map();
+state.customers.forEach(customer=>{const name=String(customer.name||'').replace(/\s+/g,' ').trim().toLowerCase(),domain=String(customer.domain||customer.username||'').trim().toLowerCase();if(name&&!existingByPlatform.has(name+'|'+domain))existingByPlatform.set(name+'|'+domain,customer)});
+IMPORTED_PLATFORMS.forEach(([name,domain,customerType,progress,launchDate,notes])=>{const key=name.trim().toLowerCase()+'|'+domain.trim().toLowerCase();let found=existingByPlatform.get(key);if(found){const data={name,domain,customerType,progress,launchDate,notes};Object.entries(data).forEach(([field,value])=>{if(value&&found[field]!==value)found[field]=value})}else{found={id:uid('usr'),name,domain,customerType,progress,launchDate,notes,commApp:'',groupId:''};state.customers.push(found)}existingByPlatform.set(key,found)});
 state.platformImportVersion=PLATFORM_IMPORT_VERSION;
 }
 state.customerGroups.forEach(g=>{g.allowedPages||=[];
@@ -794,7 +794,7 @@ $('#groupPermission').onclick=()=>editGroupPermissions(g)}
 function fillCustomerOptionSelect(id,items,allowEmpty=false){const sel=$(id);
 sel.innerHTML=(allowEmpty?'<option value="">未設定</option>':'')+items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
 $('#groupDialog').showModal();
-setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId,customer=null,parentId=null,parentName='',adoptCustomer=null){editingCustomerId=customer?.id||null;editingParentId=parentId||customer?.parentId||null;editingParentName=parentName||customer?.parentName||'';if(adoptCustomer){adoptCustomer.parentId=editingParentId;adoptCustomer.parentName=editingParentName;save()}
+setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId,customer=null,parentId=null,parentName='',adoptCustomer=null){editingCustomerId=customer?.id||null;editingParentId=parentId||customer?.parentId||null;editingParentName=parentName||customer?.parentName||'';if(adoptCustomer){editingAdoptCustomerId=adoptCustomer.id}
 $('#customerDialogTitle').textContent=customer?'編輯平台':'建立平台';
 $('#customerSubmitBtn').textContent=customer?'儲存變更':'建立平台';
 ['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
@@ -860,13 +860,13 @@ $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name)return;
 const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim(),...(editingParentId?{parentId:editingParentId,parentName:editingParentName}:{})};
-if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
-editingCustomerId=null;editingParentId=null;editingParentName='';
+if(editingAdoptCustomerId){const adopted=state.customers.find(u=>u.id===editingAdoptCustomerId);if(adopted){adopted.parentId=editingParentId;adopted.parentName=editingParentName}}if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
+editingCustomerId=null;editingParentId=null;editingParentName='';editingAdoptCustomerId=null;
 save();
 $('#customerDialog').close();
 renderCustomers()};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);
-if(d?.id==='customerDialog'){editingCustomerId=null;const s=$('#customerGroup');
+if(d?.id==='customerDialog'){editingCustomerId=null;editingAdoptCustomerId=null;const s=$('#customerGroup');
 s.disabled=false;
 delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
