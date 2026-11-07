@@ -769,17 +769,17 @@ const parentGroups=new Map();
 const parents=customers.map((_,i)=>i);
 const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
 const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
-const nameIndex=new Map(),domainIndex=new Map(),parentIndex=new Map();
+const nameIndex=new Map(),domainIndex=new Map();
 customers.forEach((u,i)=>{
- const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase(),parent=String(u.parentId||'').trim();
- [[name,nameIndex],[domain,domainIndex],[parent,parentIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
+ const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase();
+ [[name,nameIndex],[domain,domainIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
 });
 customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
 parentGroups.forEach(children=>{
  const names=[...new Set(children.map(u=>String(u.name||'').trim()).filter(Boolean))];
  const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
- const isGrouped=children.length>1||children.some(u=>u.parentId);
- const parentName=children[0].parentName||(names.length===1?names[0]:(domains.length===1?domains[0]:names[0]||'平台群組'));
+ const isGrouped=children.length>1;
+ const parentName=names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組'));
  if(isGrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading';
  heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
