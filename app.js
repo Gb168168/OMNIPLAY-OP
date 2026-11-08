@@ -788,13 +788,22 @@ customers.forEach((u,i)=>{
  [[name,nameIndex],[domain,domainIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
 });
 customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
-parentGroups.forEach(children=>{
+const groupedPlatforms=[...parentGroups.values()].filter(children=>children.length>1);
+const ungroupedPlatforms=[...parentGroups.values()].filter(children=>children.length===1).flat();
+const displaySections=groupedPlatforms.map(children=>({children,ungrouped:false}));
+if(ungroupedPlatforms.length)displaySections.push({children:ungroupedPlatforms,ungrouped:true});
+displaySections.forEach(({children,ungrouped})=>{
  const names=[...new Set(children.map(u=>String(u.name||'').trim()).filter(Boolean))];
  const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
- const isGrouped=children.length>1;
+ const isGrouped=!ungrouped;
  const parentName=names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組'));
  if(rows.children.length){
  const gap=document.createElement('tr');gap.className='platform-block-gap';gap.setAttribute('aria-hidden','true');gap.innerHTML='<td colspan="7"></td>';rows.append(gap);
+ }
+ if(ungrouped){
+ const heading=document.createElement('tr');heading.className='platform-group-heading platform-ungrouped-heading';
+ heading.innerHTML=`<td colspan="7">未分組平台 <span class="platform-relation">${children.length} 筆資料 · 各平台獨立</span></td>`;
+ rows.append(heading);
  }
  if(isGrouped){
  const relation=names.length===1?'相同平台名稱':(domains.length===1?'相同客戶域名':'平台名稱／客戶域名關聯');
