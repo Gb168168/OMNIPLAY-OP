@@ -751,6 +751,12 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory td{padding:11px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#26364e;vertical-align:middle}
 .platform-list-workspace .platform-directory tbody tr:hover{background:#f9fbff}
 .platform-list-workspace .platform-directory .platform-group-heading td{background:#eef4fd;color:#285d9f;font-weight:650;padding:9px 14px;border-top:1px solid #dce7f6}
+.platform-list-workspace .platform-directory .platform-block-gap td{height:14px;padding:0;border:0;background:#f0f3f8}
+.platform-list-workspace .platform-directory .platform-group-member td{background:#f8fbff}
+.platform-list-workspace .platform-directory .platform-group-member td:first-child{border-left:3px solid #b8cff1}
+.platform-list-workspace .platform-directory .platform-block-end td{border-bottom:2px solid #cddbed}
+.platform-list-workspace .platform-directory .platform-group-heading td:first-child{text-align:left}
+.platform-list-workspace .platform-directory .platform-relation{font-size:12px;font-weight:400;color:#536d91;margin-left:12px}
 .platform-list-workspace .platform-directory .platform-group-heading .platform-action-row{justify-content:flex-end}
 .platform-list-workspace .platform-directory .platform-action-row{display:flex;justify-content:flex-end;align-items:center;gap:6px}
 .platform-list-workspace .platform-directory .platform-action-row button{background:#fff;border:1px solid #dce5f0;border-radius:7px;color:#426080;padding:5px 9px;font-size:12px;cursor:pointer}
@@ -765,7 +771,7 @@ if(permissionsButton)permissionsButton.onclick=async()=>{if(!window.showOmniplay
 const rows=$('#platformRows');
 if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
 const parentGroups=new Map();
-// 同平台名稱、同客戶域名或同一主表格 ID，任一條件相同即歸為一組（含間接關聯）。
+// 依平台名稱或客戶域名分組，不使用舊主表格 ID。
 const parents=customers.map((_,i)=>i);
 const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
 const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
@@ -780,17 +786,22 @@ parentGroups.forEach(children=>{
  const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
  const isGrouped=children.length>1;
  const parentName=names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組'));
+ if(rows.children.length){
+ const gap=document.createElement('tr');gap.className='platform-block-gap';gap.setAttribute('aria-hidden','true');gap.innerHTML='<td colspan="7"></td>';rows.append(gap);
+ }
  if(isGrouped){
+ const relation=names.length===1?'相同平台名稱':(domains.length===1?'相同客戶域名':'平台名稱／客戶域名關聯');
  const heading=document.createElement('tr');heading.className='platform-group-heading';
- heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
+ heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
  rows.append(heading);
  heading.querySelector('.platform-add-child').onclick=()=>{const id=children.find(u=>u.parentId)?.parentId||uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=parentName});save();openCustomerDialog('',null,id,parentName)};
  heading.querySelector('.platform-rename-parent').onclick=()=>{const name=prompt('群組名稱：',parentName)?.trim();if(!name)return;const id=children.find(u=>u.parentId)?.parentId||uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=name});save();renderCustomers()};
  heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm(`確定刪除「${parentName}」及其 ${children.length} 筆平台資料？`))return;const ids=new Set(children.map(u=>u.id));state.customers=state.customers.filter(u=>!ids.has(u.id));save();renderCustomers()};
  }
- children.forEach(u=>{
+ children.forEach((u,childIndex)=>{
  const group=groups.find(g=>g.id===u.groupId);
  const tr=document.createElement('tr');
+ tr.className=[isGrouped?'platform-group-member':'platform-standalone',childIndex===children.length-1?'platform-block-end':''].filter(Boolean).join(' ');
  tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${group?'<span class="platform-group-pill">'+esc(group.name)+'</span>':'<span class="platform-muted">未設定</span>'}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-action-row"><button type="button" class="platform-edit">編輯</button><button type="button" class="customer-delete">刪除</button></div></td>`;
  tr.querySelector('.platform-edit').onclick=()=>openCustomerDialog(u.groupId,u);
  tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定刪除平台「${u.name}」？`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
