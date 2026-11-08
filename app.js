@@ -745,7 +745,14 @@ $('#addPageBtn').disabled=true;
 const groups=state.customerGroups,customers=state.customers,liveCount=customers.filter(u=>u.progress==='正式上線').length;
 w.innerHTML=`<style>
 .platform-list-workspace .platform-directory{background:#fff;border:1px solid #e4eaf3;border-radius:12px;overflow:hidden}
-.platform-list-workspace .platform-directory .platform-table-wrap{overflow-x:auto}
+/* Keep navigation and directory controls fixed; scroll only the table viewport. */
+.main:has(> .platform-list-workspace){display:flex;flex-direction:column;min-height:0;overflow:hidden}
+#workspace.platform-list-workspace{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.platform-list-workspace>.customer-hero,.platform-list-workspace>#platformAdminPermissions{flex:0 0 auto}
+.platform-list-workspace .platform-directory{display:flex;flex-direction:column;flex:1;min-height:0}
+.platform-list-workspace .platform-directory .platform-table-wrap{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.platform-list-workspace .platform-directory thead th{position:sticky;top:0;z-index:5;box-shadow:0 1px 0 #dce5f0}
+
 .platform-list-workspace .platform-directory table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:1000px}
 .platform-list-workspace .platform-directory th{padding:12px 14px;text-align:left;font-size:12px;color:#65758c;background:#f4f7fb;border-bottom:1px solid #e3eaf3}
 .platform-list-workspace .platform-directory td{padding:11px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#26364e;vertical-align:middle}
