@@ -820,7 +820,8 @@ displaySections.forEach(({children,ungrouped})=>{
  const group=groups.find(g=>g.id===u.groupId);
  const tr=document.createElement('tr');
  tr.className=[isGrouped?'platform-group-member':'platform-standalone',childIndex===children.length-1?'platform-block-end':''].filter(Boolean).join(' ');
- tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${group?'<span class="platform-group-pill">'+esc(group.name)+'</span>':'<span class="platform-muted">未設定</span>'}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-action-row"><button type="button" class="platform-edit">編輯</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+ tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${group?'<span class="platform-group-pill">'+esc(group.name)+'</span>':'<span class="platform-muted">未設定</span>'}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-action-row">${ungrouped?'<button type="button" class="platform-create-category">建立分類</button>':''}<button type="button" class="platform-edit">編輯</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+ if(ungrouped)tr.querySelector('.platform-create-category').onclick=()=>openPlatformDirectoryEditor([u],u.name||'新分類');
  tr.querySelector('.platform-edit').onclick=()=>openCustomerDialog(u.groupId,u);
  tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定刪除平台「${u.name}」？`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
  rows.append(tr);
