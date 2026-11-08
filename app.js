@@ -758,10 +758,9 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory td{padding:11px 14px;border-bottom:1px solid #eef1f6;font-size:13px;color:#26364e;vertical-align:middle}
 .platform-list-workspace .platform-directory tbody tr:hover{background:#f9fbff}
 .platform-list-workspace .platform-directory .platform-group-heading td{background:#eef4fd;color:#285d9f;font-weight:650;padding:9px 14px;border-top:1px solid #dce7f6}
-.platform-list-workspace .platform-directory .platform-block-gap td{height:14px;padding:0;border:0;background:#f0f3f8}
 .platform-list-workspace .platform-directory .platform-group-member td{background:#f8fbff}
 .platform-list-workspace .platform-directory .platform-group-member td:first-child{border-left:3px solid #b8cff1}
-.platform-list-workspace .platform-directory .platform-block-end td{border-bottom:2px solid #cddbed}
+.platform-list-workspace .platform-directory .platform-block-end td{border-bottom:1px solid #cddbed}
 .platform-list-workspace .platform-directory .platform-group-heading td:first-child{text-align:left}
 .platform-list-workspace .platform-directory .platform-relation{font-size:12px;font-weight:400;color:#536d91;margin-left:12px}
 .platform-list-workspace .platform-directory .platform-group-heading .platform-action-row{justify-content:flex-end}
@@ -801,9 +800,6 @@ displaySections.forEach(({children,ungrouped})=>{
  const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
  const isGrouped=!ungrouped;
  const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
- if(rows.children.length){
- const gap=document.createElement('tr');gap.className='platform-block-gap';gap.setAttribute('aria-hidden','true');gap.innerHTML='<td colspan="7"></td>';rows.append(gap);
- }
  if(ungrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading platform-ungrouped-heading';
  heading.innerHTML=`<td colspan="7">未分組平台 <span class="platform-relation">${children.length} 筆資料 · 各平台獨立</span></td>`;
