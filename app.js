@@ -782,21 +782,25 @@ const parentGroups=new Map();
 const parents=customers.map((_,i)=>i);
 const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
 const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
-const nameIndex=new Map(),domainIndex=new Map();
+const nameIndex=new Map(),domainIndex=new Map(),manualIndex=new Map();
 customers.forEach((u,i)=>{
+ if(Object.prototype.hasOwnProperty.call(u,'directoryGroupId')){
+ if(u.directoryGroupId){if(manualIndex.has(u.directoryGroupId))union(i,manualIndex.get(u.directoryGroupId));else manualIndex.set(u.directoryGroupId,i)}
+ return;
+ }
  const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase();
  [[name,nameIndex],[domain,domainIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
 });
 customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
-const groupedPlatforms=[...parentGroups.values()].filter(children=>children.length>1);
-const ungroupedPlatforms=[...parentGroups.values()].filter(children=>children.length===1).flat();
+const groupedPlatforms=[...parentGroups.values()].filter(children=>children.length>1||children[0].directoryGroupId);
+const ungroupedPlatforms=[...parentGroups.values()].filter(children=>children.length===1&&!children[0].directoryGroupId).flat();
 const displaySections=groupedPlatforms.map(children=>({children,ungrouped:false}));
 if(ungroupedPlatforms.length)displaySections.push({children:ungroupedPlatforms,ungrouped:true});
 displaySections.forEach(({children,ungrouped})=>{
  const names=[...new Set(children.map(u=>String(u.name||'').trim()).filter(Boolean))];
  const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
  const isGrouped=!ungrouped;
- const parentName=names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組'));
+ const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
  if(rows.children.length){
  const gap=document.createElement('tr');gap.className='platform-block-gap';gap.setAttribute('aria-hidden','true');gap.innerHTML='<td colspan="7"></td>';rows.append(gap);
  }
@@ -806,13 +810,15 @@ displaySections.forEach(({children,ungrouped})=>{
  rows.append(heading);
  }
  if(isGrouped){
- const relation=names.length===1?'相同平台名稱':(domains.length===1?'相同客戶域名':'平台名稱／客戶域名關聯');
+ const relation=children.some(u=>u.directoryGroupId)?'自訂群組':names.length===1?'相同平台名稱':(domains.length===1?'相同客戶域名':'平台名稱／客戶域名關聯');
  const heading=document.createElement('tr');heading.className='platform-group-heading';
- heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">更名</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
+ heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">編輯群組</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
  rows.append(heading);
- heading.querySelector('.platform-add-child').onclick=()=>{const id=children.find(u=>u.parentId)?.parentId||uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=parentName});save();openCustomerDialog('',null,id,parentName)};
- heading.querySelector('.platform-rename-parent').onclick=()=>{const name=prompt('群組名稱：',parentName)?.trim();if(!name)return;const id=children.find(u=>u.parentId)?.parentId||uid('parent');children.forEach(u=>{u.parentId=id;u.parentName=name});save();renderCustomers()};
- heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm(`確定刪除「${parentName}」及其 ${children.length} 筆平台資料？`))return;const ids=new Set(children.map(u=>u.id));state.customers=state.customers.filter(u=>!ids.has(u.id));save();renderCustomers()};
+ heading.querySelector('.platform-add-child').onclick=()=>{const id=children[0].directoryGroupId||uid('directory');children.forEach(u=>{u.directoryGroupId=id;u.directoryGroupName=parentName});save();openCustomerDialog('',null,id,parentName)};
+ heading.querySelector('.platform-rename-parent').onclick=()=>openPlatformDirectoryEditor(children,parentName);
+ heading.querySelector('.platform-remove-parent').textContent='解除群組';
+ heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm('解除「'+parentName+'」？平台資料將保留並移至未分組平台。'))return;children.forEach(u=>{u.directoryGroupId=null;delete u.directoryGroupName});save();renderCustomers()};
+
  }
  children.forEach((u,childIndex)=>{
  const group=groups.find(g=>g.id===u.groupId);
@@ -826,6 +832,25 @@ displaySections.forEach(({children,ungrouped})=>{
 });
 $('#groupManagerBtn').onclick=openGroupManager;
 $('#newPlatform').onclick=()=>openCustomerDialog();
+}
+function openPlatformDirectoryEditor(children=[],name=''){
+ const previous=new Set(children.map(u=>u.id));
+ const groupId=children.find(u=>u.directoryGroupId)?.directoryGroupId||uid('directory');
+ const dialog=document.createElement('dialog');
+ dialog.style.cssText='width:min(640px,94vw);max-height:85vh;border:1px solid #cbd8e8;border-radius:14px;background:#fff;color:#26364e;padding:22px';
+ dialog.innerHTML=`<form><h3 style="margin-top:0">編輯平台群組</h3><label>群組名稱<input name="name" required maxlength="100" value="${esc(name)}" style="display:block;width:100%;margin:8px 0 16px;padding:10px"></label><p>勾選要加入的平台；取消勾選會移至未分組平台，平台資料及 GAME LIST 權限不變。</p><div style="max-height:45vh;overflow:auto;border:1px solid #dce5f0;border-radius:8px">${state.customers.map((u,i)=>`<label style="display:flex;align-items:center;gap:10px;padding:10px;border-bottom:1px solid #eef1f6"><input type="checkbox" name="platform" value="${i}" ${previous.has(u.id)?'checked':''}><span>${esc(u.name||'未命名')} · ${esc(u.domain||u.username||'—')}${u.directoryGroupId&&u.directoryGroupId!==groupId?'（目前：'+esc(u.directoryGroupName||'其他群組')+'）':''}</span></label>`).join('')}</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button type="button" class="secondary" data-cancel>取消</button><button type="submit" class="primary">儲存</button></div></form>`;
+ document.body.append(dialog);
+ dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();
+ dialog.querySelector('form').onsubmit=e=>{
+ e.preventDefault();const nextName=dialog.querySelector('[name="name"]').value.trim();
+ if(!nextName)return;
+ const selected=new Set([...dialog.querySelectorAll('[name="platform"]:checked')].map(input=>state.customers[Number(input.value)].id));
+ if(!selected.size){alert('請至少選擇一個平台；如需移出全部平台，請使用解除群組。');return}
+ state.customers.forEach(u=>{if(selected.has(u.id)){u.directoryGroupId=groupId;u.directoryGroupName=nextName}else if(previous.has(u.id)){u.directoryGroupId=null;delete u.directoryGroupName}});
+ save();dialog.close();renderCustomers();
+ };
+ dialog.showModal();
 }
 function renderGroup(g){g.allowedPages||=[];
 const w=$('#workspace'),members=state.customers.filter(u=>u.groupId===g.id);
@@ -911,7 +936,7 @@ $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name)return;
 const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim(),...(editingParentId?{parentId:editingParentId,parentName:editingParentName}:{})};
-if(editingAdoptCustomerId){const adopted=state.customers.find(u=>u.id===editingAdoptCustomerId);if(adopted){adopted.parentId=editingParentId;adopted.parentName=editingParentName}}if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
+if(editingAdoptCustomerId){const adopted=state.customers.find(u=>u.id===editingAdoptCustomerId);if(adopted){adopted.parentId=editingParentId;adopted.parentName=editingParentName}}if(!existing&&editingParentId&&state.customers.some(u=>u.directoryGroupId===editingParentId)){data.directoryGroupId=editingParentId;data.directoryGroupName=editingParentName}if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
 editingCustomerId=null;editingParentId=null;editingParentName='';editingAdoptCustomerId=null;
 save();
 $('#customerDialog').close();
