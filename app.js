@@ -485,7 +485,7 @@ const PLATFORM_IMPORT_VERSION=2,IMPORTED_PLATFORMS=[
  ]
 ];
 const state={categories:[],customerGroups:[],customers:[],customerTypeOptions:[...DEFAULT_CUSTOMER_TYPES],customerProgressOptions:[...DEFAULT_CUSTOMER_PROGRESS],customerCommAppOptions:[...DEFAULT_COMM_APPS],customerOptionVersion:0,platformImportVersion:0,activeCategoryId:null,activePageId:null};
-let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,editingParentId=null,editingParentName='',editingAdoptCustomerId=null,saveQueue=Promise.resolve();
+let currentUniver=null,timer=null,sheetSaveTimer=null,cloud=false,editingCustomerId=null,saveQueue=Promise.resolve();
 const PLATFORM_LIST_PERMISSION='system_all_platforms';
 
 async function openNotificationGame(gameId){
@@ -733,6 +733,30 @@ function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
 function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'&&!window.__omniplaySession?.superAdmin){alert('只有最高管理者可以新增群組');renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group=newCustomerGroup(value);state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
+function platformDirectoryGroups(customers){
+const parentGroups=new Map();
+// 依平台名稱或客戶域名分組，不使用舊主表格 ID。
+const parents=customers.map((_,i)=>i);
+const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
+const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
+const nameIndex=new Map(),domainIndex=new Map(),manualIndex=new Map();
+customers.forEach((u,i)=>{
+ if(Object.prototype.hasOwnProperty.call(u,'directoryGroupId')){
+ if(u.directoryGroupId){if(manualIndex.has(u.directoryGroupId))union(i,manualIndex.get(u.directoryGroupId));else manualIndex.set(u.directoryGroupId,i)}
+ return;
+ }
+ const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase();
+ [[name,nameIndex],[domain,domainIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
+});
+customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
+return parentGroups;
+}
+function directorySummary(children){
+ const names=[...new Set(children.map(u=>String(u.name||'').trim()).filter(Boolean))];
+ const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
+ const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
+ return {names,domains,parentName};
+}
 function renderCustomers(){if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}dispose();syncResourceNavigation(false);rememberView('customers');$('#customerBtn').classList.add('active');document.querySelectorAll('.category-head.active').forEach(element=>element.classList.remove('active'));
 $('.topbar').classList.add('hidden');
 $('#emptyState').classList.add('hidden');
@@ -776,30 +800,14 @@ const permissionsButton=$('#platformAdminPermissionsBtn');
 if(permissionsButton)permissionsButton.onclick=async()=>{if(!window.showOmniplayPermissions)return;await window.showOmniplayPermissions($('#platformAdminPermissions'));permissionsButton.setAttribute('aria-expanded',String(!!$('#platformAdminPermissions').firstElementChild))};
 const rows=$('#platformRows');
 if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
-const parentGroups=new Map();
-// 依平台名稱或客戶域名分組，不使用舊主表格 ID。
-const parents=customers.map((_,i)=>i);
-const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
-const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
-const nameIndex=new Map(),domainIndex=new Map(),manualIndex=new Map();
-customers.forEach((u,i)=>{
- if(Object.prototype.hasOwnProperty.call(u,'directoryGroupId')){
- if(u.directoryGroupId){if(manualIndex.has(u.directoryGroupId))union(i,manualIndex.get(u.directoryGroupId));else manualIndex.set(u.directoryGroupId,i)}
- return;
- }
- const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase();
- [[name,nameIndex],[domain,domainIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
-});
-customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
+const parentGroups=platformDirectoryGroups(customers);
 const groupedPlatforms=[...parentGroups.values()].filter(children=>children.length>1||children[0].directoryGroupId);
 const ungroupedPlatforms=[...parentGroups.values()].filter(children=>children.length===1&&!children[0].directoryGroupId).flat();
 const displaySections=groupedPlatforms.map(children=>({children,ungrouped:false}));
 if(ungroupedPlatforms.length)displaySections.push({children:ungroupedPlatforms,ungrouped:true});
 displaySections.forEach(({children,ungrouped})=>{
- const names=[...new Set(children.map(u=>String(u.name||'').trim()).filter(Boolean))];
- const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
+ const {names,domains,parentName}=directorySummary(children);
  const isGrouped=!ungrouped;
- const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
  if(ungrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading platform-ungrouped-heading';
  heading.innerHTML=`<td colspan="7">未分組平台 <span class="platform-relation">${children.length} 筆資料 · 各平台獨立</span></td>`;
@@ -810,7 +818,7 @@ displaySections.forEach(({children,ungrouped})=>{
  const heading=document.createElement('tr');heading.className='platform-group-heading';
  heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 子平台</button><button type="button" class="platform-rename-parent">編輯群組</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
  rows.append(heading);
- heading.querySelector('.platform-add-child').onclick=()=>{const id=children[0].directoryGroupId||uid('directory');children.forEach(u=>{u.directoryGroupId=id;u.directoryGroupName=parentName});save();openCustomerDialog('',null,id,parentName)};
+ heading.querySelector('.platform-add-child').onclick=()=>openCustomerDialog('',null,children[0].id);
  heading.querySelector('.platform-rename-parent').onclick=()=>openPlatformDirectoryEditor(children,parentName);
  heading.querySelector('.platform-remove-parent').textContent='解除群組';
  heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm('解除「'+parentName+'」？平台資料將保留並移至未分組平台。'))return;children.forEach(u=>{u.directoryGroupId=null;delete u.directoryGroupName});save();renderCustomers()};
@@ -867,7 +875,28 @@ $('#groupPermission').onclick=()=>editGroupPermissions(g)}
 function fillCustomerOptionSelect(id,items,allowEmpty=false){const sel=$(id);
 sel.innerHTML=(allowEmpty?'<option value="">未設定</option>':'')+items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
 $('#groupDialog').showModal();
-setTimeout(()=>$('#groupName').focus(),50)}function openCustomerDialog(groupId,customer=null,parentId=null,parentName='',adoptCustomer=null){editingCustomerId=customer?.id||null;editingParentId=parentId||customer?.parentId||null;editingParentName=parentName||customer?.parentName||'';if(adoptCustomer){editingAdoptCustomerId=adoptCustomer.id}
+setTimeout(()=>$('#groupName').focus(),50)}let directoryChoices=[];
+let initialDirectoryLabel='';
+function openCustomerDialog(groupId,customer=null,groupMemberId=null){
+ editingCustomerId=customer?.id||null;
+ directoryChoices=[];
+ initialDirectoryLabel='';
+ const choices=$('#platformDirectoryOptions');
+ choices.replaceChildren();
+ const used=new Set();
+ for(const children of platformDirectoryGroups(state.customers).values()){
+  if(children.length===1&&!children[0].directoryGroupId)continue;
+  const {parentName}=directorySummary(children);
+  let label=parentName;
+  let suffix=2;
+  while(used.has(label.toLowerCase()))label=parentName+' ('+(suffix++)+')';
+  used.add(label.toLowerCase());
+  const members=children.map(u=>u.id);
+  directoryChoices.push({label,name:parentName,members});
+  choices.append(new Option(label,label));
+  if(members.includes(groupMemberId||customer?.id))initialDirectoryLabel=label;
+ }
+ $('#platformDirectoryName').value=initialDirectoryLabel;
 $('#customerDialogTitle').textContent=customer?'編輯平台':'建立平台';
 $('#customerSubmitBtn').textContent=customer?'儲存變更':'建立平台';
 ['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
@@ -925,21 +954,36 @@ save();
 $('#groupDialog').close();
 renderCustomers()};
 $('#addManagedGroup').onclick=()=>{const name=prompt('新增群組分類名稱：')?.trim();if(!name)return;if(state.customerGroups.some(g=>g.name===name)){alert('已有相同名稱的群組');return}state.customerGroups.push(newCustomerGroup(name));save();openGroupManager()};
-document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isCommApp=target==='customerCommApp',isGroup=target==='customerGroup',label=isType?'客戶群組':isCommApp?'通訊 APP':isGroup?'所屬群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
+document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isCommApp=target==='customerCommApp',isGroup=target==='customerGroup',label=isType?'客戶類型':isCommApp?'通訊 APP':isGroup?'Game List 權限群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
 if(!value)return;
 if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group=newCustomerGroup(value);state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:isCommApp?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}
 save()});
 $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name)return;
-const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim(),...(editingParentId?{parentId:editingParentId,parentName:editingParentName}:{})};
-if(editingAdoptCustomerId){const adopted=state.customers.find(u=>u.id===editingAdoptCustomerId);if(adopted){adopted.parentId=editingParentId;adopted.parentName=editingParentName}}if(!existing&&editingParentId&&state.customers.some(u=>u.directoryGroupId===editingParentId)){data.directoryGroupId=editingParentId;data.directoryGroupName=editingParentName}if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
-editingCustomerId=null;editingParentId=null;editingParentName='';editingAdoptCustomerId=null;
+const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
+const directoryLabel=$('#platformDirectoryName').value.trim();
+if(!existing||directoryLabel!==initialDirectoryLabel){
+ data.directoryGroupId=null;
+ data.directoryGroupName='';
+ if(directoryLabel){
+  const choice=directoryChoices.find(item=>item.label.toLowerCase()===directoryLabel.toLowerCase());
+  const members=choice?state.customers.filter(u=>choice.members.includes(u.id)):[];
+  data.directoryGroupId=members.find(u=>u.directoryGroupId)?.directoryGroupId||uid('directory');
+  data.directoryGroupName=choice?.name||directoryLabel;
+  for(const member of members){
+   member.directoryGroupId=data.directoryGroupId;
+   member.directoryGroupName=data.directoryGroupName;
+  }
+ }
+}
+if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'),...data});
+editingCustomerId=null;
 save();
 $('#customerDialog').close();
 renderCustomers()};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);
-if(d?.id==='customerDialog'){editingCustomerId=null;editingAdoptCustomerId=null;const s=$('#customerGroup');
+if(d?.id==='customerDialog'){editingCustomerId=null;const s=$('#customerGroup');
 s.disabled=false;
 delete s.dataset.lockedGroup}d?.close()});
 window.addEventListener('beforeunload',()=>{dispose();
