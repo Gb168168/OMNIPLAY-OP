@@ -1,20 +1,19 @@
 
 export const DEFAULT_NOTIFICATION_TYPES=[
- {id:'flow-uat',category:'流程',name:'上架 UAT',nameEn:'UAT Release'},
- {id:'flow-pord',category:'流程',name:'上架 PORD',nameEn:'PORD Release'},
- {id:'first-pord',category:'首發',name:'首發平台 PORD',nameEn:'First-launch Platform PORD'},
- {id:'first-pord-extension',category:'首發',name:'首發平台 PORD 延長',nameEn:'First-launch Platform PORD Extension'},
- {id:'other-uat',category:'首發',name:'其他平台(首發後) UAT',nameEn:'Other Platforms (After First Launch) UAT'},
- {id:'other-pord',category:'首發',name:'其他平台(首發後) PORD',nameEn:'Other Platforms (After First Launch) PORD'},
- {id:'selected-uat',category:'特選',name:'特選遊戲 UAT',nameEn:'Selected Games UAT'},
- {id:'selected-pord',category:'特選',name:'特選遊戲 PORD',nameEn:'Selected Games PORD'},
- {id:'materials',category:'其他',name:'素材補充通知',nameEn:'Marketing Materials Update'},
- {id:'schedule-change',category:'其他',name:'新遊戲上線時間調整通知',nameEn:'Game Launch Schedule Change'}
+ {id:'flow-uat',category:'流程',name:'UAT',nameEn:'UAT'},
+ {id:'flow-pord',category:'流程',name:'PROD',nameEn:'PROD'},
+ {id:'flow-uat-no-dm',category:'流程',name:'UAT（無DM版本）',nameEn:'UAT (Without DM)'},
+ {id:'selected-uat',category:'特選',name:'UAT 特選',nameEn:'Exclusive UAT'},
+ {id:'selected-pord',category:'特選',name:'PROD 特選',nameEn:'Exclusive PROD'},
+ {id:'first-pord-extension',category:'特選',name:'PROD 特選-延長通知',nameEn:'Exclusive PROD Extension'},
+ {id:'schedule-change',category:'其他',name:'新遊戲上線時間調整通知',nameEn:'Game Launch Schedule Change'},
+ {id:'schedule-updated',category:'其他',name:'新遊戲上線時間調整 完成通知',nameEn:'Game Launch Schedule Update'},
+ {id:'combined',category:'其他',name:'UAT & PROD 遊戲一起上通知',nameEn:'Combined UAT & PROD Launch'}
 ];
 export function normalizeReleaseTypes(value){
  if(value===undefined)return DEFAULT_NOTIFICATION_TYPES.map(type=>({...type}));
  if(!Array.isArray(value)||value.length>100)throw new Error('通知類型最多 100 個');
- const rows=value.map(type=>({id:String(type?.id||''),category:String(type?.category||'').trim().replace(/^特選遊戲$/,'特選'),name:String(type?.name||'').trim(),nameEn:String(type?.nameEn||'').trim()}));
+ const rows=value.map(type=>({id:String(type?.id||''),category:String(type?.category||'').trim().replace(/^(特選遊戲|首發)$/,'特選'),name:String(type?.name||'').trim(),nameEn:String(type?.nameEn||'').trim()}));
  if(rows.some(type=>!/^[a-zA-Z0-9-]{1,80}$/.test(type.id)||!type.name||type.name.length>80||!type.category||type.category.length>40||type.nameEn.length>120)||new Set(rows.map(type=>type.id)).size!==rows.length)throw new Error('通知類型資料無效');
  return rows;
 }
@@ -27,16 +26,14 @@ export function changeReleaseTypes(current,change){
 }
 export const ENVIRONMENTS={test:{zh:'測試環境上架',en:'Test Environment Release'},production:{zh:'正式環境上架',en:'Production Environment Release'}};
 export const NOTIFICATION_LIMIT=100;
-export function isPordNotification(item){return item?.environment==='production'||/PORD/i.test(item?.typeName||item?.name||item?.environment||'');}
+export function isPordNotification(item){return item?.environment==='production'||/P(?:ROD|ORD)/i.test(item?.typeName||item?.name||item?.environment||'');}
 export function notificationHasNoReleaseDate(item){return isPordNotification(item)||item?.environment==='materials'||/^(素材補充通知|Marketing Materials Update)$/i.test(item?.typeName||item?.name||'');}
-export function notificationCategory(item){const category=String(item.typeCategory||'').replace(/^特選遊戲$/,'特選');return ['流程','首發','特選','其他'].includes(category)?category:(DEFAULT_NOTIFICATION_TYPES.find(type=>type.id===item.environment)?.category||'其他');}
+export function notificationCategory(item){const category=String(item.typeCategory||'').replace(/^(特選遊戲|首發)$/,'特選');return ['流程','首發','特選','其他'].includes(category)?category:(DEFAULT_NOTIFICATION_TYPES.find(type=>type.id===item.environment)?.category||'其他');}
 export function notificationTransition(item,types=DEFAULT_NOTIFICATION_TYPES){
  if(item.status!=='published')return null;
- if(['first-pord','first-pord-extension'].includes(item.environment)||/^首發平台 PORD(?: 延長)?$/i.test(item.typeName||''))return {typeId:'other-uat',label:'其他平台(首發後) UAT'};
- const name=item.typeName||types.find(type=>type.id===item.environment)?.name||(item.environment==='test'?'上架 UAT':'');
- if(!/UAT/i.test(name))return null;
- const target=types.find(type=>type.id!==item.environment&&type.id===item.environment?.replace(/-uat$/,'-pord'))||types.find(type=>type.name.replace(/\s/g,'')===name.replace(/UAT/ig,'PORD').replace(/\s/g,''));
- return {typeId:target?.id||'',targetName:name.replace(/UAT/ig,'PORD'),label:'轉PORD'};
+ const targets={'flow-uat':'flow-pord','flow-uat-no-dm':'flow-pord','selected-uat':'selected-pord','other-uat':'flow-pord',test:'flow-pord'};
+ const target=types.find(type=>type.id===targets[item.environment]);
+ return target?{typeId:target.id,targetName:target.name,label:'轉 PROD'}:null;
 }
 export function buildReleaseNotification(input,{uid,name,game,groups,now=new Date().toISOString(),id,types}){
  if(!uid||!id||!game?.id)throw new Error('請選擇遊戲並確認登入狀態');
@@ -66,8 +63,8 @@ export function filterReleaseGames(games,records,groups,groupId='',query=''){
 export function defaultReleaseGroupIds(gameId,records,groups){const assigned=new Set(Array.isArray(records[gameId]?.groupIds)?records[gameId].groupIds:[]);return groups.filter(group=>assigned.has(group.id)).map(group=>group.id);}
 
 export function upgradeReleaseTypeConfig(config){
- if(config?.version>=2)return normalizeReleaseTypes(config.types).filter(type=>type.id!=='first-uat');
- const existing=normalizeReleaseTypes(config?.types),defaultIds=new Set(DEFAULT_NOTIFICATION_TYPES.map(type=>type.id));
- return normalizeReleaseTypes([...DEFAULT_NOTIFICATION_TYPES,...existing.filter(type=>!defaultIds.has(type.id)&&type.id!=='first-uat')]);
+ if(config?.version>=5)return normalizeReleaseTypes(config.types);
+ const builtIn=new Set([...DEFAULT_NOTIFICATION_TYPES.map(type=>type.id),'first-uat','first-pord','other-uat','other-pord','materials']);
+ const custom=normalizeReleaseTypes(config?.types).filter(type=>!builtIn.has(type.id));
+ return normalizeReleaseTypes([...DEFAULT_NOTIFICATION_TYPES,...custom]);
 }
-
