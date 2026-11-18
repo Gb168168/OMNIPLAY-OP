@@ -3,6 +3,7 @@ export const DEFAULT_NOTIFICATION_TYPES=[
  {id:'flow-uat',category:'流程',name:'UAT',nameEn:'UAT'},
  {id:'flow-pord',category:'流程',name:'PROD',nameEn:'PROD'},
  {id:'flow-uat-no-dm',category:'流程',name:'UAT（無DM版本）',nameEn:'UAT (Without DM)'},
+ {id:'flow-uat-dm',category:'流程',name:'UAT（補DM版本）',nameEn:'UAT (Marketing Assets Update)'},
  {id:'selected-uat',category:'特選',name:'UAT 特選',nameEn:'Exclusive UAT'},
  {id:'selected-pord',category:'特選',name:'PROD 特選',nameEn:'Exclusive PROD'},
  {id:'first-pord-extension',category:'特選',name:'PROD 特選-延長通知',nameEn:'Exclusive PROD Extension'},
@@ -31,7 +32,7 @@ export function notificationHasNoReleaseDate(item){return isPordNotification(ite
 export function notificationCategory(item){const category=String(item.typeCategory||'').replace(/^(特選遊戲|首發)$/,'特選');return ['流程','首發','特選','其他'].includes(category)?category:(DEFAULT_NOTIFICATION_TYPES.find(type=>type.id===item.environment)?.category||'其他');}
 export function notificationTransition(item,types=DEFAULT_NOTIFICATION_TYPES){
  if(item.status!=='published')return null;
- const targets={'flow-uat':'flow-pord','flow-uat-no-dm':'flow-pord','selected-uat':'selected-pord','other-uat':'flow-pord',test:'flow-pord'};
+ const targets={'flow-uat':'flow-pord','flow-uat-no-dm':'flow-pord','flow-uat-dm':'flow-pord','selected-uat':'selected-pord','other-uat':'flow-pord',test:'flow-pord'};
  const target=types.find(type=>type.id===targets[item.environment]);
  return target?{typeId:target.id,targetName:target.name,label:'轉 PROD'}:null;
 }
@@ -63,7 +64,14 @@ export function filterReleaseGames(games,records,groups,groupId='',query=''){
 export function defaultReleaseGroupIds(gameId,records,groups){const assigned=new Set(Array.isArray(records[gameId]?.groupIds)?records[gameId].groupIds:[]);return groups.filter(group=>assigned.has(group.id)).map(group=>group.id);}
 
 export function upgradeReleaseTypeConfig(config){
- if(config?.version>=5)return normalizeReleaseTypes(config.types);
+ if(config?.version>=5){
+  const types=normalizeReleaseTypes(config.types);
+  if(config.version===5&&!types.some(type=>type.id==='flow-uat-dm')){
+   const after=types.findIndex(type=>type.id==='flow-uat-no-dm');
+   types.splice(after<0?types.length:after+1,0,{...DEFAULT_NOTIFICATION_TYPES.find(type=>type.id==='flow-uat-dm')});
+  }
+  return types;
+ }
  const builtIn=new Set([...DEFAULT_NOTIFICATION_TYPES.map(type=>type.id),'first-uat','first-pord','other-uat','other-pord','materials']);
  const custom=normalizeReleaseTypes(config?.types).filter(type=>!builtIn.has(type.id));
  return normalizeReleaseTypes([...DEFAULT_NOTIFICATION_TYPES,...custom]);
