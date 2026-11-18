@@ -36,11 +36,11 @@ if (session?.superAdmin) {
     catch (error) { status.textContent = '⚠️ ' + error.message; }
     finally { resync.disabled = false; }
   };
-  const showPermissions = async (host = null) => {
+  const showPermissions = async (host = null, person = null) => {
     if (host?.querySelector('.owner-permissions-dialog')) { host.replaceChildren(); return; }
     const dialog = document.createElement(host ? 'section' : 'dialog'); dialog.className = 'owner-permissions-dialog'; dialog.setAttribute('aria-labelledby', 'ownerPermissionsTitle'); dialog.setAttribute('aria-describedby', 'ownerPermissionsHelp'); if (host) { host.append(dialog); dialog.close = () => { dialog.remove(); document.querySelector('#platformAdminPermissionsBtn')?.setAttribute('aria-expanded', 'false'); }; } else document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove());
-    const title = document.createElement('h2'); title.textContent = session.bootstrap ? '設定最高管理者 Rondo' : '管理員權限'; title.id = 'ownerPermissionsTitle';
+    const title = document.createElement('h2'); title.textContent = person ? '管理此人 · '+person.username : session.bootstrap ? '設定最高管理者 Rondo' : '管理員權限'; title.id = 'ownerPermissionsTitle';
     const header = document.createElement('div'); header.className = 'owner-permissions-head';
     const heading = document.createElement('div'), eyebrow = document.createElement('div'); eyebrow.className = 'eyebrow'; eyebrow.textContent = 'ACCESS MANAGEMENT'; heading.append(eyebrow, title);
     const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.className = 'icon-close'; dismiss.textContent = '×'; dismiss.setAttribute('aria-label', '關閉管理員權限'); dismiss.onclick = () => dialog.close(); header.append(heading, dismiss); dialog.append(header);
@@ -59,15 +59,15 @@ if (session?.superAdmin) {
         catch (error) { message.textContent = error.message; submit.disabled = false; close.disabled = false; dismiss.disabled = false; }
       };
     } else {
-      help.textContent = '只有 Rondo 能指定或取消管理員。其他管理員可以編輯網站、查看登入紀錄，但不能任免管理員或讀取人員密碼。';
+      help.textContent = '由 Rondo 管理此帳號的角色及通知固定模板權限。';
       const list = document.createElement('div'); list.className = 'owner-permissions-list'; body.append(list);
       message.textContent = '正在載入人員…';
       try {
         const db = getFirestore();
         const [profiles, grants] = await Promise.all([listMemberProfiles(), getDocs(collection(db, 'omniplay-template-grants'))]);
         const granted = new Set(grants.docs.map(row => row.id));
-        const enabled = profiles.filter(item => item.enabled);
-        message.textContent = enabled.length ? '' : '目前沒有啟用的人員。';
+        const enabled = profiles.filter(item => item.enabled && (!person || (item.groupId === person.groupId && (person.uid ? item.uid === person.uid : item.username?.trim().toLowerCase() === person.username.trim().toLowerCase()))));
+        message.textContent = enabled.length ? '' : '此帳號尚未同步或未啟用。';
         for (const profile of enabled) {
           const row = document.createElement('div'); row.className = 'owner-permissions-row';
           const identity = document.createElement('div'); identity.className = 'owner-permissions-identity';
@@ -80,7 +80,7 @@ if (session?.superAdmin) {
             select.value = profile.role === 'admin' ? 'admin' : 'member';
             const grant = document.createElement('input'), grantLabel = document.createElement('label');
             const eligible = ['OMNIPLAY','OMNIPLAY Support'].includes(profile.groupName);
-            grant.type = 'checkbox'; grant.checked = granted.has(profile.uid); grant.disabled = !eligible;
+            grant.type = 'checkbox'; grant.checked = granted.has(profile.uid); grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked);
             grantLabel.append(grant, ' 管理通知固定模板');
             grant.onchange = async () => {
               grant.disabled = select.disabled = true;
@@ -89,9 +89,9 @@ if (session?.superAdmin) {
                 if (grant.checked) await setDoc(ref, {enabled:true}); else await deleteDoc(ref);
                 message.textContent = profile.username + (grant.checked ? ' 已取得模板權限' : ' 的模板權限已收回');
               } catch (error) { grant.checked = !grant.checked; message.textContent = error.message; }
-              finally { grant.disabled = select.disabled = false; }
+              finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); }
             };
-            select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value; if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible; } }; row.append(select, grantLabel);
+            select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value; if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); } }; row.append(select, grantLabel);
           }
           list.append(row);
         }
@@ -101,7 +101,11 @@ if (session?.superAdmin) {
     const hint = document.createElement('small'); hint.textContent = session.bootstrap ? '最高管理者交接' : '權限變更於下次登入生效'; footer.append(hint, close); dialog.append(footer); if (!host) dialog.showModal();
   };
   button.onclick = () => showPermissions();
-  window.showOmniplayPermissions = showPermissions;
+  if (!session.bootstrap) {
+    window.manageGroupPerson = person => showPermissions(null, person);
+    window.showOmniplayPermissions = showPermissions;
+    window.listGroupAccounts = async () => (await listMemberProfiles()).filter(p=>p.enabled).map(({uid,username,groupId,groupName})=>({uid,username,groupId,groupName}));
+  }
 }
 
 
