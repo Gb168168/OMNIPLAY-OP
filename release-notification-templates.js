@@ -17,8 +17,8 @@ export const RELEASE_TEMPLATES={
     "en": "◀️ OMNIPLAY PROD Environment – Exclusive Game Launch Announcement ▶️\n\nGame ID：\nGame Name：\nGame List：\nGame Assets：\nMarketing Resources：\n\n⭐  Exclusive Availability Period: UTC+8)\n✔️ The game is now available in the PROD environment. Kindly assist in arranging its launch on your platform.\n\nShould you have any questions or feedback, please feel free to contact us.\nBest regards,  \nOMNIPLAY Team"
   },
   "first-pord-extension": {
-    "zh": "◀️ OMNIPLAY 正式環境 - 遊戲搶先體驗延長通知 ▶️\n\n遊戲 ID：\n遊戲名稱：\n\n📢 搶先體驗期間延長通知\n\n⭐️ 原搶先體驗期間將延長〔天數〕天，最新截止時間為〔UTC+8 YYYY/MM/DD HH:mm〕\n\n✔️ 敬請貴平台於搶先體驗期間持續向玩家開放本遊戲體驗。\n\n如有任何問題或建議，歡迎隨時提出與回饋，感謝您的支持與配合。\n\nOMNIPLAY 團隊 敬上",
-    "en": "◀️ OMNIPLAY PROD Environment - Game Early Access Extension Notice ▶️\n\nGame ID: \nGame Name: \n\n📢 Early Access Extension Notice\n⭐️ The original early access period will be extended by [number] days. The new end date is 〔UTC+8 YYYY/MM/DD HH:mm〕. \n\n✔️ Please continue to make this game available to players on your platform throughout the Early Access period.\n\nIf you have any questions or feedback, please feel free to reach out. Thank you for your support and cooperation.\n\nBest regards,\nOMNIPLAY Team"
+    "zh": "◀️ OMNIPLAY 正式環境 - 遊戲搶先體驗延長通知 ▶️\n\n遊戲 ID：\n遊戲名稱：\n\n📢 搶先體驗期間延長通知\n\n⭐️ 獨家開放期間調整：\n原期間：（UTC+8）\n延長至：（UTC+8）\n\n✔️ 敬請貴平台於搶先體驗期間持續向玩家開放本遊戲體驗。\n\n如有任何問題或建議，歡迎隨時提出與回饋，感謝您的支持與配合。\n\nOMNIPLAY 團隊 敬上",
+    "en": "◀️ OMNIPLAY PROD Environment - Game Early Access Extension Notice ▶️\n\nGame ID: \nGame Name: \n\n📢 Early Access Extension Notice\n⭐️ Updated Exclusive Availability Period:\nOriginal Period: (UTC+8)\nExtended Until: (UTC+8)\n\n✔️ Please continue to make this game available to players on your platform throughout the Early Access period.\n\nIf you have any questions or feedback, please feel free to reach out. Thank you for your support and cooperation.\n\nBest regards,\nOMNIPLAY Team"
   },
   "materials": {
     "zh": "◀️ OMNIPLAY - 新遊戲行銷素材補充通知 ▶️\n\n以下補充提供先前公告遊戲的相關行銷素材，敬請查收！\n\n遊戲 ID：\n遊戲名稱：\n遊戲素材：\n行銷資源：\n\n✔️ 本次補充提供遊戲相關素材，供貴司後續推廣使用。\n\n※ 本通知僅為素材補充，不影響原訂遊戲上線時程。\n\nOMNIPLAY 團隊 敬上",
