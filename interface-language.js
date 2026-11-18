@@ -379,6 +379,8 @@ IR平台|IR Platform
 取消編輯|Cancel Editing
 刪除客戶|Delete Customer
 ＋ 新增客戶|＋ Add Customer
+搜尋平台名稱或域名|Search platform name or domain
+找不到符合的平台|No matching platforms
 ＋ 新增平台|＋ Add Platform
 ＋ 在此分組新增平台|＋ Add platform to this group
 按右上「新增平台」開始|Select Add Platform above to start
