@@ -42,7 +42,7 @@ export const RELEASE_TEMPLATES={
   }
 };
 
-const TEMPLATE_KEYS={'flow-uat':'uat','other-uat':'uat','selected-uat':'first-uat','first-uat':'first-uat','flow-pord':'pord','other-pord':'pord','selected-pord':'first-pord','first-pord':'first-pord','first-pord-extension':'first-pord-extension','materials':'materials','schedule-change':'schedule-change'};
+const TEMPLATE_KEYS={'flow-uat-no-dm':'uat-no-dm','schedule-updated':'schedule-updated','combined':'combined','flow-uat':'uat','other-uat':'uat','selected-uat':'first-uat','first-uat':'first-uat','flow-pord':'pord','other-pord':'pord','selected-pord':'first-pord','first-pord':'first-pord','first-pord-extension':'first-pord-extension','materials':'materials','schedule-change':'schedule-change'};
 export function releaseTemplate(typeId,game,variant='standard'){
  let key=TEMPLATE_KEYS[typeId];if(typeId==='flow-pord'&&variant==='combined')key='combined';if(['uat','first-uat'].includes(key)&&variant==='no-dm')key='uat-no-dm';if(typeId==='schedule-change'&&variant==='rescheduled')key='schedule-updated';
  const template=RELEASE_TEMPLATES[key];if(!template)return null;
