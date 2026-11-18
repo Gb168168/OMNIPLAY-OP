@@ -1,4 +1,4 @@
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=20261026-api-entry-editor-1';
 const session = window.__omniplaySession;
 if (session?.superAdmin) {
@@ -63,7 +63,9 @@ if (session?.superAdmin) {
       const list = document.createElement('div'); list.className = 'owner-permissions-list'; body.append(list);
       message.textContent = '正在載入人員…';
       try {
-        const profiles = await listMemberProfiles();
+        const db = getFirestore();
+        const [profiles, grants] = await Promise.all([listMemberProfiles(), getDocs(collection(db, 'omniplay-template-grants'))]);
+        const granted = new Set(grants.docs.map(row => row.id));
         const enabled = profiles.filter(item => item.enabled);
         message.textContent = enabled.length ? '' : '目前沒有啟用的人員。';
         for (const profile of enabled) {
@@ -76,7 +78,20 @@ if (session?.superAdmin) {
             const select = document.createElement('select'); select.setAttribute('aria-label', profile.username + ' 的角色');
             for (const [value, text] of [['member', '一般使用者'], ['admin', '管理員']]) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); }
             select.value = profile.role === 'admin' ? 'admin' : 'member';
-            select.onchange = async () => { select.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; } }; row.append(select);
+            const grant = document.createElement('input'), grantLabel = document.createElement('label');
+            const eligible = ['OMNIPLAY','OMNIPLAY Support'].includes(profile.groupName);
+            grant.type = 'checkbox'; grant.checked = granted.has(profile.uid); grant.disabled = !eligible;
+            grantLabel.append(grant, ' 管理通知固定模板');
+            grant.onchange = async () => {
+              grant.disabled = select.disabled = true;
+              const ref = doc(db, 'omniplay-template-grants', profile.uid);
+              try {
+                if (grant.checked) await setDoc(ref, {enabled:true}); else await deleteDoc(ref);
+                message.textContent = profile.username + (grant.checked ? ' 已取得模板權限' : ' 的模板權限已收回');
+              } catch (error) { grant.checked = !grant.checked; message.textContent = error.message; }
+              finally { grant.disabled = select.disabled = false; }
+            };
+            select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value; if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible; } }; row.append(select, grantLabel);
           }
           list.append(row);
         }

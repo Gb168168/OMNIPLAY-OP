@@ -1,6 +1,6 @@
 import {releaseTemplate} from './release-notification-templates.js?v=uat-dm-1';
 import {prepareReleaseImage,uploadReleaseImages,readReleaseImage,MAX_RELEASE_IMAGES} from './release-notification-images.js?v=20261025-images-1';
-import {getFirestore,doc,collection,query,orderBy,limit,where,getDocs,getDoc,getDocFromCache,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import {getFirestore,doc,collection,query,orderBy,limit,where,serverTimestamp,getDocs,getDoc,getDocFromCache,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import {getAuth} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
 import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames,defaultReleaseGroupIds,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate} from './release-notification-model.js?v=uat-dm-1';
@@ -218,6 +218,58 @@ export async function loadReleaseComposeData(db,state={}){
  return {rows,records,workspace,types:upgradeReleaseTypeConfig(types.exists()?types.data():undefined),limited};
 }
 function notificationTypeLabel(item,admin=false){const en=!admin&&english();return (en?item.typeNameEn||item.typeName:item.typeName)||ENVIRONMENTS[item.environment]?.[en?'en':'zh']||item.environment}
+const templateLabels={titleZh:'通知標題（中）',titleEn:'通知標題（英）',messageZh:'通知說明（中）',messageEn:'通知說明（英）'};
+function rawTemplateFields(type,record){
+ const source=record?.fields||releaseTemplate(type)||{};
+ return Object.fromEntries(Object.keys(templateLabels).map(key=>[key,source[key]||'']));
+}
+function composeTemplate(type,game,templates){
+ const base=releaseTemplate(type,game),saved=templates.get(type);
+ if(!saved)return base;
+ const values={gameId:game?.id,gameNameZh:game?.mandarinName,gameNameEn:game?.name};
+ const fields=Object.fromEntries(Object.entries(saved.fields).map(([key,text])=>[key,text.replace(/\{\{(gameId|gameNameZh|gameNameEn)\}\}/g,(_,token)=>values[token]||'')]));
+ return {...base,...fields};
+}
+function editFixedTemplate(db,type,typeName,templates,author,onSaved){
+ const dialog=notificationDialog('releaseFixedTemplate'),current=templates.get(type),before=rawTemplateFields(type,current);
+ const fields=Object.entries(templateLabels).map(([key,title])=>'<label>'+title+'<textarea name="'+key+'" maxlength="'+(key.startsWith('title')?200:2000)+'">'+esc(before[key])+'</textarea></label>').join('');
+ dialog.innerHTML='<form class="release-shell release-form"><div class="release-head"><h2>編輯固定模板 · '+esc(typeName)+'</h2><button type="button" data-close>關閉</button></div><p>儲存後，新建立的通知會套用此版本。可使用 {{gameId}}、{{gameNameZh}}、{{gameNameEn}}，日期欄位請保留模板中的日期標記。</p>'+fields+'<details><summary>修改紀錄</summary><div data-history></div></details><p role="status"></p><button type="submit">儲存為固定模板</button></form>';
+ const form=dialog.querySelector('form'),status=form.querySelector('[role=status]'),ref=doc(db,'omniplay-notification-templates',type);
+ form.querySelector('[data-close]').onclick=()=>dialog.close();
+ form.querySelector('details').ontoggle=async event=>{
+  if(!event.target.open)return;
+  const target=form.querySelector('[data-history]');
+  try{
+   const result=await getDocs(query(collection(ref,'history'),orderBy('at','desc')));
+   target.innerHTML=result.docs.map(row=>{
+    const data=row.data(),changes=Object.entries(templateLabels).filter(([key])=>data.before[key]!==data.fields[key]);
+    return '<details><summary>'+esc(data.author)+' · '+esc(time(data.at.toDate()))+'</summary>'+changes.map(([key,title])=>'<strong>'+title+'</strong><p>修改前<br>'+esc(data.before[key])+'</p><p>修改後<br>'+esc(data.fields[key])+'</p>').join('')+'</details>';
+   }).join('')||'尚無修改紀錄';
+  }catch(error){target.textContent=releaseErrorMessage(error)}
+ };
+ form.onsubmit=async event=>{
+  event.preventDefault();
+  const fields=Object.fromEntries(Object.keys(templateLabels).map(key=>[key,form.elements[key].value.trim()]));
+  if(!fields.titleZh&&!fields.titleEn){status.textContent='請填寫通知標題';return}
+  if(Object.keys(fields).every(key=>fields[key]===before[key])){status.textContent='內容尚未變更';return}
+  const submit=form.querySelector('[type=submit]');submit.disabled=true;
+  const version=doc(collection(ref,'history')),data={fields,before,uid:getAuth().currentUser.uid,author,revision:version.id,at:serverTimestamp()};
+  try{
+   await runTransaction(db,async tx=>{
+    const snapshot=await tx.get(ref);
+    if(snapshot.data()?.revision!==current?.revision){
+     if(snapshot.exists())templates.set(type,snapshot.data());
+     throw new Error('其他管理員已更新模板，請關閉後重新開啟編輯。');
+    }
+    tx.set(ref,data);tx.set(version,data);
+   });
+   templates.set(type,data);onSaved();dialog.close();
+  }catch(error){status.textContent=releaseErrorMessage(error)}
+  finally{submit.disabled=false}
+ };
+ dialog.showModal();
+}
+
 export function installReleaseNotifications({db=getFirestore(),state,openNotificationGame}){
  if(document.getElementById('releaseNotificationBell')||!window.__omniplaySession)return;
  const session=window.__omniplaySession,admin=!!session.canEdit,groupId=session.groupId;
@@ -334,6 +386,17 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    let existingReadLimited=false;if(existing){try{const latest=await getDoc(doc(db,RELEASE_COLLECTION,existing.id));if(!latest.exists()||latest.data().status!=='published')throw new Error('通知已撤回或不存在');existing=latest.data();}catch(error){if(!releaseQuotaError(error))throw error;existingReadLimited=true;}}
    const sourceData=await loadReleaseComposeData(db,state),{rows:rowsSnapshot,records:recordsSnapshot,workspace:workspaceSnapshot,types:typesSnapshot,limited:sourceLimited}=sourceData,quotaLimited=sourceLimited||existingReadLimited;
    let notificationTypes=typesSnapshot;
+   const templates=new Map(),uid=getAuth().currentUser.uid;
+   const rondo=session.superAdmin&&!session.bootstrap;
+   let editorName=rondo?'Rondo':'';
+   if(!quotaLimited){
+    const saved=await getDocs(collection(db,'omniplay-notification-templates'));
+    saved.forEach(row=>templates.set(row.id,row.data()));
+    if(!rondo&&!session.bootstrap){
+     const [profile,grant]=await Promise.all([getDoc(doc(db,'omniplay-member-access',uid)),getDoc(doc(db,'omniplay-template-grants',uid))]);
+     if(profile.data()?.enabled&&grant.exists())editorName=profile.data().username;
+    }
+   }
    const records=recordsSnapshot.data()?.records||{},rows=preferredGameRows(gameListRows(rowsSnapshot.data()||{})),games=new Map();
    for(const row of rows){const id=String(row[0]??'').trim();if(id&&!games.has(id))games.set(id,{id,name:String(row[2]??''),version:String(row[1]??''),mandarinName:String(records[id]?.mandarinName||'')});}
    if(existing?.game&&!games.has(existing.game.id))games.set(existing.game.id,existing.game);
@@ -376,7 +439,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    let previousTemplate={titleZh:'',titleEn:'',messageZh:'',messageEn:''},previousTemplateType='';
    const applyTemplate=(force=false)=>{
     form.querySelector('.release-image-upload').hidden=omitImages();
-    const selectedType=form.elements.environment.value,game=games.get(form.elements.gameId.value);const copy=selectedType==='flow-uat-dm'?releaseTemplate(selectedType,game):notificationTemplateDates(releaseTemplate(selectedType,game),selectedType==='first-pord-extension'?{}:(records[game?.id]||{})),fields=['titleZh','titleEn','messageZh','messageEn'];
+    const selectedType=form.elements.environment.value,game=games.get(form.elements.gameId.value);const copy=selectedType==='flow-uat-dm'?composeTemplate(selectedType,game,templates):notificationTemplateDates(composeTemplate(selectedType,game,templates),selectedType==='first-pord-extension'?{}:(records[game?.id]||{})),fields=['titleZh','titleEn','messageZh','messageEn'];
     const selectedTypeInfo=notificationTypes.find(type=>type.id===selectedType),pord=isPordNotification({environment:selectedType,typeName:selectedTypeInfo?.name}),noReleaseDate=notificationHasNoReleaseDate({environment:selectedType,typeName:selectedTypeInfo?.name});
     if(form.elements.releaseAt){form.elements.releaseAt.required=!noReleaseDate;form.elements.releaseAt.disabled=noReleaseDate;form.querySelector('[data-release-date-label]').textContent=selectedType==='flow-uat-dm'?'正式環境預計上線日期（UTC+8）':(pord?'PROD ':'')+'上架時間（UTC+8）';if(noReleaseDate)form.elements.releaseAt.value='';}
     if(!noReleaseDate&&game&&form.elements.releaseAt){const record=records[game.id]||{},date=selectedType==='flow-uat-dm'?defaultNotificationDate({plannedReleaseDate:record.plannedReleaseDate}):defaultNotificationDate(record);if(previousDateGameId!==game.id||!form.elements.releaseAt.value||form.elements.releaseAt.value===previousAutoReleaseDate)form.elements.releaseAt.value=date;previousDateGameId=game.id;previousAutoReleaseDate=date;}
@@ -394,6 +457,15 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    };
    form.elements.releaseAt.addEventListener('input',syncDmDate);
    const replaceTemplate=()=>{const edited=['titleZh','titleEn','messageZh','messageEn'].some(field=>form.elements[field].value&&form.elements[field].value!==previousTemplate[field]);if(edited&&!confirm('重新套用會取代目前已修改的中英文標題與說明，是否繼續？'))return false;applyTemplate(true);return true;};
+   if(editorName&&!quotaLimited){
+    const edit=document.createElement('button');
+    edit.type='button';edit.textContent='編輯固定模板';
+    form.querySelector('[data-apply-template]').after(edit);
+    edit.onclick=()=>{
+     const type=notificationTypes.find(row=>row.id===form.elements.environment.value);
+     if(type)editFixedTemplate(db,type.id,type.name,templates,editorName,()=>{form.querySelector('[data-template-note]').textContent='固定模板已儲存。需要更新當次草稿時，請選「重新套用模板」。';});
+    };
+   }
    const autoTitle=()=>applyTemplate();
    form.querySelector('[data-apply-template]').onclick=replaceTemplate;
 

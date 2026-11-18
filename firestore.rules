@@ -45,6 +45,43 @@ service cloud.firestore {
         && (uid != ownerUid() || (request.resource.data.enabled == true && request.resource.data.username.lower() == 'rondo'));
       allow delete: if isOwner() && uid != ownerUid();
     }
+    function templateEditor() {
+      return isRondo() || (isAdmin() && !isOwner()
+        && exists(/databases/$(database)/documents/omniplay-template-grants/$(request.auth.uid)));
+    }
+    match /omniplay-template-grants/{uid} {
+      allow list, delete: if isRondo();
+      allow get: if isRondo() || (signedIn() && uid == request.auth.uid);
+      allow create, update: if isRondo()
+        && get(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.groupName in ['OMNIPLAY','OMNIPLAY Support']
+        && get(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.enabled == true
+        && request.resource.data == {'enabled': true};
+    }
+    function templateFields(v) {
+      return v is map && v.keys().hasOnly(['titleZh','titleEn','messageZh','messageEn'])
+        && v.titleZh is string && v.titleZh.size() <= 200 && v.titleEn is string && v.titleEn.size() <= 200
+        && v.messageZh is string && v.messageZh.size() <= 2000 && v.messageEn is string && v.messageEn.size() <= 2000;
+    }
+    match /omniplay-notification-templates/{type} {
+      function revision(d) {
+        return d.keys().hasOnly(['fields','before','revision','uid','at','author'])
+          && templateFields(d.fields) && templateFields(d.before)
+          && (d.fields.titleZh.size() > 0 || d.fields.titleEn.size() > 0)
+          && d.revision is string && d.revision.matches('[a-zA-Z0-9]{20}')
+          && d.uid == request.auth.uid && d.at == request.time
+          && d.author == (isRondo() ? 'Rondo' : member().username)
+          && !exists(/databases/$(database)/documents/omniplay-notification-templates/$(type)/history/$(d.revision))
+          && getAfter(/databases/$(database)/documents/omniplay-notification-templates/$(type)/history/$(d.revision)).data == d;
+      }
+      allow read: if isAdmin();
+      allow create: if templateEditor() && revision(request.resource.data);
+      allow update: if templateEditor() && revision(request.resource.data) && request.resource.data.before == resource.data.fields;
+      match /history/{rev} {
+        allow read: if templateEditor();
+        allow create: if templateEditor() && rev == request.resource.data.revision
+          && getAfter(/databases/$(database)/documents/omniplay-notification-templates/$(type)).data == request.resource.data;
+      }
+    }
     match /omniplay-member-bindings/{id} { allow read, write: if isOwner(); }
     match /omniplay-member-secrets/{id} { allow read, write: if isOwner(); }
     match /omniplay-platform-access/{platformId} {
