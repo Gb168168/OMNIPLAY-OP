@@ -759,6 +759,7 @@ function directorySummary(children){
 }
 function renderCustomers({editedId}={}){if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}
 const oldViewport=$('#workspace .platform-table-wrap');
+const previousSearch=$('#platformDirectorySearch')?.value||'';
 const oldTop=oldViewport?.scrollTop||0;
 const oldLeft=oldViewport?.scrollLeft||0;
 const rowSelector=editedId?'tr[data-platform-id="'+CSS.escape(String(editedId))+'"]':null;
@@ -792,7 +793,9 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-member td{background:#f8fbff}
 .platform-list-workspace .platform-directory .platform-group-member td:first-child{border-left:3px solid #b8cff1}
 .platform-list-workspace .platform-directory .platform-block-end td{border-bottom:1px solid #cddbed}
-.platform-list-workspace .platform-directory .platform-group-heading td:first-child{text-align:left}
+#workspace.platform-list-workspace .platform-directory tr>:first-child{text-align:left!important;padding-inline-start:14px}
+#platformDirectorySearch{width:min(24rem,100%);margin:0 0 10px;flex:none}
+#platformRows tr[hidden]{display:none!important}
 .platform-list-workspace .platform-directory .platform-relation{font-size:12px;font-weight:400;color:#536d91;margin-left:12px}
 .platform-list-workspace .platform-directory .platform-group-heading .platform-action-row{justify-content:flex-end}
 .platform-list-workspace .platform-directory .platform-action-row{display:flex;justify-content:flex-end;align-items:center;gap:6px}
@@ -802,11 +805,12 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-pill{display:inline-block;padding:3px 8px;background:#edf3fd;border-radius:6px;color:#315f9c;font-size:12px}
 .platform-list-workspace .platform-directory .platform-muted{color:#a0aabb}
 .platform-list-workspace .platform-directory .platform-notes{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
-</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>相同平台名稱或客戶域名自動集中；每筆資料直接顯示，不重複展開表格。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplaySession?.superAdmin?'<button class="secondary" id="platformAdminPermissionsBtn" aria-expanded="false" aria-controls="platformAdminPermissions">管理員權限</button>':''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><div id="platformAdminPermissions"></div><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
+</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>相同平台名稱或客戶域名自動集中；每筆資料直接顯示，不重複展開表格。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplaySession?.superAdmin?'<button class="secondary" id="platformAdminPermissionsBtn" aria-expanded="false" aria-controls="platformAdminPermissions">管理員權限</button>':''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><div id="platformAdminPermissions"></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
 const permissionsButton=$('#platformAdminPermissionsBtn');
 if(permissionsButton)permissionsButton.onclick=async()=>{if(!window.showOmniplayPermissions)return;await window.showOmniplayPermissions($('#platformAdminPermissions'));permissionsButton.setAttribute('aria-expanded',String(!!$('#platformAdminPermissions').firstElementChild))};
 const rows=$('#platformRows');
-if(!customers.length){$('.platform-table-wrap').classList.add('hidden');$('#platformEmpty').classList.remove('hidden')}
+const search=$('#platformDirectorySearch');
+search.value=previousSearch;
 const parentGroups=platformDirectoryGroups(customers);
 const groupedPlatforms=[...parentGroups.values()].filter(children=>children.length>1||children[0].directoryGroupId);
 const ungroupedPlatforms=[...parentGroups.values()].filter(children=>children.length===1&&!children[0].directoryGroupId).flat();
@@ -823,7 +827,7 @@ displaySections.forEach(({children,ungrouped})=>{
  if(isGrouped){
  const relation=children.some(u=>u.directoryGroupId)?'自訂群組':names.length===1?'相同平台名稱':(domains.length===1?'相同客戶域名':'平台名稱／客戶域名關聯');
  const heading=document.createElement('tr');heading.className='platform-group-heading';
- heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">${children.length} 筆資料</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 在此分組新增平台</button><button type="button" class="platform-rename-parent">編輯群組</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
+ heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 在此分組新增平台</button><button type="button" class="platform-rename-parent">編輯群組</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
  rows.append(heading);
  heading.querySelector('.platform-add-child').onclick=()=>openCustomerDialog('',null,children[0].id);
  heading.querySelector('.platform-rename-parent').onclick=()=>openPlatformDirectoryEditor(children,parentName);
@@ -843,6 +847,30 @@ displaySections.forEach(({children,ungrouped})=>{
  rows.append(tr);
  });
 });
+function filterPlatformRows(){
+ const query=search.value.trim().toLowerCase();
+ let heading=null;
+ let matches=0;
+ for(const row of rows.rows){
+  if(row.classList.contains('platform-group-heading')){
+   heading=row;
+   heading.hidden=true;
+   continue;
+  }
+  const matchesQuery=[row.cells[0],row.cells[1]].some(cell=>cell.textContent.toLowerCase().includes(query));
+  row.hidden=!matchesQuery;
+  if(matchesQuery){
+   heading.hidden=false;
+   matches++;
+  }
+ }
+ const empty=$('#platformEmpty');
+ empty.querySelector('strong').textContent=customers.length?'找不到符合的平台':'尚未建立平台';
+ empty.classList.toggle('hidden',matches>0);
+ $('.platform-table-wrap').classList.toggle('hidden',matches===0);
+}
+search.oninput=()=>{filterPlatformRows();$('.platform-table-wrap').scrollTop=0};
+filterPlatformRows();
 $('#groupManagerBtn').onclick=openGroupManager;
 $('#newPlatform').onclick=()=>openCustomerDialog();
 if(oldViewport){
@@ -850,7 +878,7 @@ if(oldViewport){
  viewport.scrollLeft=oldLeft;
  viewport.scrollTop=oldTop;
  const editedRow=rowOffset!==null&&viewport.querySelector(rowSelector);
- if(editedRow){
+ if(editedRow&&!editedRow.hidden){
   viewport.scrollTop+=editedRow.getBoundingClientRect().top-viewport.getBoundingClientRect().top-rowOffset;
  }
 }
