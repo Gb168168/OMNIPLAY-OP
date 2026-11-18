@@ -273,6 +273,42 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
   bindGameLinks(list,dialog);
   list.querySelectorAll('[data-read]').forEach(button=>button.onclick=()=>{markRead(button.dataset.read);renderList(dialog)});
  }
+ function groupNotifications(rows){
+  const games=new Map();
+  for(const item of rows){
+   const id=String(item.game?.id??'').trim(),key=id?'game:'+id:'notification:'+item.id;
+   if(!games.has(key))games.set(key,[]);
+   games.get(key).push(item);
+  }
+  return [...games.entries()];
+ }
+ function renderGameGroups(list,dialog,groups){
+  const openGames=new Set([...list.querySelectorAll('[data-game-group][open]')].map(row=>row.dataset.gameGroup));
+  const openItems=new Set([...list.querySelectorAll('[data-item][open]')].map(row=>row.dataset.item));
+  list.replaceChildren();
+  if(!groups.length){list.textContent=label('目前沒有通知','No notifications yet');return;}
+  for(const [key,rows] of groups){
+   const latest=rows[0],game=latest.game||{},useEnglish=!admin&&english();
+   const name=[game.id,useEnglish?game.name||game.mandarinName:game.mandarinName||game.name].filter(Boolean).join(' · ');
+   const types=[...new Set(rows.map(item=>notificationTypeLabel(item,admin)))];
+   const unread=!admin&&rows.filter(item=>!read.has(notificationReadKey(item))).length;
+   const group=document.createElement('details');
+   group.className='release-card release-compact'+(unread?' unread':'');
+   group.dataset.gameGroup=key;
+   group.open=openGames.has(key);
+   group.innerHTML='<summary><strong>'+esc(name)+'</strong> '+types.map(type=>'<span class="release-tag">'+esc(type)+'</span>').join(' ')+' <span class="release-meta">'+rows.length+(useEnglish?' notifications':' 則通知')+'</span>'+(unread?' <span>'+unread+label(' 則未讀',' unread')+'</span>':'')+'</summary><div class="release-expanded" data-group-body></div>';
+   list.append(group);
+   const body=group.querySelector('[data-group-body]');
+   const show=()=>{
+    if(!group.open||body.childElementCount)return;
+    if(admin){renderAdminList(body,dialog,rows);return;}
+    renderCustomerList(body,dialog,rows);
+    body.querySelectorAll('[data-item]').forEach(row=>{if(openItems.has(row.dataset.item))row.open=true;});
+   };
+   group.ontoggle=show;
+   show();
+  }
+ }
  function renderList(dialog){
   const list=dialog.querySelector('[data-list]'),pager=dialog.querySelector('[data-pages]');
   if(!list)return;
@@ -280,10 +316,10 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
   if(error){list.innerHTML='<div class="release-error">'+esc(error)+'</div>';return}
   if(!loaded){list.textContent=label('載入中…','Loading…');return}
   const rows=admin?items.filter(item=>item.status!=='deleted'):visibleReleaseNotifications(items);
-  const size=10,pages=Math.max(1,Math.ceil(rows.length/size)),page=Math.min(pages,Number(list.dataset.page)||1);
+  const groups=groupNotifications(rows);
+  const size=10,pages=Math.max(1,Math.ceil(groups.length/size)),page=Math.min(pages,Number(list.dataset.page)||1);
   list.dataset.page=page;
-  const slice=rows.slice((page-1)*size,page*size);
-  if(admin)renderAdminList(list,dialog,slice);else renderCustomerList(list,dialog,slice);
+  renderGameGroups(list,dialog,groups.slice((page-1)*size,page*size));
   if(pages===1)return;
   pager.innerHTML='<button type="button" data-prev>'+label('上一頁','Previous')+'</button><span>'+page+' / '+pages+'</span><button type="button" data-next>'+label('下一頁','Next')+'</button>';
   for(const [selector,delta] of [['[data-prev]',-1],['[data-next]',1]]){
