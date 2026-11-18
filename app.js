@@ -757,7 +757,14 @@ function directorySummary(children){
  const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
  return {names,domains,parentName};
 }
-function renderCustomers(){if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}dispose();syncResourceNavigation(false);rememberView('customers');$('#customerBtn').classList.add('active');document.querySelectorAll('.category-head.active').forEach(element=>element.classList.remove('active'));
+function renderCustomers({editedId}={}){if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}
+const oldViewport=$('#workspace .platform-table-wrap');
+const oldTop=oldViewport?.scrollTop||0;
+const oldLeft=oldViewport?.scrollLeft||0;
+const rowSelector=editedId?'tr[data-platform-id="'+CSS.escape(String(editedId))+'"]':null;
+const oldRow=rowSelector&&oldViewport?.querySelector(rowSelector);
+const rowOffset=oldRow?oldRow.getBoundingClientRect().top-oldViewport.getBoundingClientRect().top:null;
+dispose();syncResourceNavigation(false);rememberView('customers');$('#customerBtn').classList.add('active');document.querySelectorAll('.category-head.active').forEach(element=>element.classList.remove('active'));
 $('.topbar').classList.add('hidden');
 $('#emptyState').classList.add('hidden');
 const w=$('#workspace');
@@ -827,6 +834,7 @@ displaySections.forEach(({children,ungrouped})=>{
  children.forEach((u,childIndex)=>{
  const group=groups.find(g=>g.id===u.groupId);
  const tr=document.createElement('tr');
+ tr.dataset.platformId=u.id;
  tr.className=[isGrouped?'platform-group-member':'platform-standalone',childIndex===children.length-1?'platform-block-end':''].filter(Boolean).join(' ');
  tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${group?'<span class="platform-group-pill">'+esc(group.name)+'</span>':'<span class="platform-muted">未設定</span>'}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-action-row">${ungrouped?'<button type="button" class="platform-create-category">建立分類</button>':''}<button type="button" class="platform-edit">編輯</button><button type="button" class="customer-delete">刪除</button></div></td>`;
  if(ungrouped)tr.querySelector('.platform-create-category').onclick=()=>openPlatformDirectoryEditor([u],u.name||'新分類');
@@ -837,6 +845,15 @@ displaySections.forEach(({children,ungrouped})=>{
 });
 $('#groupManagerBtn').onclick=openGroupManager;
 $('#newPlatform').onclick=()=>openCustomerDialog();
+if(oldViewport){
+ const viewport=w.querySelector('.platform-table-wrap');
+ viewport.scrollLeft=oldLeft;
+ viewport.scrollTop=oldTop;
+ const editedRow=rowOffset!==null&&viewport.querySelector(rowSelector);
+ if(editedRow){
+  viewport.scrollTop+=editedRow.getBoundingClientRect().top-viewport.getBoundingClientRect().top-rowOffset;
+ }
+}
 }
 function openPlatformDirectoryEditor(children=[],name=''){
  const previous=new Set(children.map(u=>u.id));
@@ -981,7 +998,7 @@ if(existing)Object.assign(existing,data);else state.customers.push({id:uid('usr'
 editingCustomerId=null;
 save();
 $('#customerDialog').close();
-renderCustomers()};
+renderCustomers({editedId:existing?.id})};
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{const d=document.getElementById(b.dataset.close);
 if(d?.id==='customerDialog'){editingCustomerId=null;const s=$('#customerGroup');
 s.disabled=false;
