@@ -380,6 +380,7 @@ IR平台|IR Platform
 刪除客戶|Delete Customer
 ＋ 新增客戶|＋ Add Customer
 ＋ 新增平台|＋ Add Platform
+＋ 在此分組新增平台|＋ Add platform to this group
 按右上「新增平台」開始|Select Add Platform above to start
 按右上「新增客戶」建立第一位客戶|Select Add Customer above to create the first customer
 Pagcor Approval 依此平台授權；未指定則無法查看受限資料。|Pagcor Approval access is assigned by platform. Restricted items are unavailable without an assigned platform.
