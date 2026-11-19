@@ -230,6 +230,18 @@ service cloud.firestore {
         ]);
     }
     match /omniplay-group-views/{groupId} {
+      function permittedCategoryRename() {
+        let d = request.resource.data.categoryRename;
+        let before = resource.data.categories;
+        let after = request.resource.data.categories;
+        let source = getAfter(/databases/$(database)/documents/omniplay/workspace).data.categories[d.ci];
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['categories','categoryRename'])
+          && replacedOne(before,after,d.index) && before[d.index].id == source.id
+          && granted('categories',source.id,'rename')
+          && after[d.index].diff(before[d.index]).affectedKeys().hasOnly(['displayName'])
+          && after[d.index].displayName == source.displayName;
+      }
+      allow update: if signedIn() && permittedCategoryRename();
       allow read: if isAdmin();
       allow get: if canViewGroup(groupId);
       allow write: if isOwner();

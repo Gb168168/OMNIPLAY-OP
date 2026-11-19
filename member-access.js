@@ -1,3 +1,4 @@
+import { saveCategoryName } from './category-name-sync.js';
 import { projectionEndpoint } from './projection-endpoint.js';
 import { describeCategoryChange } from './workspace-grant-change.js';
 import { preserveReleaseNotifications } from './release-notification-model.js?v=20261020-pagcor-1';
@@ -105,6 +106,18 @@ async function awaitCustomerSync() {
 }
 export async function setDoc(ref, data, options) {
   const delegated = ref.parent.path === 'omniplay' && window.__omniplaySession?.groupName === 'OMNIPLAY Support' && !window.__omniplaySession?.superAdmin;
+  if (delegated && ref.id === 'workspace' && !options?.merge) {
+    const saved = await runTransaction(ref.firestore, async transaction => {
+      const previous = (await transaction.get(ref)).data();
+      const incoming = preserveLatestPermissions(publicWorkspace(data), previous);
+      if (sameContent(previous.categories,incoming.categories)) return false;
+      const change = describeCategoryChange(previous.categories,incoming.categories);
+      if (change.action !== 'renameCategory') return false;
+      await saveCategoryName(transaction, ref, id => doc(ref.firestore,'omniplay-group-views',id), incoming, change);
+      return true;
+    });
+    if (saved) return;
+  }
   if (delegated && ref.id.startsWith('sheet-')) {
     const pageId = ref.id.slice(6).replace(/-chunk-[0-9]+$/, '');
     const views = await getDocs(collection(ref.firestore,'omniplay-group-views'));
