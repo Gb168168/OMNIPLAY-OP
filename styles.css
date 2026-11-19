@@ -600,3 +600,47 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
   .permission-card .permission-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .permission-card .permission-category:has([data-page-id="system_all_platforms"]) { grid-column: 1 / -1; }
 }
+
+/* Group categories share a single action column on wide screens. */
+#groupManagerDialog {
+  width: min(850px, calc(100vw - 24px));
+}
+#groupManagerDialog .dialog-form {
+  gap: 14px;
+}
+#groupManagerDialog [data-account-results]:empty,
+#groupManagerList[hidden] {
+  display: none;
+}
+#groupManagerList {
+  max-height: min(58dvh, 580px);
+  padding-inline-end: 5px;
+}
+#groupManagerList .group-manager-row {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 8px 14px;
+  padding: 12px 14px;
+}
+#groupManagerList .group-manager-main {
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+#groupManagerList .group-manager-main span {
+  font-size: 12px;
+}
+#groupManagerList .group-manager-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#groupManagerList .group-manager-actions button {
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  #groupManagerDialog .dialog-form { padding: 16px; }
+  #groupManagerList .group-manager-row { grid-template-columns: 36px minmax(0, 1fr); }
+  #groupManagerList .group-manager-actions { grid-column: 2; }
+}
+@media (max-width: 440px) {
+  #groupManagerList .group-manager-actions { grid-column: 1 / -1; }
+}
