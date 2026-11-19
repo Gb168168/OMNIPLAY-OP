@@ -30,6 +30,8 @@ export function collectMembers(workspace) {
     names.add(normalized);
     result.push({ key: `${kind}:${group.id}:${member.id}`, username, password: String(member.password),
       name: member.name || username, groupId: group.id, groupName: group.name || '',
+      ...(kind === 'member' && group.name === 'OMNIPLAY Support' && member.initialPageGrant
+        ? {initialPageGrant: member.initialPageGrant} : {}),
       internal: ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()),
       platformId: memberPlatformId(member, group, workspace.customers || [], kind) });
   };
