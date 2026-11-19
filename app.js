@@ -649,8 +649,9 @@ function supportPermissionCategories() {
   return state.categories.map(category => {
     if (!isCustomerResourceCategory(category)) return category;
     const pages = sections.filter(entry => entry.page && entry.category.id === category.id)
-      .map(({section,page}) => ({...page, displayName:customerSectionLabel(section)}));
-    return {...category,pages};
+      .map(({section,page}) => ({...page, displayName:section.icon + ' ' + customerSectionLabel(section)}));
+    const displayName = customerLanguage === 'en' ? 'OMNIPLAY Games – Customer Reference Documents' : 'OMNIPLAY遊戲_客戶參考文件';
+    return {...category,displayName,pages};
   });
 }
 function customerExtraCategories(){const standard=new Set(customerSectionPages().filter(entry=>entry.page).map(entry=>entry.page.id));return(state.categories||[]).filter(category=>!isInternalReferenceCategory(category)&&!isCustomerResourceCategory(category)&&platformVisible(category)).map(category=>({...category,pages:(category.pages||[]).filter(page=>!standard.has(page.id)&&!page.redirectPageId&&platformVisible(category,page))})).filter(category=>category.pages.length)}
