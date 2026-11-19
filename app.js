@@ -1,3 +1,4 @@
+import {orderSections,openDirectorySort} from './platform-directory-sort.js';
 import { mountSupportRoleField } from './member-role-preview.js?v=columns-1';
 import {installMobilePreview} from './mobile-preview.js?v=20261027-mobile-preview-1';
 import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-review-actions-1';
@@ -613,9 +614,9 @@ if(savedView?.mode==='customers')renderCustomers();else renderPage();watchCustom
 function payload(){const categories=(state.categories||[]).map(category=>({...category,pages:(category.pages||[]).map(page=>{if(page.type!=='sheet')return page;const{snapshot,...metadata}=page;return metadata})}));return{categories,customerGroups:state.customerGroups,customers:state.customers,customerTypeOptions:state.customerTypeOptions,customerProgressOptions:state.customerProgressOptions,customerCommAppOptions:state.customerCommAppOptions,customerOptionVersion:state.customerOptionVersion,platformImportVersion:state.platformImportVersion,updatedAt:new Date().toISOString()}}function save(){if(!window.__omniplayCanEdit)return;localStorage.setItem(KEY,JSON.stringify(state.categories));
 $('#cloudStatus').textContent='☁️ 儲存中…';
 clearTimeout(timer);
-timer=setTimeout(saveNow,400)}function saveNow(){if(!window.__omniplayCanEdit)return Promise.resolve();if(!cloud)return Promise.resolve();clearTimeout(timer);
+timer=setTimeout(saveNow,400)}function saveNow(reportFailure=false){if(!window.__omniplayCanEdit)return Promise.resolve();if(!cloud)return Promise.resolve();clearTimeout(timer);
 saveQueue=saveQueue.catch(()=>{}).then(async()=>{const signature=workspaceDataSignature();if(signature===savedWorkspaceSignature)return;const data=payload();await setDoc(ref,data);savedWorkspaceSignature=signature}).then(()=>{$('#cloudStatus').textContent='☁️ 已同步'}).catch(e=>{console.error(e);
-$('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`});return saveQueue}function scheduleSheetSave(){if(!window.__omniplayCanEdit)return;if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';const context=currentUniver;sheetSaveTimer=setTimeout(()=>captureCurrentSheet(context),900)}function workbookSnapshot(workbook){try{const snapshot=workbook?.getSnapshot?.();if(snapshot)return snapshot}catch(e){console.warn('get sheet snapshot',e)}return workbook?.save?.()}async function captureCurrentSheet(context=currentUniver){if(!context)return false;try{const workbook=context.api.getActiveWorkbook(),snapshot=await Promise.resolve(workbookSnapshot(workbook));if(!snapshot)return false;await persistSheetSnapshot(context.page,snapshot);localStorage.setItem(KEY,JSON.stringify(state.categories));await saveNow();return true}catch(e){console.warn('sheet autosave',e);$('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`;return false}}function dispose(){$('#sheetCellTools')?.remove();window.disposeGameListOnlinePage?.();if(!currentUniver)return;
+$('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`;if(reportFailure===true)throw e});return saveQueue}function scheduleSheetSave(){if(!window.__omniplayCanEdit)return;if(!currentUniver)return;clearTimeout(sheetSaveTimer);$('#cloudStatus').textContent='☁️ 試算表儲存中…';const context=currentUniver;sheetSaveTimer=setTimeout(()=>captureCurrentSheet(context),900)}function workbookSnapshot(workbook){try{const snapshot=workbook?.getSnapshot?.();if(snapshot)return snapshot}catch(e){console.warn('get sheet snapshot',e)}return workbook?.save?.()}async function captureCurrentSheet(context=currentUniver){if(!context)return false;try{const workbook=context.api.getActiveWorkbook(),snapshot=await Promise.resolve(workbookSnapshot(workbook));if(!snapshot)return false;await persistSheetSnapshot(context.page,snapshot);localStorage.setItem(KEY,JSON.stringify(state.categories));await saveNow();return true}catch(e){console.warn('sheet autosave',e);$('#cloudStatus').textContent=`⚠️ 儲存失敗：${firebaseError(e)}`;return false}}function dispose(){$('#sheetCellTools')?.remove();window.disposeGameListOnlinePage?.();if(!currentUniver)return;
 const context=currentUniver;clearTimeout(sheetSaveTimer);context.autoSaveDisposable?.dispose?.();
 captureCurrentSheet(context);try{context.univer.dispose()}catch{}currentUniver=null}
 
@@ -784,7 +785,7 @@ function platformDirectoryGroups(customers, accessGroups=state.customerGroups){
   }
   for(const [key,children] of buckets){
    if(children.length<minimum)continue;
-   sections.push({children,parentName:labelFor(children[0],key),relation});
+   sections.push({children,parentName:labelFor(children[0],key),relation,customId:children[0].directoryGroupId});
    for(const row of children)available.delete(row);
   }
  }
@@ -796,7 +797,7 @@ function platformDirectoryGroups(customers, accessGroups=state.customerGroups){
  const labels=new Map(accessGroups.map(group=>[group.id,group.name]));
  collect(automatic(row=>labels.has(row.groupId)?row.groupId:null),(_,key)=>labels.get(key),'相同所屬群組',2);
  if(available.size)sections.push({children:[...available],ungrouped:true});
- return sections;
+ return orderSections(sections);
 }
 function renderCustomers({editedId}={}){if(pendingGroupPermissions?.(()=>renderCustomers({editedId})))return;if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}
 const oldViewport=$('#workspace .platform-table-wrap');
@@ -846,7 +847,7 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-pill{display:inline-block;padding:3px 8px;background:#edf3fd;border-radius:6px;color:#315f9c;font-size:12px}
 .platform-list-workspace .platform-directory .platform-muted{color:#a0aabb}
 .platform-list-workspace .platform-directory .platform-notes{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
-</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span><button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
+</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplayCanEdit?'<button class="secondary" id="directorySortBtn">'+(customerLanguage==='en'?'Arrange Groups':'編輯順序')+'</button>':''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
 const rows=$('#platformRows');
 const search=$('#platformDirectorySearch');
 search.value=previousSearch;
@@ -903,6 +904,17 @@ function filterPlatformRows(){
 }
 search.oninput=()=>{filterPlatformRows();$('.platform-table-wrap').scrollTop=0};
 filterPlatformRows();
+const sortButton=$('#directorySortBtn');
+if(sortButton)sortButton.onclick=()=>openDirectorySort(platformDirectoryGroups(customers),{
+ en:customerLanguage==='en',
+ save:async changes=>{
+  if(!cloud||!window.__omniplayCanEdit||!canAccessPlatformList())throw Error('Directory unavailable');
+  const previous=state.customers;
+  state.customers=previous.map(row=>({...row,...changes.get(row.id)}));
+  try{await saveNow(true);}catch(error){state.customers=previous;throw error;}
+  renderCustomers();
+ }
+});
 $('#groupManagerBtn').onclick=openGroupManager;
 $('#newPlatform').onclick=()=>openCustomerDialog();
 if(oldViewport){
