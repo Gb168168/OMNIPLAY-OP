@@ -73,7 +73,7 @@ if (session?.superAdmin) {
           const identity = document.createElement('div'); identity.className = 'owner-permissions-identity';
           const avatar = document.createElement('span'); avatar.className = 'owner-permissions-avatar'; avatar.textContent = Array.from(profile.username || '?')[0]; avatar.setAttribute('aria-hidden', 'true');
           const details = document.createElement('div'), name = document.createElement('strong'), group = document.createElement('small'); name.textContent = profile.username; group.textContent = profile.groupName || '未指定群組'; details.append(name, group); identity.append(avatar, details); row.append(identity);
-          if (profile.owner) { const badge = document.createElement('strong'); badge.className = 'owner-permissions-badge'; badge.textContent = '最高管理者'; row.append(badge); }
+          if (profile.owner) { const badge = document.createElement('strong'); badge.className = 'owner-permissions-badge'; badge.textContent = '最高權限者'; row.append(badge); }
           else {
             const select = document.createElement('select'); select.setAttribute('aria-label', profile.username + ' 的角色');
             for (const [value, text] of [['member', '一般使用者'], ['admin', '管理員']]) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); }
@@ -91,7 +91,8 @@ if (session?.superAdmin) {
               } catch (error) { grant.checked = !grant.checked; message.textContent = error.message; }
               finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); }
             };
-            select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value; if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); } }; row.append(select, grantLabel);
+            select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value;
+              document.dispatchEvent(new CustomEvent('omniplay-member-role-changed',{detail:{groupId:profile.groupId,username:profile.username,role:profile.role,owner:profile.owner}})); if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); } }; row.append(select, grantLabel);
           }
           list.append(row);
         }
@@ -104,7 +105,7 @@ if (session?.superAdmin) {
   if (!session.bootstrap) {
     window.manageGroupPerson = person => showPermissions(null, person);
     window.showOmniplayPermissions = showPermissions;
-    window.listGroupAccounts = async () => (await listMemberProfiles()).filter(p=>p.enabled).map(({uid,username,groupId,groupName})=>({uid,username,groupId,groupName}));
+    window.listGroupAccounts = async () => (await listMemberProfiles()).filter(p=>p.enabled).map(({uid,username,groupId,groupName,role,owner})=>({uid,username,groupId,groupName,role,owner}));
   }
 }
 
