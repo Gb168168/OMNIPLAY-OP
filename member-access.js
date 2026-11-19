@@ -1,3 +1,4 @@
+import { describeCategoryChange } from './workspace-grant-change.js';
 import { preserveReleaseNotifications } from './release-notification-model.js?v=20261020-pagcor-1';
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
@@ -24,7 +25,11 @@ function preserveLatestPermissions(incoming,latest){
  return incoming;
 }
 async function firebaseSetDoc(ref,data,options){try{
- if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()){preserveLatestPermissions(data,latest.data());if(!options?.merge&&sameContent(latest.data(),data))return}transaction.set(ref,data,options||{})});return}
+ if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()){preserveLatestPermissions(data,latest.data());if(!options?.merge&&sameContent(latest.data(),data))return;
+      if (!window.__omniplaySession?.superAdmin && !sameContent(latest.data().categories, data.categories)) {
+        data.grantChange = describeCategoryChange(latest.data().categories, data.categories);
+      } else if (latest.data().grantChange) data.grantChange = latest.data().grantChange;
+    }transaction.set(ref,data,options||{})});return}
  if(/^omniplay-group-views\/[^/]+$/.test(ref.path)&&data.enabled!==false){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists())preserveReleaseNotifications(data,latest.data());if(latest.exists()&&(String(latest.data().permissionsUpdatedAt||'')>String(data.permissionsUpdatedAt||'')||(!options?.merge&&sameContent(latest.data(),data))))return;transaction.set(ref,data,options||{})});return}
  return await rawSetDoc(ref,data,options);
  }catch(error){throw databaseError(error,'寫入',ref.path)}
@@ -193,11 +198,18 @@ async function synchronize(db, workspace) {
   const failures = [];
   for (const member of members) {
     try {
-      const uid = await provision(db, member), { password, key, ...safe } = member;
+      const uid = await provision(db, member), { password, key, initialPageGrant, ...safe } = member;
       const profile = { ...safe, memberKey: key, enabled: true,
         superAdmin: false, role: previous.get(uid)?.role === 'admin' && getAuth().currentUser.uid !== ADMIN_UID ? 'admin' : 'member' };
-      if (JSON.stringify(previous.get(uid)) !== JSON.stringify(profile)) {
-        await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), profile);
+      const profileRef = doc(db, 'omniplay-member-access', uid);
+      if (!sameContent(previous.get(uid), profile)) {
+        await runTransaction(db, async transaction => {
+          const current = await transaction.get(profileRef);
+          const firstGrant = !current.exists() && initialPageGrant && safe.groupName === 'OMNIPLAY Support' && getAuth().currentUser.uid !== ADMIN_UID;
+          profile.role = firstGrant ? 'admin' : (current.data()?.role || 'member');
+          transaction.set(profileRef, profile);
+          if (firstGrant) transaction.set(doc(db, 'omniplay-page-grants', uid), initialPageGrant);
+        });
       }
     } catch (error) { failures.push(`${member.username} (${error.code || '同步失敗'})`); }
   }
@@ -253,7 +265,10 @@ export async function setMemberRole(uid, role, db = getFirestore()) {
   if (role === 'admin' && !['OMNIPLAY', 'OMNIPLAY Support'].includes(String(snap.data().groupName || '').trim())) throw new Error('其他群組只能查看與下載，不能設為管理員');
   const batch = writeBatch(db);
   batch.set(ref, { role, superAdmin: false }, { merge: true });
-  if (role === 'member') batch.delete(doc(db, 'omniplay-template-grants', uid));
+  if (role === 'member') {
+    batch.delete(doc(db, 'omniplay-template-grants', uid));
+    batch.delete(doc(db, 'omniplay-page-grants', uid));
+  }
   await batch.commit();
 }
 export async function transferToRondo(password, db = getFirestore()) {
