@@ -751,6 +751,23 @@ Rondo 的登入身分驗證失敗|Rondo's login identity verification failed
 已登出|Logged Out
 登入狀態檢查|Login Status Check
 讀取帳號權限|Loading Account Permissions
+管理員操作權限（預覽）|Administrator Permissions (Preview)
+變更平台可見|Change Platform Visibility
+API 文件與附加說明|API Documentation and Additional Notes
+確認預覽|Confirm Preview
+管理權限|Access Level
+管理員設定僅供預覽，勾選後不會授權或建立管理員帳號。|Preview only. Selecting permissions does not grant access or create an administrator account.
+設定頁面與分類權限|Set Page and Category Permissions
+建立帳號|Create Account
+管理此人|Manage Member
+最高權限者|Owner
+由 Rondo 管理此帳號的角色及通知固定模板權限。|Rondo manages this account’s role and access to notification templates.
+管理通知固定模板|Manage Notification Templates
+此帳號尚未同步或未啟用。|This account has not been synced or enabled.
+同步帳號暫時無法載入|Synced accounts are temporarily unavailable.
+展開「新增人員」建立第一個帳號|Expand Add Member to create the first account.
+尚未同步|Not Synced
+待確認|Pending
 `.trim().split('\n').map(line=>line.split('|').map(value=>value.replace(/\\n/g,'\n')));
  const dictionary=new Map(pairs);
  const normalize=s=>String(s).replace(/\s+/g,' ').trim();
@@ -759,6 +776,12 @@ Rondo 的登入身分驗證失敗|Rondo's login identity verification failed
  ['⚠️ 人員登入同步失敗：','⚠️ Member login sync failed: '],['人員登入未完成：','Member login incomplete: '],['套用範圍：','Apply to: '],['儲存失敗：','Save failed: '],['刪除失敗：','Delete failed: '],['上傳失敗：','Upload failed: '],['操作失敗：','Action failed: '],['操作失敗','Action failed'],['發布失敗：','Publish failed: '],['撤回失敗：','Withdrawal failed: '],['載入失敗：','Load failed: '],['資料載入失敗：','Data load failed: '],['試算表載入失敗：','Spreadsheet load failed: '],['登入失敗：','Login failed: '],['無法開啟遊戲資料：','Unable to open game information: '],['Pagcor Approval 載入失敗：','Unable to load Pagcor Approval: '],['下載失敗，請確認平台權限或重新登入：','Download failed. Check platform permissions or log in again: '],['權限同步失敗：','Permission sync failed: '],['類型更新失敗：','Type update failed: '],['更新未完成：','Update incomplete: '],['強制登出失敗：','Force logout failed: '],['☁️ 權限同步時間：','☁️ Permissions synced at: '],['⚠️ 權限即時更新失敗：','⚠️ Live permission update failed: '],['通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: '],['通知移轉失敗，請確認已發布新版 Firestore 規則後重新整理：','Notification migration failed. Publish the updated Firestore rules and refresh: '],['欄位已儲存，但群組同步失敗：','Fields saved, but group sync failed: '],['找不到對應的通知類型，請先在管理類型新增：','Notification type not found. Add it in Manage Types first: '],['預覽：','Preview: '],['上架時間：','Release Time: '],['獨立平台權限 · ','Platform-specific access · '],['通知說明日期 ','Description Date '],['額外數值 ','Additional Value '],['移除 ','Remove '],['刪除 ','Delete ']
  ];
  const patterns=[
+ [/^(.+?)\s*[－–-]\s*人員管理$/,name=>name.trim()+' – Member Management'],
+ [/^管理此人\s*·\s*(.+)$/,name=>'Manage Member · '+name],
+ [/^帳號[：:]\s*(.+)$/,name=>'Username: '+name],
+ [/^(.+)[：:](編輯|刪除)全選$/,(category,action)=>translate(category)+': Select All ('+translate(action)+')'],
+ [/^(.+) 已取得模板權限$/,name=>name+' can now manage notification templates.'],
+ [/^(.+) 的模板權限已收回$/,name=>'Notification template access revoked for '+name+'.'],
  [/^-+(流程|首發|特選|其他)-+$/,name=>`-------${translate(name)}-------`],
  [/^([^\p{L}\p{N}\u3400-\u9fff]+)([\s\S]+)$/u,(prefix,rest)=>prefix+translate(rest)],
  [/^(.+?)\s+\/$/,label=>translate(label)+' /'],
