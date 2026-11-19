@@ -644,3 +644,50 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 @media (max-width: 440px) {
   #groupManagerList .group-manager-actions { grid-column: 1 / -1; }
 }
+
+/* Platform directory and platform editor */
+.platform-list-workspace #platformDirectorySearch {
+  box-sizing: border-box;
+  width: min(24rem, 100%);
+  height: 40px;
+  margin-bottom: 12px;
+  border: 1px solid #b9c8d9;
+  border-radius: 10px;
+  padding: 0 12px 0 38px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23637489' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='10' cy='10' r='6.5'/%3E%3Cpath d='m15 15 5 5'/%3E%3C/svg%3E") no-repeat 12px center;
+  color: #24354d;
+  font: inherit;
+  font-size: 14px;
+}
+.platform-list-workspace #platformDirectorySearch:focus-visible {
+  outline: 2px solid #5889e7;
+  outline-offset: 1px;
+}
+#customerDialog {
+  width: min(700px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+}
+#customerForm { gap: 18px; }
+#customerForm .modal-head {
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #8697b33b;
+}
+#customerForm .platform-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+#customerForm .platform-fields label { min-width: 0; margin: 0; }
+#customerForm .platform-fields label:nth-last-child(-n+2) { grid-column: 1 / -1; }
+#customerForm .platform-fields :is(input,select,textarea) { min-width: 0; font: inherit; font-size: 14px; font-weight: 400; }
+#customerForm .platform-fields :is(input,select) { height: 40px; padding-block: 0; }
+#customerForm .select-add { display: grid; grid-template-columns: minmax(0,1fr) 36px; gap: 6px; }
+#customerForm .add-option { font-size: 16px; }
+html[data-theme="light"] #customerForm label { color: #40536b; }
+html[data-theme="light"] #customerForm .add-option { background: #f3f7fd; border-color: #cbd8e7; color: #315f9e; }
+#customerForm .dialog-actions { border-top: 1px solid #8697b33b; padding-top: 14px; }
+@media (max-width: 560px) {
+  #customerForm { padding: 16px; }
+  #customerForm .platform-fields { grid-template-columns: minmax(0,1fr); gap: 12px; }
+}
