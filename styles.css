@@ -585,3 +585,18 @@ html,body{width:100%;max-width:100%;overflow-x:hidden}
 .source-update-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #e7edf5}
 .source-update-actions .ui-btn{min-width:80px}
 @media(prefers-reduced-motion:reduce){:where(.ui-btn,button:not([class]),button[class=""]){transition:none}}
+
+/* Group visibility settings */
+#workspace:has(> .permission-card) { width: 100%; box-sizing: border-box; }
+#workspace > .permission-top, #workspace > .permission-card {
+  box-sizing: border-box; width: 100%; max-width: 1520px; margin-inline: auto;
+}
+.permission-list { align-items: start; }
+.permission-card .permission-category-pages {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+.permission-card .permission-row { min-width: 0; padding: 10px 12px; gap: 6px; grid-template-columns: 20px 26px minmax(0, 1fr); }
+@media (min-width: 940px) {
+  .permission-card .permission-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .permission-card .permission-category:has([data-page-id="system_all_platforms"]) { grid-column: 1 / -1; }
+}

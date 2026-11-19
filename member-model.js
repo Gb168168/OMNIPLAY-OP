@@ -133,7 +133,7 @@ export function projectApiManualPage(page,sources){
 }
 export function groupWorkspace(workspace, group, sources = null) {
   const allowed = effectiveGroupPages(workspace, group), platformAccess =
-    ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) && allowed.has(PLATFORM_PERMISSION);
+    String(group.name || '').trim() === 'OMNIPLAY Support' && allowed.has(PLATFORM_PERMISSION);
   const categories = (workspace.categories || []).map(category => ({ ...category,
     pages: (category.pages || []).filter(page => (allowed.has(page.id)||explicitlyShared(category,page)) && (internalGroup(group) || platformVisible(category,page))).map(page=>{const projected=!internalGroup(group)&&explicitlyShared(category,page)&&page.type==='sheet'&&!page.customerOpGame?sharedSheet(page,sources):page;return !internalGroup(group)&&/^API$/i.test(String(page.name||'').trim())&&[category.name,category.displayName].some(name=>String(name||'').trim()==='操作手冊')?projectApiManualPage(projected,sources):projected;}) })).filter(category => category.pages.length);
   const result = {

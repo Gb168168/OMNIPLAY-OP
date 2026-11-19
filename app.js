@@ -499,10 +499,37 @@ async function openNotificationGame(gameId){
 }
 function isAdminWorkspaceView(){if(window.__omniplaySession)return !!window.__omniplayCanEdit;const params=new URLSearchParams(location.search);if(params.get('view')==='customer'||params.has('customer'))return false;try{if(localStorage.getItem('omniplay-customer-session')||sessionStorage.getItem('omniplay-customer-session'))return false}catch{}return true}
 function isInternalGroup(group){return['OMNIPLAY','OMNIPLAY Support'].includes(String(group?.name||'').trim())}
-function canAccessPlatformList(){const session=window.__omniplaySession;if(session?.canEdit)return true;if(!session)return true;const group=state.customerGroups.find(item=>item.id===session.groupId);return!!(isInternalGroup(group)&&(group.allowedPages||[]).includes(PLATFORM_LIST_PERMISSION))}
+function canAccessPlatformList(){
+ const session=window.__omniplaySession;
+ if(session?.superAdmin)return true;
+ const group=state.customerGroups.find(item=>item.id===session?.groupId);
+ return !!(group?.name?.trim()==='OMNIPLAY Support' && group.allowedPages?.includes(PLATFORM_LIST_PERMISSION));
+}
 function readSavedView(){try{const url=new URL(location.href),mode=url.searchParams.get('wsView'),categoryId=url.searchParams.get('wsCategory'),pageId=url.searchParams.get('wsPage');if(mode)return{mode,categoryId,pageId};return JSON.parse(sessionStorage.getItem(VIEW_KEY)||localStorage.getItem(VIEW_KEY)||'null')}catch{return null}}
 function rememberView(mode='page'){const view={mode,categoryId:state.activeCategoryId,pageId:state.activePageId};try{const value=JSON.stringify(view);localStorage.setItem(VIEW_KEY,value);sessionStorage.setItem(VIEW_KEY,value);const url=new URL(location.href);url.searchParams.set('wsView',mode);view.categoryId?url.searchParams.set('wsCategory',view.categoryId):url.searchParams.delete('wsCategory');view.pageId?url.searchParams.set('wsPage',view.pageId):url.searchParams.delete('wsPage');history.replaceState(history.state,'',url)}catch{}}
-const GROUP_PERMISSION_DEFAULT_VERSION=2;function isVisibleGroupPermissionPage(category,page){return!page.redirectPageId&&!isInternalReferenceCategory(category)&&!isLegacyGameAssetPage(category,page)&&!(isCustomerResourceCategory(category)&&!customerResourceSection(page)&&page.type==='files'&&/^game list$/i.test(String(page.name||'').trim()))}function isDefaultGroupPermissionPage(category,page){const name=String(category?.name||'').trim();return isVisibleGroupPermissionPage(category,page)&&name!=='內部參考，請勿外流'&&name!=='所有平台列表'}function workspacePageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>isVisibleGroupPermissionPage(category,page)).map(page=>page.id))}function defaultGroupPageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>isDefaultGroupPermissionPage(category,page)).map(page=>page.id))}function newCustomerGroup(name){const pageIds=defaultGroupPageIds();return{id:uid('grp'),name,allowedPages:[...pageIds],pageOrder:[...workspacePageIds()],permissionMode:'all',permissionDefaultsVersion:GROUP_PERMISSION_DEFAULT_VERSION}}function initializeGroupPermissions(){const allIds=workspacePageIds(),defaultIds=defaultGroupPageIds(),visible=new Set(allIds);let changed=false;for(const group of state.customerGroups||[]){const allowed=group.allowedPages||[],platformAccess=isInternalGroup(group)&&allowed.includes(PLATFORM_LIST_PERMISSION);if(group.permissionDefaultsVersion!==GROUP_PERMISSION_DEFAULT_VERSION){group.allowedPages=[...defaultIds];group.pageOrder=[...allIds,...(isInternalGroup(group)?[PLATFORM_LIST_PERMISSION]:[])];group.permissionMode='all';group.permissionDefaultsVersion=GROUP_PERMISSION_DEFAULT_VERSION;changed=true;continue}const nextAllowed=group.permissionMode==='all'?[...defaultIds,...(platformAccess?[PLATFORM_LIST_PERMISSION]:[])]:allowed.filter(id=>visible.has(id)||(id===PLATFORM_LIST_PERMISSION&&isInternalGroup(group))),nextOrder=[...allIds,...(isInternalGroup(group)?[PLATFORM_LIST_PERMISSION]:[])];if(JSON.stringify(allowed)!==JSON.stringify(nextAllowed)||JSON.stringify(group.pageOrder||[])!==JSON.stringify(nextOrder))changed=true;group.allowedPages=nextAllowed;group.pageOrder=nextOrder}return changed}
+const GROUP_PERMISSION_DEFAULT_VERSION=3;function isVisibleGroupPermissionPage(category,page){return!page.redirectPageId&&!isInternalReferenceCategory(category)&&!isLegacyGameAssetPage(category,page)&&!(isCustomerResourceCategory(category)&&!customerResourceSection(page)&&page.type==='files'&&/^game list$/i.test(String(page.name||'').trim()))}function isDefaultGroupPermissionPage(category,page){if(!isVisibleGroupPermissionPage(category,page))return false;
+ if(isCustomerResourceCategory(category))return !!customerResourceSection(page)||CUSTOMER_SECTIONS.some(section=>section.match(page));
+ const manual=[category.name,category.displayName].some(name=>String(name||'').trim()==='操作手冊');
+ return manual && [page.name,page.displayName].some(name=>/^(AGENT|API|API 文件與附加說明)$/i.test(String(name||'').trim()));
+}function workspacePageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>isVisibleGroupPermissionPage(category,page)).map(page=>page.id))}function defaultGroupPageIds(){return(state.categories||[]).flatMap(category=>(category.pages||[]).filter(page=>isDefaultGroupPermissionPage(category,page)).map(page=>page.id))}function newCustomerGroup(name){
+ const system=name.trim()==='OMNIPLAY Support'?[PLATFORM_LIST_PERMISSION]:[];
+ return {id:uid('grp'),name,allowedPages:[...defaultGroupPageIds(),...system],pageOrder:[...workspacePageIds(),...system],permissionMode:'all',permissionDefaultsVersion:GROUP_PERMISSION_DEFAULT_VERSION};
+}
+function initializeGroupPermissions(){
+ const pages=workspacePageIds(),defaults=defaultGroupPageIds();
+ for(const group of state.customerGroups||[]){
+   const system=group.name.trim()==='OMNIPLAY Support'?[PLATFORM_LIST_PERMISSION]:[];
+   const order=[...pages,...system],allowed=group.allowedPages||[];
+   const migrating=group.permissionDefaultsVersion!==GROUP_PERMISSION_DEFAULT_VERSION;
+   if(migrating){
+     group.allowedPages=[...new Set([...allowed.filter(id=>order.includes(id)),...defaults,...system])];
+     group.permissionsUpdatedAt=new Date().toISOString();
+     group.permissionDefaultsVersion=GROUP_PERMISSION_DEFAULT_VERSION;
+   }else group.allowedPages=group.permissionMode==='all'?[...defaults,...system]:allowed.filter(id=>order.includes(id));
+   group.pageOrder=order;
+ }
+}
+
 const uid=(p='id')=>`${p}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,esc=(s='')=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[m])),cat=()=>state.categories.find(x=>x.id===state.activeCategoryId),page=()=>cat()?.pages?.find(x=>x.id===state.activePageId),icon=t=>({sheet:'📊',files:'📄',photos:'🖼️',videos:'🎬'})[t]||'📄';
 
 const SHEET_CHUNK_SIZE=240000;
@@ -1008,7 +1035,7 @@ w.innerHTML=`<div class="permission-top"><button id="backGroup" class="secondary
 const l=$('#permissionList');
 const total=workspacePageIds().length;
 if(!total)l.innerHTML='<div class="empty-mini"><strong>目前沒有可設定的頁面</strong></div>';
-if(isInternalGroup(g)){const section=document.createElement('section');section.className='permission-category';section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">⚙️</span><strong>系統管理</strong><span class="permission-category-count">1 頁</span></div><div class="permission-category-pages"><label class="permission-row" data-page-id="${PLATFORM_LIST_PERMISSION}"><input type="checkbox" value="${PLATFORM_LIST_PERMISSION}" ${g.allowedPages.includes(PLATFORM_LIST_PERMISSION)?'checked':''}><span class="permission-icon">🏢</span><span><strong>所有平台列表</strong><small>管理平台、群組、人員與權限</small></span></label></div>`;l.append(section)}
+if(g.name.trim()==='OMNIPLAY Support'){const section=document.createElement('section');section.className='permission-category';section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">⚙️</span><strong>系統管理</strong><span class="permission-category-count">1 頁</span></div><div class="permission-category-pages"><label class="permission-row" data-page-id="${PLATFORM_LIST_PERMISSION}"><input type="checkbox" value="${PLATFORM_LIST_PERMISSION}" ${g.allowedPages.includes(PLATFORM_LIST_PERMISSION)?'checked':''}><span class="permission-icon">🏢</span><span><strong>所有平台列表</strong><small>管理平台、群組、人員與權限</small></span></label></div>`;l.append(section)}
 const resourceEntries=customerSectionPages(),resourceById=new Map(resourceEntries.filter(entry=>entry.page).map((entry,index)=>[entry.page.id,{...entry,index}]));
 state.categories.forEach(c=>{const pages=(c.pages||[]).filter(p=>isVisibleGroupPermissionPage(c,p)).sort((left,right)=>(resourceById.get(left.id)?.index??99)-(resourceById.get(right.id)?.index??99));
 if(!pages.length)return;
@@ -1016,13 +1043,32 @@ const section=document.createElement('section');
 section.className='permission-category';
 section.innerHTML=`<div class="permission-category-head"><span class="permission-category-icon">📁</span><strong>${esc(c.displayName||c.name)}</strong><span class="permission-category-count">${pages.length} 頁</span></div><div class="permission-category-pages"></div>`;
 const pageList=section.querySelector('.permission-category-pages');
-pages.forEach(p=>{const entry=resourceById.get(p.id);pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${entry?entry.section.icon:icon(p.type)}</span><span><strong>${esc(entry?customerSectionLabel(entry.section):(p.displayName||p.name))}</strong><small>頁面</small></span></label>`)});
+pages.forEach(p=>{const entry=resourceById.get(p.id);pageList.insertAdjacentHTML('beforeend',`<label class="permission-row" data-page-id="${p.id}"><input type="checkbox" value="${p.id}" ${g.allowedPages.includes(p.id)?'checked':''}><span class="permission-icon">${entry?entry.section.icon:icon(p.type)}</span><span><strong>${esc(entry?customerSectionLabel(entry.section):(p.displayName||p.name))}</strong></span></label>`)});
 l.append(section)});
-l.addEventListener('change',()=>$('#permCount').textContent=`已選 ${l.querySelectorAll('input:checked').length} 個頁面`);
+const inputs=[...l.querySelectorAll('input[type=checkbox]')];
+const baseline=inputs.map(input=>input.checked);
+const dirty=()=>inputs.some((input,i)=>input.checked!==baseline[i]);
+const guard=new AbortController(),options={signal:guard.signal};
+const warning='尚未儲存群組權限，確定要放棄變更並離開嗎？';
+const count=$('#permCount');
+function updateCount(){count.textContent=(dirty()?'尚未儲存群組權限 · ':'')+'已選 '+inputs.filter(input=>input.checked).length+' 個頁面';}
+l.addEventListener('change',updateCount,options);
+updateCount();
+function leave(event){
+ if(!dirty())return;
+ if(!confirm(warning)){event.preventDefault();event.stopImmediatePropagation();}
+ else guard.abort();
+}
+document.addEventListener('click',event=>{
+ if(event.target.closest('#backGroup,#customerBtn,.page-link,.customer-section,#platformViewBtn,.logout-btn,[data-page-id] button,.resource-entry button')&&!l.contains(event.target))leave(event);
+},{capture:true,signal:guard.signal});
+window.addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}},options);
+const observer=new MutationObserver(()=>{if(!l.isConnected){guard.abort();observer.disconnect();}});
+observer.observe(w,{childList:true});
 $('#backGroup').onclick=renderCustomers;
 $('#savePerm').onclick=async()=>{const rows=[...l.querySelectorAll('.permission-row[data-page-id]')],button=$('#savePerm'),allowedPages=rows.filter(x=>x.querySelector('input').checked).map(x=>x.dataset.pageId),pageOrder=rows.map(x=>x.dataset.pageId);
-button.disabled=true;button.textContent='正在同步客戶權限…';
-try{const permissionsUpdatedAt=await saveGroupPermissions(db,g.id,allowedPages,pageOrder);Object.assign(g,{allowedPages,pageOrder,permissionMode:'custom',permissionsUpdatedAt});$('#cloudStatus').textContent='☁️ 群組權限已同步到客戶端';renderCustomers();alert('已核對雲端客戶資料，群組權限同步完成')}catch(error){button.disabled=false;button.textContent='重試儲存群組權限';alert('權限同步失敗：'+firebaseError(error))}
+button.disabled=true;inputs.forEach(input=>input.disabled=true);button.textContent='正在同步客戶權限…';
+try{const permissionsUpdatedAt=await saveGroupPermissions(db,g.id,allowedPages,pageOrder);Object.assign(g,{allowedPages,pageOrder,permissionMode:'custom',permissionsUpdatedAt});guard.abort();$('#cloudStatus').textContent='☁️ 群組權限已同步到客戶端';renderCustomers();alert('已核對雲端客戶資料，群組權限同步完成')}catch(error){inputs.forEach(input=>input.disabled=false);button.disabled=false;button.textContent='重試儲存群組權限';alert('權限同步失敗：'+firebaseError(error))}
 }}
 $('#customerBtn').onclick=renderCustomers;
 function updateNewItemFields(){const createCategory=$('#newItemCategory').value==='__new__',createPage=!createCategory||$('#newItemCreatePage').checked;$('#newItemCategoryField').classList.toggle('hidden',!createCategory);$('#newItemCategoryName').required=createCategory;$('#newItemCategoryName').disabled=!createCategory;$('#newItemPageChoice').classList.toggle('hidden',!createCategory);$('#newItemPageFields').classList.toggle('hidden',!createPage);$('#pageName').required=createPage;$('#pageName').disabled=!createPage;$('#pageType').disabled=!createPage;const parent=state.categories.find(category=>category.id===$('#newItemCategory').value),blocked=!createCategory&&parent&&!platformVisible(parent);$('#newItemPlatformVisible').disabled=!!blocked;if(blocked)$('#newItemPlatformVisible').checked=false;$('#newItemVisibilityHint').textContent=blocked?'此分類僅管理端可見；請先在分類的 ⋯ 開啟平台可見。':'關閉時僅管理端可見；開啟後所有平台都可查看。';}
