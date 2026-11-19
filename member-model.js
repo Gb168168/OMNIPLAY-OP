@@ -135,7 +135,7 @@ export function projectApiManualPage(page,sources){
 }
 export function groupWorkspace(workspace, group, sources = null) {
   const allowed = effectiveGroupPages(workspace, group), platformAccess =
-    ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()) && allowed.has(PLATFORM_PERMISSION);
+    String(group.name || '').trim() === 'OMNIPLAY Support' && allowed.has(PLATFORM_PERMISSION);
   const categories = (workspace.categories || []).map(category => ({ ...category,
     pages: (category.pages || []).filter(page => (allowed.has(page.id)||explicitlyShared(category,page)) && (internalGroup(group) || platformVisible(category,page))).map(page=>{const projected=!internalGroup(group)&&explicitlyShared(category,page)&&page.type==='sheet'&&!page.customerOpGame?sharedSheet(page,sources):page;return !internalGroup(group)&&/^API$/i.test(String(page.name||'').trim())&&[category.name,category.displayName].some(name=>String(name||'').trim()==='操作手冊')?projectApiManualPage(projected,sources):projected;}) })).filter(category => category.pages.length);
   const result = {
@@ -146,7 +146,20 @@ export function groupWorkspace(workspace, group, sources = null) {
     platformImportVersion: workspace.platformImportVersion || 0, updatedAt: workspace.updatedAt || '',
     allowedPages: [...allowed], enabled: true,
   };
+  result.liveSheetPages = {};
+  for (const [ci, category] of (workspace.categories || []).entries()) {
+    for (const [pi, page] of (category.pages || []).entries()) {
+      if (page.type === 'sheet' && !page.customerOpGame && (allowed.has(page.id) || explicitlyShared(category,page)) && platformVisible(category,page)) {
+        result.liveSheetPages[page.id] = {ci, pi};
+      }
+    }
+  }
   const view=withoutCredentials(result);
+  for (const category of view.categories) {
+    for (const page of category.pages) {
+      if (view.liveSheetPages[page.id] && sources?.get('sheet-' + page.id)?.format === 'json-chunks-v1') delete page.snapshot;
+    }
+  }
   if(new TextEncoder().encode(JSON.stringify(view)).length>900000)throw Error('平台手冊內容過大，請改用檔案或連結分享');
   return view;
 }

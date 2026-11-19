@@ -198,7 +198,23 @@ service cloud.firestore {
       allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['requestedAt'])
         && request.resource.data.requestedAt == request.time;
     }
+    function liveSheet(id) {
+      let pageId = id.replace('^sheet-', '').replace('-chunk-[0-9]+$', '');
+      let groupId = member().groupId;
+      let view = get(/databases/$(database)/documents/omniplay-group-views/$(groupId)).data;
+      let pos = view.liveSheetPages[pageId];
+      let category = get(/databases/$(database)/documents/omniplay/workspace).data.categories[pos.ci];
+      let page = category.pages[pos.pi];
+      return member().enabled && view.enabled && (pageId in view.allowedPages || category.get('platformVisible',false) || page.get('platformVisible',false))
+        && page.id == pageId && page.type == 'sheet' && !page.get('customerOpGame', false)
+        && category.name.matches('.*內部參考.*') == false
+        && category.get('platformVisible', true) && page.get('platformVisible', true)
+        && (!(category.name.matches('.*操作手冊.*') || category.get('displayName','').matches('.*操作手冊.*')) || category.get('platformVisible',false))
+        && ((id == 'sheet-'+pageId && resource.data.keys().hasOnly(['format','chunkCount','updatedAt']) && resource.data.format == 'json-chunks-v1')
+          || (id != 'sheet-'+pageId && resource.data.keys().hasOnly(['data','index','updatedAt']) && resource.data.data is string));
+    }
     match /omniplay/{documentId} {
+      allow get: if signedIn() && documentId.matches('sheet-.+') && liveSheet(documentId);
       allow read: if isAdmin();
       allow update: if documentId == 'workspace' && categoryMutation();
       allow create, update, delete: if isOwner() && documentId != 'game-release-notifications';

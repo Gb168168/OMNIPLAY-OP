@@ -77,6 +77,14 @@ export async function getDoc(ref) {
   const session = window.__omniplaySession;
   if (session && !session.canEdit && !session.superAdmin && ref.path.startsWith('omniplay/')) {
     const id = ref.path.slice('omniplay/'.length);
+    if (id.startsWith('sheet-')) {
+      const pageId = id.slice(6).replace(/-chunk-[0-9]+$/, '');
+      const view = await firebaseGetDoc(doc(ref.firestore,'omniplay-group-views',session.groupId));
+      if (view.data()?.liveSheetPages?.[pageId]) {
+        try { return await getDocFromServer(ref); }
+        catch (error) { if (error.code !== 'permission-denied') throw error; }
+      }
+    }
     return firebaseGetDoc(id === 'workspace'
       ? doc(ref.firestore, 'omniplay-group-views', session.groupId)
       : doc(ref.firestore, 'omniplay-group-views', session.groupId, 'documents', id));
@@ -97,6 +105,16 @@ async function awaitCustomerSync() {
 }
 export async function setDoc(ref, data, options) {
   const delegated = ref.parent.path === 'omniplay' && window.__omniplaySession?.groupName === 'OMNIPLAY Support' && !window.__omniplaySession?.superAdmin;
+  if (delegated && ref.id.startsWith('sheet-')) {
+    const pageId = ref.id.slice(6).replace(/-chunk-[0-9]+$/, '');
+    const views = await getDocs(collection(ref.firestore,'omniplay-group-views'));
+    const readers = views.docs.map(snap => snap.data()).filter(view => view.enabled &&
+      view.categories?.some(category => category.pages?.some(page => page.id === pageId)));
+    if (readers.length && readers.every(view => view.liveSheetPages?.[pageId])) {
+      await firebaseSetDoc(ref,data,options);
+      return;
+    }
+  }
   if (delegated && !projectionEndpoint.startsWith('https://')) throw new Error('即時同步服務尚未設定');
   if (ref.path === 'omniplay/workspace') {
     if (await owner(ref.firestore)) await storePasswords(ref.firestore, data);
