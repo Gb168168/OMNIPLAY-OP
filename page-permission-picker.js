@@ -52,6 +52,14 @@ export function choosePagePermissions(categories, current = {}) {
       for (const {input, scope, id, action} of fields) {
         if (input.checked) (result[scope][id] ||= []).push(action);
       }
+      result.documents = {};
+      for (const category of categories) for (const page of category.pages || []) {
+        if (!result.pages[page.id]?.includes('edit')) continue;
+        const name = (page.name || '').trim().toLowerCase();
+        if (name === 'game list_online') result.documents.gameListOnline = ['edit'];
+        if (!page.customerOpGame && (name === 'op game' || page.gameInformation)) result.documents.gameRecords = ['edit'];
+        if (name === 'api' && [category.name, category.displayName].includes('操作手冊')) result.documents.api = ['edit'];
+      }
       dialog.remove();
       resolve(dialog.returnValue === 'apply' ? result : null);
     }, {once: true});
