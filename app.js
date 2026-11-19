@@ -961,15 +961,17 @@ function fillCustomerOptionSelect(id,items,allowEmpty=false){const sel=$(id);
 sel.innerHTML=(allowEmpty?'<option value="">未設定</option>':'')+items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}function openGroupDialog(){$('#groupName').value='';
 $('#groupDialog').showModal();
 setTimeout(()=>$('#groupName').focus(),50)}let directoryChoices=[];
-let initialDirectoryLabel='';
 function openCustomerDialog(groupId,customer=null,groupMemberId=null){
  editingCustomerId=customer?.id||null;
  directoryChoices=[];
- initialDirectoryLabel='';
+ const directoryInput=$('#platformDirectoryName');
+ directoryInput.closest('label').hidden=Boolean(customer);
+ directoryInput.disabled=Boolean(customer);
+ directoryInput.value='';
  const choices=$('#platformDirectoryOptions');
  choices.replaceChildren();
  const used=new Set();
- for(const {children,parentName,ungrouped} of platformDirectoryGroups(state.customers)){
+ for(const {children,parentName,ungrouped} of customer?[]:platformDirectoryGroups(state.customers)){
   if(ungrouped)continue;
   let label=parentName;
   let suffix=2;
@@ -978,9 +980,8 @@ function openCustomerDialog(groupId,customer=null,groupMemberId=null){
   const members=children.map(u=>u.id);
   directoryChoices.push({label,name:parentName,members});
   choices.append(new Option(label,label));
-  if(members.includes(groupMemberId||customer?.id))initialDirectoryLabel=label;
+  if(members.includes(groupMemberId))directoryInput.value=label;
  }
- $('#platformDirectoryName').value=initialDirectoryLabel;
 $('#customerDialogTitle').textContent=customer?'編輯平台':'建立平台';
 $('#customerSubmitBtn').textContent=customer?'儲存變更':'建立平台';
 ['#customerName','#customerDomain','#customerLaunchDate','#customerNotes'].forEach(id=>$(id).value='');
@@ -1146,9 +1147,10 @@ $('#customerForm').onsubmit=e=>{e.preventDefault();
 const name=$('#customerName').value.trim(),sel=$('#customerGroup'),groupId=sel.value;
 if(!name)return;
 const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
-const directoryLabel=$('#platformDirectoryName').value.trim();
-if(!existing||directoryLabel!==initialDirectoryLabel){
- data.directoryAutoGroupDisabled=Boolean(existing&&!directoryLabel);
+if(editingCustomerId&&!existing)return;
+if(!existing){
+ const directoryLabel=$('#platformDirectoryName').value.trim();
+ data.directoryAutoGroupDisabled=false;
  data.directoryGroupId=null;
  data.directoryGroupName='';
  if(directoryLabel){
