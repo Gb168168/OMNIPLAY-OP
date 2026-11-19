@@ -768,6 +768,147 @@ API 文件與附加說明|API Documentation and Additional Notes
 展開「新增人員」建立第一個帳號|Expand Add Member to create the first account.
 尚未同步|Not Synced
 待確認|Pending
+串接流程|Integration Steps
+單一錢包|Single Wallet
+轉帳錢包|Transfer Wallet
+錯誤碼|Error Codes
+關聯 Action（選填）|Related Action (optional)
+問題（中文）|Question (Chinese)
+答案（中文）|Answer (Chinese)
+對客戶公開|Visible to Customers
+＋ 新增問答|＋ Add Q&A
+確定刪除這則問答？|Delete this Q&A?
+OMNIPLAY｜API 串接指南|OMNIPLAY – API Integration Guide
+搜尋 Action、錯誤碼或問題…|Search actions, error codes, or questions…
+處理責任：|Responsible Party:
+內部說明（客戶不會收到）|Internal Notes (staff only)
+說明標題|Note Title
+英文標題（選填）|English Title (optional)
+對應欄位（選填，例如 gameCount、status.9001）|Related Field (optional, e.g. gameCount or status.9001)
+填寫參數名稱或狀態碼對應，例如 status.9001；留空則列在全部說明|Enter a parameter name or status code such as status.9001. Leave blank to list under all notes.
+參數填寫範例|Parameter Example
+功能說明（中）|Function Description (Chinese)
+只放可對客提供的說明；不要放原始內部對話。|Enter only customer-facing information. Keep internal conversations private.
+功能說明（英）|Function Description (English)
+附加說明（中）|Additional Notes (Chinese)
+附加說明（英）|Additional Notes (English)
+內部處理說明（只供管理端）|Internal Handling Notes (staff only)
+來源編號／備註|Source ID / Notes
+客戶可見（只送出客戶說明，不送內部內容）|Visible to customers (customer-facing notes only)
+儲存說明|Save Note
+即時預覽|Live Preview
+🌐 中文|🌐 Chinese
+預覽尚未儲存的修改。|Preview unsaved changes.
+原始文件未提供此欄位範例，可自行填寫。|The source document has no example for this field. You can enter one.
+請先填寫客戶說明，再開啟客戶可見。|Enter a customer-facing description before enabling customer visibility.
+請先關閉視窗並選擇 Action，再新增說明。|Close this window and select an Action before adding a note.
+欄位名稱格式不正確，請填寫 API 參數名稱。|Invalid field name. Enter an API parameter name.
+儲存並同步中…|Saving and syncing…
+正在檢查匯入資料…|Checking import data…
+請提供 1–1000 則說明。|Provide 1–1,000 notes.
+說明格式或編號不正確|Invalid note format or ID
+已匯入|Imported
+匯入未完成：|Import incomplete:
+API 串接指南與常見問題|API Integration Guide and FAQ
+快速查找串接流程、測試方式與常見問題|Find integration steps, testing instructions, and answers to common questions
+全部|All
+Excel 模組載入失敗，請確認網路連線|Unable to load Excel tools. Check your network connection.
+Excel 匯出失敗：|Excel export failed:
+相同平台名稱或客戶域名自動集中；每筆資料直接顯示，不重複展開表格。|Platforms with the same name or customer domain are grouped together. Each record appears once.
+平台名稱|Platform Name
+所屬群組 / GAME LIST 權限|Group / Game List Access
+未分組平台|Ungrouped Platforms
+編輯群組|Edit Group
+刪除群組|Delete Group
+解除群組|Ungroup
+編輯平台群組|Edit Platform Group
+勾選要加入的平台；取消勾選會移至未分組平台，平台資料及 GAME LIST 權限不變。|Select platforms to add. Clearing a selection moves the platform to Ungrouped Platforms and keeps its data and Game List access.
+請至少選擇一個平台；如需移出全部平台，請使用解除群組。|Select at least one platform. To remove them all, choose Ungroup.
+群組可見內容|Group Page Access
+搜尋登入帳號|Search by username
+尚未儲存群組權限|Unsaved Group Permissions
+離開會放棄這次勾選的變更。|Leaving will discard your changes.
+繼續編輯|Continue Editing
+放棄變更並離開|Discard Changes and Leave
+☁️ 群組排序已同步|☁️ Group order synced
+拖曳調整群組順序|Drag to reorder groups
+標題與資料格皆可按右鍵新增／編輯備註；有備註的格子會顯示黃色角標。|Right-click a header or cell to add or edit a note. A yellow corner marks cells with notes.
+無法開啟遊戲編輯：|Unable to open the game editor:
+找不到此遊戲資訊：|Game information not found:
+群組數超過 400，請聯絡管理者|The group limit is 400. Contact an administrator.
+不支援的連動欄位：|Unsupported linked field:
+群組資料已變更，請關閉後重新開啟|Group data has changed. Close and reopen this window.
+欄位設定資料過大，請減少內容|Field settings are too large. Reduce the content.
+平台分組|Platform Group
+選擇分組或輸入新名稱|Select a group or enter a new name
+客戶類型|Customer Type
+新增客戶類型選項|Add Customer Type
+Game List 權限群組|Game List Access Group
+新增 Game List 權限群組選項|Add Game List Access Group
+試算表程式下載逾時|Spreadsheet download timed out
+無法載入試算表程式：|Unable to load spreadsheet tools:
+遊戲資訊 ID 無效或重複：|Invalid or duplicate game information ID:
+更新完成：Game List_Online|Update complete: Game List_Online
+手冊資料尚未完整儲存，請稍後重試|The manual has not finished saving. Try again shortly.
+平台手冊內容過大，請改用檔案或連結分享|The platform manual is too large. Share it as a file or link.
+遊戲資訊補充設定|Additional Game Settings
+展開|Expand
+收合|Collapse
+基本資料|Basic Information
+遊戲資訊英文名稱|English Game Name
+可多選|Select multiple
+其他彩金名稱|Other Jackpot Names
+補充備註|Additional Notes
+從遊戲資訊移除|Remove from Game Information
+找不到此遊戲：|Game not found:
+📊 OP GAME・依照你上傳的 Excel 欄位建立・Firestore 雲端同步|📊 OP GAME · Based on your Excel columns · Synced with Firestore
+單檔上限 20 MB|Maximum file size: 20 MB
+檔案資料不正確|Invalid file data
+檔案內容不完整，請聯絡管理者|The file is incomplete. Contact an administrator.
+檔案大小不符，請聯絡管理者|File size mismatch. Contact an administrator.
+連結網址上限 2048 字元|URLs must be 2,048 characters or fewer.
+請輸入 http 或 https 連結|Enter an HTTP or HTTPS link.
+最多開放 400 個平台|Select up to 400 platforms.
+平台資料已變更，請重新開啟設定|Platform data has changed. Reopen settings.
+項目名稱或識別碼不正確|Invalid item name or ID.
+請輸入有效時間|Enter a valid time.
+中英文日期與時間不一致，請使用上方欄位同步填寫|The Chinese and English dates or times differ. Use the fields above to sync them.
+延長天數請輸入 1–365|Enter an extension of 1–365 days.
+儲存後，新建立的通知會套用此版本。可使用 {{gameId}}、{{gameNameZh}}、{{gameNameEn}}，日期欄位請保留模板中的日期標記。|New notifications will use this template. You can use {{gameId}}, {{gameNameZh}}, and {{gameNameEn}}. Keep the date placeholders in the template.
+修改紀錄|Change History
+儲存為固定模板|Save as Template
+修改前|Before
+修改後|After
+請填寫通知標題|Enter a notification title.
+內容尚未變更|No changes to save.
+其他管理員已更新模板，請關閉後重新開啟編輯。|Another administrator updated this template. Close and reopen the editor.
+目前使用上次資料或內建資料編寫草稿。Firebase 配額不足，暫時無法發布、儲存修改或變更通知類型。|This draft uses the last available or built-in data. The Firebase quota has been reached. Publishing, saving changes, and changing notification types are temporarily unavailable.
+特選（獨家首發）|Featured (Exclusive Launch)
+新增|Add
+客製遊戲請選擇指定平台。|Choose the designated platform for a custom release.
+已加入|Added
+延長天數|Extension (days)
+延長天數（同步中英文）|Extension in Days (Chinese and English)
+請輸入實際天數|Enter the actual number of days.
+通知說明日期|Notification Date
+預設採實際發行日期，空白才用預計日期；日期和時間同步帶入中英文。|Uses the actual release date when available, otherwise the planned date. Both languages use the same date and time.
+通知說明時間|Notification Time
+編輯固定模板|Edit Template
+固定模板已儲存。需要更新當次草稿時，請選「重新套用模板」。|Template saved. Select Reapply Template to update the current draft.
+讀取通知流程…|Loading notification workflow…
+PROD 不放宣傳圖，沿用 UAT 的遊戲素材入口。|PROD uses the UAT game asset link without a promotional image.
+無法讀取發送紀錄，請手動選擇通知類型。|Unable to load notification history. Select a notification type manually.
+可選|Available
+請填寫延長天數，並確認中英文天數一致|Enter the extension and check that the number of days matches in both languages.
+正在讀取通知流程，請稍候再預覽|Loading the notification workflow. Please wait before previewing.
+重新載入表單|Reload Form
+❄️ 凍結|❄️ Freeze
+▧ 凍結第一欄|▧ Freeze First Column
+備註模組未載入|Notes module unavailable
+自訂群組|Custom Group
+相同平台名稱|Same Platform Name
+相同客戶域名|Same Customer Domain
+平台名稱／客戶域名關聯|Linked by Platform Name or Domain
 `.trim().split('\n').map(line=>line.split('|').map(value=>value.replace(/\\n/g,'\n')));
  const dictionary=new Map(pairs);
  const normalize=s=>String(s).replace(/\s+/g,' ').trim();
@@ -776,6 +917,15 @@ API 文件與附加說明|API Documentation and Additional Notes
  ['⚠️ 人員登入同步失敗：','⚠️ Member login sync failed: '],['人員登入未完成：','Member login incomplete: '],['套用範圍：','Apply to: '],['儲存失敗：','Save failed: '],['刪除失敗：','Delete failed: '],['上傳失敗：','Upload failed: '],['操作失敗：','Action failed: '],['操作失敗','Action failed'],['發布失敗：','Publish failed: '],['撤回失敗：','Withdrawal failed: '],['載入失敗：','Load failed: '],['資料載入失敗：','Data load failed: '],['試算表載入失敗：','Spreadsheet load failed: '],['登入失敗：','Login failed: '],['無法開啟遊戲資料：','Unable to open game information: '],['Pagcor Approval 載入失敗：','Unable to load Pagcor Approval: '],['下載失敗，請確認平台權限或重新登入：','Download failed. Check platform permissions or log in again: '],['權限同步失敗：','Permission sync failed: '],['類型更新失敗：','Type update failed: '],['更新未完成：','Update incomplete: '],['強制登出失敗：','Force logout failed: '],['☁️ 權限同步時間：','☁️ Permissions synced at: '],['⚠️ 權限即時更新失敗：','⚠️ Live permission update failed: '],['通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: '],['通知移轉失敗，請確認已發布新版 Firestore 規則後重新整理：','Notification migration failed. Publish the updated Firestore rules and refresh: '],['欄位已儲存，但群組同步失敗：','Fields saved, but group sync failed: '],['找不到對應的通知類型，請先在管理類型新增：','Notification type not found. Add it in Manage Types first: '],['預覽：','Preview: '],['上架時間：','Release Time: '],['獨立平台權限 · ','Platform-specific access · '],['通知說明日期 ','Description Date '],['額外數值 ','Additional Value '],['移除 ','Remove '],['刪除 ','Delete ']
  ];
  const patterns=[
+ [/^(\d+) 筆資料 · 各平台獨立$/,n=>n+' independent platform record'+(n==='1'?'':'s')],
+ [/^尚未儲存群組權限 · 已選 (\d+) 個頁面$/,n=>'Unsaved group permissions · '+n+' pages selected'],
+ [/^已選 (\d+) 個頁面$/,n=>n+' pages selected'],
+ [/^可選 (\d+) 款遊戲$/,n=>n+' games available'],
+ [/^共\s*(\d+)\s*個平台正式上線$/,n=>n+' live platform'+(n==='1'?'':'s')],
+ [/^[（(]\s*(\d+)\s*筆\s*[）)]$/,n=>'('+n+' record'+(n==='1'?'':'s')+')'],
+ [/^(\d+) 個平台・可看 (\d+) 個頁面$/,(n,p)=>n+' platform'+(n==='1'?'':'s')+' · '+p+' accessible page'+(p==='1'?'':'s')],
+ [/^(.+) 的群組權限$/,name=>name+' – Group Permissions'],
+ [/^解除「(.+)」？平台資料將保留並移至未分組平台。$/,name=>'Ungroup “'+name+'”? Platform records will be kept and moved to Ungrouped Platforms.'],
  [/^(.+?)\s*[－–-]\s*人員管理$/,name=>name.trim()+' – Member Management'],
  [/^管理此人\s*·\s*(.+)$/,name=>'Manage Member · '+name],
  [/^帳號[：:]\s*(.+)$/,name=>'Username: '+name],
@@ -833,7 +983,7 @@ API 文件與附加說明|API Documentation and Additional Notes
  }
  const english=()=>{try{return localStorage.getItem('omniplay-customer-language')==='en'}catch{return document.documentElement.lang==='en'}};
  // These nodes contain authored or source data, rather than interface labels.
- const protectedContent='script,style,textarea,[contenteditable="true"],[data-i18n-ignore],.op-linked-item strong,.op-dialog-head h3,.op-dialog-head p,.op-browser-folder strong,.op-asset-view-item strong,.op-browser-crumbs,.resource-folder-name,.file-name,.login-user,.release-message-pair p,.release-title-pair h3,.release-card>h3,.release-card>p,.pagcor-item>span,.pagcor-head p,.release-game-names,.release-game-link,.release-image figcaption,.op-pills,.op-check-row strong,.release-recipients span,#groups .admin-row strong,#gameInformationTooltip,[data-gi-col="mandarinName"],[data-gi-col="name"],[data-gi-col="note1"],[data-gi-col="note2"],.univer-sheet-editor,.univer-cell-editor';
+ const protectedContent='.platform-notes,.platform-group-pill,.platform-group-member td:first-child strong,.platform-standalone td:first-child strong,script,style,textarea,[contenteditable="true"],[data-i18n-ignore],.op-linked-item strong,.op-dialog-head h3,.op-dialog-head p,.op-browser-folder strong,.op-asset-view-item strong,.op-browser-crumbs,.resource-folder-name,.file-name,.login-user,.release-message-pair p,.release-title-pair h3,.release-card>h3,.release-card>p,.pagcor-item>span,.pagcor-head p,.release-game-names,.release-game-link,.release-image figcaption,.op-pills,.op-check-row strong,.release-recipients span,#groups .admin-row strong,#gameInformationTooltip,[data-gi-col="mandarinName"],[data-gi-col="name"],[data-gi-col="note1"],[data-gi-col="note2"],.univer-sheet-editor,.univer-cell-editor';
  const texts=new WeakMap(),attributes=new WeakMap(),validity=new WeakMap();
  for(const type of ['HTMLInputElement','HTMLTextAreaElement','HTMLSelectElement']){
   const prototype=window[type]?.prototype,original=prototype?.setCustomValidity;
