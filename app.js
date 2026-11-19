@@ -848,7 +848,7 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-pill{display:inline-block;padding:3px 8px;background:#edf3fd;border-radius:6px;color:#315f9c;font-size:12px}
 .platform-list-workspace .platform-directory .platform-muted{color:#a0aabb}
 .platform-list-workspace .platform-directory .platform-notes{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
-</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplayCanEdit?'<button class="secondary" id="directorySortBtn">'+(customerLanguage==='en'?'Arrange Groups':'編輯順序')+'</button>':''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
+</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplayCanEdit?'<button class="secondary" id="directorySortBtn">'+(customerLanguage==='en'?'Arrange Groups':'編輯順序')+'</button>':''}<button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:15%">平台名稱</th><th style="width:10%">客戶域名</th><th style="width:15%">所屬群組 / GAME LIST 權限</th><th style="width:10%">客戶類型</th><th style="width:12%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
 const rows=$('#platformRows');
 const search=$('#platformDirectorySearch');
 search.value=previousSearch;
@@ -856,12 +856,12 @@ platformDirectoryGroups(customers).forEach(({children,ungrouped,parentName,relat
  const isGrouped=!ungrouped;
  if(ungrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading platform-ungrouped-heading';
- heading.innerHTML=`<td colspan="7">未分組平台 <span class="platform-relation">${children.length} 筆資料 · 各平台獨立</span></td>`;
+ heading.innerHTML=`<td colspan="8">未分組平台 <span class="platform-relation">${children.length} 筆資料 · 各平台獨立</span></td>`;
  rows.append(heading);
  }
  if(isGrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading';
- heading.innerHTML=`<td colspan="7">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(children.length===1&&relation==='相同所屬群組'?'所屬群組':relation)}</span></td>`;
+ heading.innerHTML=`<td colspan="8">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(children.length===1&&relation==='相同所屬群組'?'所屬群組':relation)}</span></td>`;
  rows.append(heading);
  }
  children.forEach((u,childIndex)=>{
@@ -869,7 +869,7 @@ platformDirectoryGroups(customers).forEach(({children,ungrouped,parentName,relat
  const tr=document.createElement('tr');
  tr.dataset.platformId=u.id;
  tr.className=[isGrouped?'platform-group-member':'platform-standalone',childIndex===children.length-1?'platform-block-end':''].filter(Boolean).join(' ');
- tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${group?'<span class="platform-group-pill">'+esc(group.name)+'</span>':'<span class="platform-muted">未設定</span>'}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-action-row">${ungrouped?'<button type="button" class="platform-create-category">建立分類</button>':''}<button type="button" class="platform-edit">編輯</button><button type="button" class="customer-delete">刪除</button></div></td>`;
+ tr.innerHTML=`<td><strong>${esc(u.name||'未命名')}</strong></td><td>${esc(u.domain||u.username||'—')}</td><td>${group?'<span class="platform-group-pill">'+esc(group.name)+'</span>':'<span class="platform-muted">未設定</span>'}</td><td>${esc(u.customerType||'—')}</td><td>${esc(u.progress||'—')}</td><td>${esc(formatLaunchDate(u.launchDate))}</td><td><div class="platform-notes" title="${esc(u.notes||'')}">${esc(u.notes||'—')}</div></td><td><div class="platform-action-row">${ungrouped?'<button type="button" class="platform-create-category">建立分類</button>':''}<button type="button" class="platform-edit">編輯</button><button type="button" class="customer-delete">刪除</button></div></td>`;
  if(ungrouped)tr.querySelector('.platform-create-category').onclick=()=>openPlatformDirectoryEditor([u],u.name||'新分類');
  tr.querySelector('.platform-edit').onclick=()=>openCustomerDialog(u.groupId,u);
  tr.querySelector('.customer-delete').onclick=()=>{if(!confirm(`確定刪除平台「${u.name}」？`))return;state.customers=state.customers.filter(customer=>customer.id!==u.id);save();renderCustomers()};
