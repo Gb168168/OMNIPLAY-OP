@@ -37,7 +37,7 @@ if (session?.superAdmin) {
     finally { resync.disabled = false; }
   };
   const showPermissions = async (host = null, person = null) => {
-    if (person && person.groupName?.trim() !== 'OMNIPLAY Support') return;
+    if (person && (person.groupName?.trim() !== 'OMNIPLAY Support' || person.owner || person.username?.trim().toLowerCase() === 'rondo')) return;
     if (host?.querySelector('.owner-permissions-dialog')) { host.replaceChildren(); return; }
     const dialog = document.createElement(host ? 'section' : 'dialog'); dialog.className = 'owner-permissions-dialog'; dialog.setAttribute('aria-labelledby', 'ownerPermissionsTitle'); dialog.setAttribute('aria-describedby', 'ownerPermissionsHelp'); if (host) { host.append(dialog); dialog.close = () => { dialog.remove(); document.querySelector('#platformAdminPermissionsBtn')?.setAttribute('aria-expanded', 'false'); }; } else document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove());
@@ -119,7 +119,7 @@ if (session?.superAdmin) {
           row.insertBefore(badge,row.querySelector('button'));
         }
         const p=profiles?.get(account.trim().toLowerCase());
-        const role=!profiles?'待確認':!p?'尚未同步':p.owner?'最高權限者':p.role==='admin'?'管理員':'一般使用者';
+        const role=account.trim().toLowerCase()==='rondo'?'最高權限者':!profiles?'待確認':!p?'尚未同步':p.owner?'最高權限者':p.role==='admin'?'管理員':'一般使用者';
         if(badge.textContent!==role)badge.textContent=role;
       }
     }
