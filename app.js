@@ -795,7 +795,7 @@ function platformDirectoryGroups(customers, accessGroups=state.customerGroups){
  collect(automatic(row=>normalize(row.name)),row=>row.name,'相同平台名稱',2);
  collect(automatic(row=>normalize(row.domain||row.username)),row=>row.domain||row.username,'相同客戶域名',2);
  const labels=new Map(accessGroups.map(group=>[group.id,group.name]));
- collect(automatic(row=>labels.has(row.groupId)?row.groupId:null),(_,key)=>labels.get(key),'相同所屬群組',2);
+ collect(automatic(row=>labels.has(row.groupId)?row.groupId:null),(_,key)=>labels.get(key),'相同所屬群組',1);
  if(available.size)sections.push({children:[...available],ungrouped:true});
  return orderSections(sections);
 }
@@ -836,6 +836,7 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-member td:first-child{border-left:3px solid #b8cff1}
 .platform-list-workspace .platform-directory .platform-block-end td{border-bottom:1px solid #cddbed}
 #workspace.platform-list-workspace .platform-directory tr>:first-child{text-align:left!important;padding-inline-start:14px}
+#workspace.platform-list-workspace .platform-directory tr.platform-group-heading>td:first-child{text-align:center!important;padding-inline:14px}
 #platformDirectorySearch{width:min(24rem,100%);margin:0 0 10px;flex:none}
 #platformRows tr[hidden]{display:none!important}
 .platform-list-workspace .platform-directory .platform-relation{font-size:12px;font-weight:400;color:#536d91;margin-left:12px}
@@ -860,7 +861,7 @@ platformDirectoryGroups(customers).forEach(({children,ungrouped,parentName,relat
  }
  if(isGrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading';
- heading.innerHTML=`<td colspan="7">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(relation)}</span></td>`;
+ heading.innerHTML=`<td colspan="7">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(children.length===1&&relation==='相同所屬群組'?'所屬群組':relation)}</span></td>`;
  rows.append(heading);
  }
  children.forEach((u,childIndex)=>{
