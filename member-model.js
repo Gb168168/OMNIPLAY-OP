@@ -30,6 +30,8 @@ export function collectMembers(workspace) {
     names.add(normalized);
     result.push({ key: `${kind}:${group.id}:${member.id}`, username, password: String(member.password),
       name: member.name || username, groupId: group.id, groupName: group.name || '',
+      ...(kind === 'member' && group.name === 'OMNIPLAY Support' && member.initialPageGrant
+        ? {initialPageGrant: member.initialPageGrant} : {}),
       internal: ['OMNIPLAY', 'OMNIPLAY Support'].includes(String(group.name || '').trim()),
       platformId: memberPlatformId(member, group, workspace.customers || [], kind) });
   };
@@ -144,7 +146,20 @@ export function groupWorkspace(workspace, group, sources = null) {
     platformImportVersion: workspace.platformImportVersion || 0, updatedAt: workspace.updatedAt || '',
     allowedPages: [...allowed], enabled: true,
   };
+  result.liveSheetPages = {};
+  for (const [ci, category] of (workspace.categories || []).entries()) {
+    for (const [pi, page] of (category.pages || []).entries()) {
+      if (page.type === 'sheet' && !page.customerOpGame && (allowed.has(page.id) || explicitlyShared(category,page)) && platformVisible(category,page)) {
+        result.liveSheetPages[page.id] = {ci, pi};
+      }
+    }
+  }
   const view=withoutCredentials(result);
+  for (const category of view.categories) {
+    for (const page of category.pages) {
+      if (view.liveSheetPages[page.id] && sources?.get('sheet-' + page.id)?.format === 'json-chunks-v1') delete page.snapshot;
+    }
+  }
   if(new TextEncoder().encode(JSON.stringify(view)).length>900000)throw Error('平台手冊內容過大，請改用檔案或連結分享');
   return view;
 }

@@ -1,4 +1,5 @@
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import { choosePagePermissions } from './page-permission-picker.js';
+import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=20261026-api-entry-editor-1';
 const session = window.__omniplaySession;
 if (session?.superAdmin) {
@@ -92,7 +93,28 @@ if (session?.superAdmin) {
               finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); }
             };
             select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value;
-              document.dispatchEvent(new CustomEvent('omniplay-member-role-changed',{detail:{groupId:profile.groupId,username:profile.username,role:profile.role,owner:profile.owner}})); if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); } }; row.append(select, grantLabel);
+              document.dispatchEvent(new CustomEvent('omniplay-member-role-changed',{detail:{groupId:profile.groupId,username:profile.username,role:profile.role,owner:profile.owner}})); if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); if (configure) configure.hidden = profile.role !== 'admin'; } }; row.append(select, grantLabel);
+            let configure;
+            if (profile.groupName === 'OMNIPLAY Support') {
+              configure = document.createElement('button');
+              configure.type = 'button'; configure.className = 'secondary';
+              configure.textContent = '頁面與分類權限';
+              configure.hidden = profile.role !== 'admin';
+              configure.onclick = async () => {
+                configure.disabled = true;
+                try {
+                  const grantRef = doc(db, 'omniplay-page-grants', profile.uid);
+                  const [workspace, saved] = await Promise.all([getDoc(doc(db,'omniplay','workspace')), getDoc(grantRef)]);
+                  const selected = await choosePagePermissions(workspace.data().categories, saved.data() || {});
+                  if (selected) {
+                    await setDoc(grantRef, selected);
+                    message.textContent = profile.username + ' 的頁面與分類權限已儲存。';
+                  }
+                } catch (error) { message.textContent = error.message; }
+                finally { configure.disabled = false; }
+              };
+              row.append(configure);
+            }
           }
           list.append(row);
         }

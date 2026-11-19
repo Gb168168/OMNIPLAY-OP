@@ -45,6 +45,61 @@ service cloud.firestore {
         && (uid != ownerUid() || (request.resource.data.enabled == true && request.resource.data.username.lower() == 'rondo'));
       allow delete: if isOwner() && uid != ownerUid();
     }
+    function supportAdministrator(uid) {
+      let person = get(/databases/$(database)/documents/omniplay-member-access/$(uid)).data;
+      return person.enabled == true && person.role == 'admin' && person.groupName == 'OMNIPLAY Support';
+    }
+    match /omniplay-page-grants/{uid} {
+      allow get: if isRondo() || (signedIn() && request.auth.uid == uid);
+      allow delete: if isRondo();
+      allow create, update: if isRondo()
+        && getAfter(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.enabled == true
+        && getAfter(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.role == 'admin'
+        && getAfter(/databases/$(database)/documents/omniplay-member-access/$(uid)).data.groupName == 'OMNIPLAY Support'
+        && request.resource.data.keys().hasOnly(['pages','categories','documents'])
+        && request.resource.data.pages is map && request.resource.data.categories is map;
+    }
+    function granted(scope, id, action) {
+      let grants = /databases/$(database)/documents/omniplay-page-grants/$(request.auth.uid);
+      return signedIn() && supportAdministrator(request.auth.uid) && exists(grants)
+        && action in get(grants).data.get(scope, {}).get(id, []);
+    }
+    function replacedOne(before, after, i) {
+      return before.size() == after.size() && before[i].id == after[i].id
+        && before.removeAll([before[i]]) == after.removeAll([after[i]]);
+    }
+    function removedOne(before, after, i) {
+      return before.size() == after.size() + 1 && before.removeAll([before[i]]) == after;
+    }
+    function pageMutation(c, n, d) {
+      let pages = c.pages;
+      let next = n.pages;
+      let p = pages[d.pi];
+      return n.diff(c).affectedKeys().hasOnly(['pages']) && (
+        (d.action == 'deletePage' && granted('pages', p.id, 'delete') && removedOne(pages,next,d.pi))
+        || (d.action != 'deletePage' && replacedOne(pages,next,d.pi) && (
+          (d.action == 'pageVisibility' && granted('categories', c.id, 'visibility')
+           && next[d.pi].diff(p).affectedKeys().hasOnly(['platformVisible']))
+          || (d.action == 'editPage' && granted('pages',p.id,'edit')
+           && next[d.pi].diff(p).affectedKeys().hasOnly(['displayName','files','folders','updatedAt','gameListNormalizedAt','gameListLegacySyncedAt']))
+        ))
+      );
+    }
+    function categoryMutation() {
+      let old = resource.data.categories;
+      let next = request.resource.data.categories;
+      let d = request.resource.data.grantChange;
+      let c = old[d.ci];
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['categories','grantChange','updatedAt'])
+        && ((d.action == 'deleteCategory' && granted('categories', c.id, 'delete') && removedOne(old,next,d.ci))
+         || (d.action != 'deleteCategory' && replacedOne(old,next,d.ci) && (
+          (d.action == 'renameCategory' && granted('categories', c.id, 'rename')
+           && next[d.ci].diff(c).affectedKeys().hasOnly(['displayName']))
+          || (d.action == 'categoryVisibility' && granted('categories', c.id, 'visibility')
+           && next[d.ci].diff(c).affectedKeys().hasOnly(['platformVisible']))
+          || (d.action in ['editPage','deletePage','pageVisibility'] && pageMutation(c,next[d.ci],d))
+         )));
+    }
     function templateEditor() {
       return isRondo() || (isAdmin() && !isOwner()
         && exists(/databases/$(database)/documents/omniplay-template-grants/$(request.auth.uid)));
@@ -137,15 +192,40 @@ service cloud.firestore {
     }
     match /omniplay-api-guide/{entryId} {
       allow read: if signedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, update, delete: if isOwner() || granted('documents','api','edit');
+    }
+    match /omniplay-sync/customer-views {
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['requestedAt'])
+        && request.resource.data.requestedAt == request.time;
+    }
+    function liveSheet(id) {
+      let pageId = id.replace('^sheet-', '').replace('-chunk-[0-9]+$', '');
+      let groupId = member().groupId;
+      let view = get(/databases/$(database)/documents/omniplay-group-views/$(groupId)).data;
+      let pos = view.liveSheetPages[pageId];
+      let category = get(/databases/$(database)/documents/omniplay/workspace).data.categories[pos.ci];
+      let page = category.pages[pos.pi];
+      return member().enabled && view.enabled && (pageId in view.allowedPages || category.get('platformVisible',false) || page.get('platformVisible',false))
+        && page.id == pageId && page.type == 'sheet' && !page.get('customerOpGame', false)
+        && category.name.matches('.*內部參考.*') == false
+        && category.get('platformVisible', true) && page.get('platformVisible', true)
+        && (!(category.name.matches('.*操作手冊.*') || category.get('displayName','').matches('.*操作手冊.*')) || category.get('platformVisible',false))
+        && ((id == 'sheet-'+pageId && resource.data.keys().hasOnly(['format','chunkCount','updatedAt']) && resource.data.format == 'json-chunks-v1')
+          || (id != 'sheet-'+pageId && resource.data.keys().hasOnly(['data','index','updatedAt']) && resource.data.data is string));
     }
     match /omniplay/{documentId} {
+      allow get: if signedIn() && documentId.matches('sheet-.+') && liveSheet(documentId);
       allow read: if isAdmin();
+      allow update: if documentId == 'workspace' && categoryMutation();
       allow create, update, delete: if isOwner() && documentId != 'game-release-notifications';
-      allow create, update, delete: if isAdmin() && documentId != 'game-release-notifications' && documentId != 'workspace';
+      allow create, update: if
+        (documentId.matches('sheet-.+') && granted('pages', documentId.replace('^sheet-', '').replace('-chunk-[0-9]+$', ''), 'edit'))
+        || (documentId == 'game-list-online-page' && granted('documents','gameListOnline','edit'))
+        || (documentId == 'op-game-form-records' && granted('documents','gameRecords','edit'));
+      allow create, update, delete: if documentId.matches('api-manual-entry-.+') && granted('documents','api','edit');
       allow update: if isAdmin() && documentId == 'workspace'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'categories', 'customers', 'customerTypeOptions', 'customerProgressOptions',
+          'customers', 'customerTypeOptions', 'customerProgressOptions',
           'customerCommAppOptions', 'customerOptionVersion', 'platformImportVersion', 'updatedAt'
         ]);
     }
@@ -153,15 +233,12 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow get: if canViewGroup(groupId);
       allow write: if isOwner();
-      allow update: if isAdmin() && request.resource.data.allowedPages == resource.data.allowedPages
-        && request.resource.data.allowedDocumentIds == resource.data.allowedDocumentIds
-        && request.resource.data.enabled == resource.data.enabled;
+      allow update: if isAdmin() && request.resource.data.diff(resource.data)
+        .affectedKeys().hasOnly(['releaseNotifications']);
       match /documents/{documentId} {
         allow read: if isAdmin();
-        allow get: if canViewGroup(groupId)
-          && allowedDocument(groupId, documentId);
-        allow write: if isOwner() || (isAdmin()
-          && allowedDocument(groupId, documentId));
+        allow get: if canViewGroup(groupId) && allowedDocument(groupId, documentId);
+        allow write: if isOwner();
       }
     }
     match /omniplay-active-sessions/{sessionId} {

@@ -1,9 +1,11 @@
+import { projectionEndpoint } from './projection-endpoint.js';
+import { describeCategoryChange } from './workspace-grant-change.js';
 import { preserveReleaseNotifications } from './release-notification-model.js?v=20261020-pagcor-1';
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc, getDocFromServer,
-  setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+  setDoc as rawSetDoc, writeBatch, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
   groupDocumentIds, projectGroupGameDocument, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261026-api-entry-editor-1';
 
@@ -23,9 +25,22 @@ function preserveLatestPermissions(incoming,latest){
  for(const group of incoming.customerGroups||[]){const saved=(latest.customerGroups||[]).find(item=>item.id===group.id);if(saved?.permissionsUpdatedAt&&String(saved.permissionsUpdatedAt)>=String(group.permissionsUpdatedAt||'')){for(const key of ['allowedPages','pageOrder','permissionMode','permissionsUpdatedAt'])if(key in saved)group[key]=structuredClone(saved[key])}}
  return incoming;
 }
+function requestProjection(write, db) {
+  write.set(doc(db, 'omniplay-sync', 'customer-views'), {requestedAt: serverTimestamp()});
+}
 async function firebaseSetDoc(ref,data,options){try{
- if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()){preserveLatestPermissions(data,latest.data());if(!options?.merge&&sameContent(latest.data(),data))return}transaction.set(ref,data,options||{})});return}
+ if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()){preserveLatestPermissions(data,latest.data());if(!options?.merge&&sameContent(latest.data(),data))return;
+      if (!window.__omniplaySession?.superAdmin && !sameContent(latest.data().categories, data.categories)) {
+        data.grantChange = describeCategoryChange(latest.data().categories, data.categories);
+      } else if (latest.data().grantChange) data.grantChange = latest.data().grantChange;
+    }requestProjection(transaction,ref.firestore);transaction.set(ref,data,options||{})});return}
  if(/^omniplay-group-views\/[^/]+$/.test(ref.path)&&data.enabled!==false){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists())preserveReleaseNotifications(data,latest.data());if(latest.exists()&&(String(latest.data().permissionsUpdatedAt||'')>String(data.permissionsUpdatedAt||'')||(!options?.merge&&sameContent(latest.data(),data))))return;transaction.set(ref,data,options||{})});return}
+ if (ref.parent.path === 'omniplay') {
+   const batch = writeBatch(ref.firestore);
+   batch.set(ref, data, options || {});
+   requestProjection(batch, ref.firestore);
+   return await batch.commit();
+ }
  return await rawSetDoc(ref,data,options);
  }catch(error){throw databaseError(error,'寫入',ref.path)}
 }
@@ -62,6 +77,14 @@ export async function getDoc(ref) {
   const session = window.__omniplaySession;
   if (session && !session.canEdit && !session.superAdmin && ref.path.startsWith('omniplay/')) {
     const id = ref.path.slice('omniplay/'.length);
+    if (id.startsWith('sheet-')) {
+      const pageId = id.slice(6).replace(/-chunk-[0-9]+$/, '');
+      const view = await firebaseGetDoc(doc(ref.firestore,'omniplay-group-views',session.groupId));
+      if (view.data()?.liveSheetPages?.[pageId]) {
+        try { return await getDocFromServer(ref); }
+        catch (error) { if (error.code !== 'permission-denied') throw error; }
+      }
+    }
     return firebaseGetDoc(id === 'workspace'
       ? doc(ref.firestore, 'omniplay-group-views', session.groupId)
       : doc(ref.firestore, 'omniplay-group-views', session.groupId, 'documents', id));
@@ -71,15 +94,36 @@ export async function getDoc(ref) {
   const data = hydratePasswords(snap.data(), await passwordSecrets(ref.firestore));
   return { exists: () => true, data: () => data, id: snap.id, ref: snap.ref };
 }
+async function awaitCustomerSync() {
+  if (!projectionEndpoint.startsWith('https://')) throw new Error('即時同步服務尚未設定');
+  const token = await getAuth().currentUser.getIdToken();
+  const response = await fetch(projectionEndpoint, {
+    method: 'POST', redirect: 'error', credentials: 'omit',
+    headers: {Authorization: 'Bearer ' + token}
+  });
+  if (response.status !== 204) throw new Error('客戶資料尚未同步完成，請重試');
+}
 export async function setDoc(ref, data, options) {
+  const delegated = ref.parent.path === 'omniplay' && window.__omniplaySession?.groupName === 'OMNIPLAY Support' && !window.__omniplaySession?.superAdmin;
+  if (delegated && ref.id.startsWith('sheet-')) {
+    const pageId = ref.id.slice(6).replace(/-chunk-[0-9]+$/, '');
+    const views = await getDocs(collection(ref.firestore,'omniplay-group-views'));
+    const readers = views.docs.map(snap => snap.data()).filter(view => view.enabled &&
+      view.categories?.some(category => category.pages?.some(page => page.id === pageId)));
+    if (readers.length && readers.every(view => view.liveSheetPages?.[pageId])) {
+      await firebaseSetDoc(ref,data,options);
+      return;
+    }
+  }
+  if (delegated && !projectionEndpoint.startsWith('https://')) throw new Error('即時同步服務尚未設定');
   if (ref.path === 'omniplay/workspace') {
     if (await owner(ref.firestore)) await storePasswords(ref.firestore, data);
     await firebaseSetDoc(ref, publicWorkspace(data), options);
   } else await firebaseSetDoc(ref, data, options);
+  if (delegated) return awaitCustomerSync();
   if (!await editable(ref.firestore) || !ref.path.startsWith('omniplay/')) return;
   clearTimeout(refreshTimer);
-  if (ref.path === 'omniplay/workspace') return syncMembersAndViews(ref.firestore, data);
-  refreshTimer = setTimeout(() => syncMembersAndViews(ref.firestore).catch(showSyncError), 600);
+  return syncMembersAndViews(ref.firestore, ref.path === 'omniplay/workspace' ? data : undefined);
 }
 function showSyncError(error) {
   const status = document.querySelector('#cloudStatus');
@@ -117,7 +161,13 @@ async function provision(db, member) {
   } finally { await signOut(auth); }
 }
 export async function syncMembersAndViews(db, workspace) {
-  if (!await editable(db)) return;
+  if (!await owner(db)) {
+    if (await editable(db) && window.__omniplaySession?.groupName === 'OMNIPLAY Support') {
+      await rawSetDoc(doc(db,'omniplay-sync','customer-views'),{requestedAt:serverTimestamp()});
+      await awaitCustomerSync();
+    }
+    return;
+  }
   syncQueue = syncQueue.catch(() => {}).then(() => synchronize(db, workspace));
   return syncQueue;
 }
@@ -193,11 +243,18 @@ async function synchronize(db, workspace) {
   const failures = [];
   for (const member of members) {
     try {
-      const uid = await provision(db, member), { password, key, ...safe } = member;
+      const uid = await provision(db, member), { password, key, initialPageGrant, ...safe } = member;
       const profile = { ...safe, memberKey: key, enabled: true,
         superAdmin: false, role: previous.get(uid)?.role === 'admin' && getAuth().currentUser.uid !== ADMIN_UID ? 'admin' : 'member' };
-      if (JSON.stringify(previous.get(uid)) !== JSON.stringify(profile)) {
-        await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), profile);
+      const profileRef = doc(db, 'omniplay-member-access', uid);
+      if (!sameContent(previous.get(uid), profile)) {
+        await runTransaction(db, async transaction => {
+          const current = await transaction.get(profileRef);
+          const firstGrant = !current.exists() && initialPageGrant && safe.groupName === 'OMNIPLAY Support' && getAuth().currentUser.uid !== ADMIN_UID;
+          profile.role = firstGrant ? 'admin' : (current.data()?.role || 'member');
+          transaction.set(profileRef, profile);
+          if (firstGrant) transaction.set(doc(db, 'omniplay-page-grants', uid), initialPageGrant);
+        });
       }
     } catch (error) { failures.push(`${member.username} (${error.code || '同步失敗'})`); }
   }
@@ -253,7 +310,10 @@ export async function setMemberRole(uid, role, db = getFirestore()) {
   if (role === 'admin' && !['OMNIPLAY', 'OMNIPLAY Support'].includes(String(snap.data().groupName || '').trim())) throw new Error('其他群組只能查看與下載，不能設為管理員');
   const batch = writeBatch(db);
   batch.set(ref, { role, superAdmin: false }, { merge: true });
-  if (role === 'member') batch.delete(doc(db, 'omniplay-template-grants', uid));
+  if (role === 'member') {
+    batch.delete(doc(db, 'omniplay-template-grants', uid));
+    batch.delete(doc(db, 'omniplay-page-grants', uid));
+  }
   await batch.commit();
 }
 export async function transferToRondo(password, db = getFirestore()) {
