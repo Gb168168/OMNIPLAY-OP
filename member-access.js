@@ -1,3 +1,4 @@
+import { projectionEndpoint } from './projection-endpoint.js';
 import { describeCategoryChange } from './workspace-grant-change.js';
 import { preserveReleaseNotifications } from './release-notification-model.js?v=20261020-pagcor-1';
 import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
@@ -85,15 +86,26 @@ export async function getDoc(ref) {
   const data = hydratePasswords(snap.data(), await passwordSecrets(ref.firestore));
   return { exists: () => true, data: () => data, id: snap.id, ref: snap.ref };
 }
+async function awaitCustomerSync() {
+  if (!projectionEndpoint.startsWith('https://')) throw new Error('即時同步服務尚未設定');
+  const token = await getAuth().currentUser.getIdToken();
+  const response = await fetch(projectionEndpoint, {
+    method: 'POST', redirect: 'error', credentials: 'omit',
+    headers: {Authorization: 'Bearer ' + token}
+  });
+  if (response.status !== 204) throw new Error('客戶資料尚未同步完成，請重試');
+}
 export async function setDoc(ref, data, options) {
+  const delegated = ref.parent.path === 'omniplay' && window.__omniplaySession?.groupName === 'OMNIPLAY Support' && !window.__omniplaySession?.superAdmin;
+  if (delegated && !projectionEndpoint.startsWith('https://')) throw new Error('即時同步服務尚未設定');
   if (ref.path === 'omniplay/workspace') {
     if (await owner(ref.firestore)) await storePasswords(ref.firestore, data);
     await firebaseSetDoc(ref, publicWorkspace(data), options);
   } else await firebaseSetDoc(ref, data, options);
+  if (delegated) return awaitCustomerSync();
   if (!await editable(ref.firestore) || !ref.path.startsWith('omniplay/')) return;
   clearTimeout(refreshTimer);
-  if (ref.path === 'omniplay/workspace') return syncMembersAndViews(ref.firestore, data);
-  refreshTimer = setTimeout(() => syncMembersAndViews(ref.firestore).catch(showSyncError), 600);
+  return syncMembersAndViews(ref.firestore, ref.path === 'omniplay/workspace' ? data : undefined);
 }
 function showSyncError(error) {
   const status = document.querySelector('#cloudStatus');
@@ -132,7 +144,10 @@ async function provision(db, member) {
 }
 export async function syncMembersAndViews(db, workspace) {
   if (!await owner(db)) {
-    if (await editable(db)) await rawSetDoc(doc(db,'omniplay-sync','customer-views'),{requestedAt:serverTimestamp()});
+    if (await editable(db) && window.__omniplaySession?.groupName === 'OMNIPLAY Support') {
+      await rawSetDoc(doc(db,'omniplay-sync','customer-views'),{requestedAt:serverTimestamp()});
+      await awaitCustomerSync();
+    }
     return;
   }
   syncQueue = syncQueue.catch(() => {}).then(() => synchronize(db, workspace));

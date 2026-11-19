@@ -1,7 +1,5 @@
 name: Sync customer views
 on:
-  schedule:
-    - cron: '3-59/10 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,9 +27,4 @@ jobs:
           workload_identity_provider: ${{ vars.OMNIPLAY_SYNC_PROVIDER }}
           service_account: ${{ vars.OMNIPLAY_SYNC_ACCOUNT }}
       - name: Refresh customer views
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] || [ "$(date -u +%H)" = 03 -a "$(date -u +%M)" -lt 10 ]; then
-            node projection-worker/run.mjs --full
-          else
-            node projection-worker/run.mjs
-          fi
+        run: node projection-worker/run.mjs --full
