@@ -906,6 +906,20 @@ PROD 不放宣傳圖，沿用 UAT 的遊戲素材入口。|PROD uses the UAT gam
 ▧ 凍結第一欄|▧ Freeze First Column
 備註模組未載入|Notes module unavailable
 自訂群組|Custom Group
+UAT（無DM版本）|UAT (Without DM)
+UAT（補DM版本）|UAT (Marketing Assets Update)
+UAT 特選|Exclusive UAT
+PROD 特選|Exclusive PROD
+PROD 特選-延長通知|Exclusive PROD Extension
+新遊戲上線時間調整 完成通知|Game Launch Schedule Update
+UAT & PROD 遊戲一起上通知|Combined UAT & PROD Launch
+OMNIPLAY遊戲_客戶參考文件|OMNIPLAY Games – Customer Reference Documents
+上架流程（一般／客製）|Release Workflow (Standard / Custom)
+UAT（無 DM）|UAT (Without DM)
+UAT（補 DM）|UAT (Marketing Assets Update)
+PROD 特選延長|Exclusive PROD Extension
+已發送|Sent
+待發送|Pending
 相同平台名稱|Same Platform Name
 相同客戶域名|Same Customer Domain
 平台名稱／客戶域名關聯|Linked by Platform Name or Domain
@@ -917,6 +931,11 @@ PROD 不放宣傳圖，沿用 UAT 的遊戲素材入口。|PROD uses the UAT gam
  ['⚠️ 人員登入同步失敗：','⚠️ Member login sync failed: '],['人員登入未完成：','Member login incomplete: '],['套用範圍：','Apply to: '],['儲存失敗：','Save failed: '],['刪除失敗：','Delete failed: '],['上傳失敗：','Upload failed: '],['操作失敗：','Action failed: '],['操作失敗','Action failed'],['發布失敗：','Publish failed: '],['撤回失敗：','Withdrawal failed: '],['載入失敗：','Load failed: '],['資料載入失敗：','Data load failed: '],['試算表載入失敗：','Spreadsheet load failed: '],['登入失敗：','Login failed: '],['無法開啟遊戲資料：','Unable to open game information: '],['Pagcor Approval 載入失敗：','Unable to load Pagcor Approval: '],['下載失敗，請確認平台權限或重新登入：','Download failed. Check platform permissions or log in again: '],['權限同步失敗：','Permission sync failed: '],['類型更新失敗：','Type update failed: '],['更新未完成：','Update incomplete: '],['強制登出失敗：','Force logout failed: '],['☁️ 權限同步時間：','☁️ Permissions synced at: '],['⚠️ 權限即時更新失敗：','⚠️ Live permission update failed: '],['通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: '],['通知移轉失敗，請確認已發布新版 Firestore 規則後重新整理：','Notification migration failed. Publish the updated Firestore rules and refresh: '],['欄位已儲存，但群組同步失敗：','Fields saved, but group sync failed: '],['找不到對應的通知類型，請先在管理類型新增：','Notification type not found. Add it in Manage Types first: '],['預覽：','Preview: '],['上架時間：','Release Time: '],['獨立平台權限 · ','Platform-specific access · '],['通知說明日期 ','Description Date '],['額外數值 ','Additional Value '],['移除 ','Remove '],['刪除 ','Delete ']
  ];
  const patterns=[
+ [/^← 返回 (.+)$/,name=>'← Back to '+name],
+ [/^(\d+) 則通知$/,n=>n+(n==='1'?' notification':' notifications')],
+ [/^(.+)（不放宣傳圖，需附上測試環境提供的連結）$/,name=>translate(name)+' (no promotional image, use the UAT asset link)'],
+ [/^(.+) · (已發送|待發送)$/,(name,status)=>translate(name)+' · '+translate(status)],
+ [/^(上架流程（一般／客製）|特選（獨家首發）|其他)（(\d+)）$/,(name,n)=>translate(name)+' ('+n+')'],
  [/^(\d+) 筆資料 · 各平台獨立$/,n=>n+' independent platform record'+(n==='1'?'':'s')],
  [/^尚未儲存群組權限 · 已選 (\d+) 個頁面$/,n=>'Unsaved group permissions · '+n+' pages selected'],
  [/^已選 (\d+) 個頁面$/,n=>n+' pages selected'],
@@ -950,7 +969,7 @@ PROD 不放宣傳圖，沿用 UAT 的遊戲素材入口。|PROD uses the UAT gam
  [/^(\d+) 項$/,n=>`${n} items`],
  [/^(\d+) 個項目$/,n=>`${n} items`],
  [/^(\d+) 筆$/,n=>`${n} records`],
- [/^(\d+) 頁$/,n=>`${n} pages`],
+ [/^(\d+) 頁$/,n=>n+(n==='1'?' page':' pages')],
  [/^可選 (\d+) 款遊戲$/,n=>`${n} games available`],
  [/^已加入 (\d+) 張圖片$/,n=>`${n} images added`],
  [/^通知，未讀 (\d+) 則$/,n=>`Notifications, ${n} unread`],
