@@ -103,6 +103,49 @@ if (session?.superAdmin) {
   };
   button.onclick = () => showPermissions();
   if (!session.bootstrap) {
+    const style=document.createElement('style');
+    style.textContent="#groupMembersDialog .group-member-row{display:flex;align-items:center;gap:8px;padding:5px 9px;min-height:0}#groupMembersDialog .group-member-list{gap:4px}#groupMembersDialog .group-member-main{flex:1;min-width:0}#groupMembersDialog .group-member-row .customer-avatar{width:30px;height:30px;flex:none}#groupMembersDialog .group-member-row button{white-space:nowrap;width:auto;min-height:28px;padding:3px 8px;font-size:12px;flex:none}#groupMembersDialog .member-role{white-space:nowrap;color:#345578;background:#edf3fa;border-radius:5px;padding:2px 6px;font-size:12px} @media(max-width:550px){#groupMembersDialog .group-member-row{flex-wrap:wrap;gap:4px}#groupMembersDialog .group-member-main{min-width:6em}}";
+    document.head.append(style);
+    let profileRequest;
+    const panels=new WeakMap();
+    function displayRoles(panel,profiles){
+      for(const row of panel.querySelectorAll('.group-member-row')){
+        let badge=row.querySelector('.member-role');
+        const account=row.querySelector('.group-member-main span')?.textContent.replace(/^[^:：]*[:：]\s*/,'') || row.querySelector('strong')?.textContent;
+        if(!account)continue;
+        if(!badge){
+          badge=document.createElement('span');badge.className='member-role';
+          row.insertBefore(badge,row.querySelector('button'));
+        }
+        const p=profiles?.get(account.trim().toLowerCase());
+        const role=!profiles?'待確認':!p?'尚未同步':p.owner?'最高權限者':p.role==='admin'?'管理員':'一般使用者';
+        if(badge.textContent!==role)badge.textContent=role;
+      }
+    }
+    function watchPanel(panel){
+      if(panels.has(panel))return;
+      const state={profiles:null};panels.set(panel,state);
+      displayRoles(panel,null);
+      new MutationObserver(changes=>{
+        if(changes.some(c=>[...c.addedNodes].some(n=>n.nodeType===1&&n.matches('.group-member-row'))))displayRoles(panel,state.profiles);
+      }).observe(panel,{childList:true});
+      profileRequest ||= window.listGroupAccounts().finally(()=>{profileRequest=null});
+      profileRequest.then(profiles=>{
+        state.profiles=new Map(profiles.map(p=>[p.username.trim().toLowerCase(),p]));
+        if(panel.isConnected)displayRoles(panel,state.profiles);
+      }).catch(()=>{});
+    }
+    new MutationObserver(changes=>{
+      for(const change of changes)for(const node of change.addedNodes){
+        if(node.nodeType!==1)continue;
+        const panel=node.matches('#groupMembersDialog .group-member-list')?node:node.querySelector('#groupMembersDialog .group-member-list');
+        if(panel)watchPanel(panel);
+      }
+    }).observe(document.body,{childList:true,subtree:true});
+    document.addEventListener('omniplay-member-role-changed',({detail})=>{
+      const panel=document.querySelector('#groupMembersDialog .group-member-list'),state=panels.get(panel);
+      if(state?.profiles){state.profiles.set(detail.username.trim().toLowerCase(),detail);displayRoles(panel,state.profiles);}
+    });
     window.manageGroupPerson = person => showPermissions(null, person);
     window.showOmniplayPermissions = showPermissions;
     window.listGroupAccounts = async () => (await listMemberProfiles()).filter(p=>p.enabled).map(({uid,username,groupId,groupName,role,owner})=>({uid,username,groupId,groupName,role,owner}));
