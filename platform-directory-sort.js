@@ -26,7 +26,20 @@ export function openDirectorySort(sections,{en,save}){
   const handle=document.createElement('span');handle.className='sort-grip';handle.textContent=el.draggable?'⠿':'';
   title.textContent=platform?platform.name:(group.parentName||t('未分組平台','Ungrouped Platforms'));
   detail.textContent=platform?(platform.domain||platform.username||'—'):String(group.children.length);
-  el.append(handle,title,detail);positions.set(el,{group,platform});list.append(el);
+  el.append(handle,title,detail);
+  if(!platform&&!group.ungrouped){
+   const button=document.createElement('button');
+   button.type='button';button.className='customer-delete';button.style.marginInlineStart='auto';
+   button.textContent=t('解除群組','Ungroup');
+   button.onclick=()=>{
+    if(!confirm(t('解除「'+group.parentName+'」並將組內平台移至未分組平台？','Ungroup “'+group.parentName+'” and move its platforms to Ungrouped Platforms?')))return;
+    groups.find(item=>item.ungrouped).children.push(...group.children);
+    groups.splice(groups.indexOf(group),1);
+    dirty=true;status.textContent='';draw();
+   };
+   el.append(button);
+  }
+  positions.set(el,{group,platform});list.append(el);
  }
  function draw(){
   list.replaceChildren();

@@ -1,4 +1,4 @@
-import {orderSections,openDirectorySort} from './platform-directory-sort.js';
+import {orderSections,openDirectorySort} from './platform-directory-sort.js?v=ungroup-1';
 import { mountSupportRoleField } from './member-role-preview.js?v=columns-1';
 import {installMobilePreview} from './mobile-preview.js?v=20261027-mobile-preview-1';
 import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-review-actions-1';
@@ -860,13 +860,8 @@ platformDirectoryGroups(customers).forEach(({children,ungrouped,parentName,relat
  }
  if(isGrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading';
- heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 在此分組新增平台</button><button type="button" class="platform-rename-parent">編輯群組</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
+ heading.innerHTML=`<td colspan="7">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(relation)}</span></td>`;
  rows.append(heading);
- heading.querySelector('.platform-add-child').onclick=()=>openCustomerDialog('',null,children[0].id);
- heading.querySelector('.platform-rename-parent').onclick=()=>openPlatformDirectoryEditor(children,parentName);
- heading.querySelector('.platform-remove-parent').textContent='解除群組';
- heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm('解除「'+parentName+'」？平台資料將保留並移至未分組平台。'))return;children.forEach(u=>{u.directoryGroupId=null;u.directoryAutoGroupDisabled=true;delete u.directoryGroupName});save();renderCustomers()};
-
  }
  children.forEach((u,childIndex)=>{
  const group=groups.find(g=>g.id===u.groupId);
