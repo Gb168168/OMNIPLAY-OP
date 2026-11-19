@@ -194,6 +194,10 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, update, delete: if isOwner() || granted('documents','api','edit');
     }
+    match /omniplay-sync/customer-views {
+      allow create, update: if isAdmin() && request.resource.data.keys().hasOnly(['requestedAt'])
+        && request.resource.data.requestedAt == request.time;
+    }
     match /omniplay/{documentId} {
       allow read: if isAdmin();
       allow update: if documentId == 'workspace' && categoryMutation();

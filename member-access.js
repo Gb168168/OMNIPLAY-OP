@@ -4,7 +4,7 @@ import { getApps, initializeApp } from 'https://www.gstatic.com/firebasejs/12.18
 import { getAuth, setPersistence, inMemoryPersistence, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updatePassword, signOut } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import { getFirestore, collection, doc, getDocs as rawGetDocs, getDoc as rawGetDoc, getDocFromServer,
-  setDoc as rawSetDoc, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+  setDoc as rawSetDoc, writeBatch, runTransaction, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import { ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME, normalizeUsername, digest, collectMembers, memberCredentials, groupWorkspace,
   groupDocumentIds, projectGroupGameDocument, withoutCredentials, publicWorkspace, hydratePasswords, ensureCustomerOpPage, customerGameCatalog, CUSTOMER_OP_DOCUMENT } from './member-model.js?v=20261026-api-entry-editor-1';
 
@@ -24,13 +24,22 @@ function preserveLatestPermissions(incoming,latest){
  for(const group of incoming.customerGroups||[]){const saved=(latest.customerGroups||[]).find(item=>item.id===group.id);if(saved?.permissionsUpdatedAt&&String(saved.permissionsUpdatedAt)>=String(group.permissionsUpdatedAt||'')){for(const key of ['allowedPages','pageOrder','permissionMode','permissionsUpdatedAt'])if(key in saved)group[key]=structuredClone(saved[key])}}
  return incoming;
 }
+function requestProjection(write, db) {
+  write.set(doc(db, 'omniplay-sync', 'customer-views'), {requestedAt: serverTimestamp()});
+}
 async function firebaseSetDoc(ref,data,options){try{
  if(ref.path==='omniplay/workspace'){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists()){preserveLatestPermissions(data,latest.data());if(!options?.merge&&sameContent(latest.data(),data))return;
       if (!window.__omniplaySession?.superAdmin && !sameContent(latest.data().categories, data.categories)) {
         data.grantChange = describeCategoryChange(latest.data().categories, data.categories);
       } else if (latest.data().grantChange) data.grantChange = latest.data().grantChange;
-    }transaction.set(ref,data,options||{})});return}
+    }requestProjection(transaction,ref.firestore);transaction.set(ref,data,options||{})});return}
  if(/^omniplay-group-views\/[^/]+$/.test(ref.path)&&data.enabled!==false){await runTransaction(ref.firestore,async transaction=>{const latest=await transaction.get(ref);if(latest.exists())preserveReleaseNotifications(data,latest.data());if(latest.exists()&&(String(latest.data().permissionsUpdatedAt||'')>String(data.permissionsUpdatedAt||'')||(!options?.merge&&sameContent(latest.data(),data))))return;transaction.set(ref,data,options||{})});return}
+ if (ref.parent.path === 'omniplay') {
+   const batch = writeBatch(ref.firestore);
+   batch.set(ref, data, options || {});
+   requestProjection(batch, ref.firestore);
+   return await batch.commit();
+ }
  return await rawSetDoc(ref,data,options);
  }catch(error){throw databaseError(error,'寫入',ref.path)}
 }
@@ -122,7 +131,10 @@ async function provision(db, member) {
   } finally { await signOut(auth); }
 }
 export async function syncMembersAndViews(db, workspace) {
-  if (!await owner(db)) return;
+  if (!await owner(db)) {
+    if (await editable(db)) await rawSetDoc(doc(db,'omniplay-sync','customer-views'),{requestedAt:serverTimestamp()});
+    return;
+  }
   syncQueue = syncQueue.catch(() => {}).then(() => synchronize(db, workspace));
   return syncQueue;
 }

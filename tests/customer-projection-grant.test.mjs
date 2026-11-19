@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { initializeApp, deleteApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initializeTestEnvironment, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { refreshGroup } from '../projection-worker/sync.js';
+import { doc, getDoc, setDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { syncRequestedViews } from '../projection-worker/run.mjs';
 
 test('customer reads granted sheet edits only in the assigned group', async () => {
   const projectId = 'demo-omniplay-members';
@@ -28,9 +28,13 @@ test('customer reads granted sheet edits only in the assigned group', async () =
     }
     await admin.doc('omniplay-page-grants/editor').set({pages:{guide:['edit']},categories:{}});
     const editor = env.authenticatedContext('editor').firestore();
-    await setDoc(doc(editor,'omniplay/sheet-guide'), {summary:'updated'});
-    await refreshGroup(admin, 'client');
-    await refreshGroup(admin, 'other');
+    await syncRequestedViews(admin);
+    const batch = writeBatch(editor);
+    batch.set(doc(editor,'omniplay/sheet-guide'), {summary:'updated'});
+    batch.set(doc(editor,'omniplay-sync/customer-views'), {requestedAt:serverTimestamp()});
+    await batch.commit();
+    await syncRequestedViews(admin);
+    await syncRequestedViews(admin);
     const customer = env.authenticatedContext('reader').firestore();
     const path = 'omniplay-group-views/client/documents/sheet-guide';
     assert.equal((await getDoc(doc(customer,path))).data().summary,'updated');
