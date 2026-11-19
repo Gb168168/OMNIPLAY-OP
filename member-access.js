@@ -196,8 +196,15 @@ async function synchronize(db, workspace) {
       const uid = await provision(db, member), { password, key, ...safe } = member;
       const profile = { ...safe, memberKey: key, enabled: true,
         superAdmin: false, role: previous.get(uid)?.role === 'admin' && getAuth().currentUser.uid !== ADMIN_UID ? 'admin' : 'member' };
-      if (JSON.stringify(previous.get(uid)) !== JSON.stringify(profile)) {
-        await firebaseSetDoc(doc(db, 'omniplay-member-access', uid), profile);
+      if (Object.keys(profile).some(key=>JSON.stringify(previous.get(uid)?.[key])!==JSON.stringify(profile[key]))) {
+        const profileRef=doc(db,'omniplay-member-access',uid);
+        await runTransaction(db,async transaction=>{
+          const existing=(await transaction.get(profileRef)).data();
+          const keepGrant=existing?.enabled && existing.role==='admin' && existing.groupId===profile.groupId
+            && existing.groupName==='OMNIPLAY Support' && profile.groupName==='OMNIPLAY Support'
+            && existing.memberKey===profile.memberKey && existing.manageGroupCategories===true;
+          transaction.set(profileRef,{...profile,role:existing?.role==='admin' && getAuth().currentUser.uid!==ADMIN_UID?'admin':'member',manageGroupCategories:!!keepGrant});
+        });
       }
     } catch (error) { failures.push(`${member.username} (${error.code || '同步失敗'})`); }
   }
@@ -252,7 +259,7 @@ export async function setMemberRole(uid, role, db = getFirestore()) {
   if (!snap.exists() || snap.data().enabled !== true) throw new Error('此人員尚未啟用');
   if (role === 'admin' && String(snap.data().groupName || '').trim() !== 'OMNIPLAY Support') throw new Error('其他群組只能查看與下載，不能設為管理員');
   const batch = writeBatch(db);
-  batch.set(ref, { role, superAdmin: false }, { merge: true });
+  batch.set(ref, { role, superAdmin: false, ...(role === 'member' ? {manageGroupCategories:false} : {}) }, { merge: true });
   if (role === 'member') batch.delete(doc(db, 'omniplay-template-grants', uid));
   await batch.commit();
 }

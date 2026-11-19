@@ -16,6 +16,7 @@ export function accessSession(user, config, profile, view) {
   if (!administrator && !view?.enabled) return null;
   return { authUid: user.uid, username: profile.username, name: profile.name || profile.username,
     groupId: profile.groupId, groupName: profile.groupName, internal: !!profile.internal,
+    manageGroupCategories: profile.role==='admin' && profile.groupName==='OMNIPLAY Support' && profile.manageGroupCategories===true,
     platformId: profile.platformId || '', role: administrator ? 'admin' : 'member', superAdmin: false, canEdit: administrator, bootstrap: false,
     allowedPages: administrator ? [] : view.allowedPages || [] };
 }

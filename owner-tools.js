@@ -1,5 +1,5 @@
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=support-grants-1';
+import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=group-category-grant';
 const session = window.__omniplaySession;
 if (session?.superAdmin) {
   const controls = document.querySelector('.account-settings-menu') || document.querySelector('.session-controls') || document.querySelector('.sidebar');
@@ -90,10 +90,20 @@ if (session?.superAdmin) {
                 if (grant.checked) await setDoc(ref, {enabled:true}); else await deleteDoc(ref);
                 message.textContent = profile.username + (grant.checked ? ' 已取得模板權限' : ' 的模板權限已收回');
               } catch (error) { grant.checked = !grant.checked; message.textContent = error.message; }
-              finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); }
+              finally { select.disabled = false; categoryGrant.disabled=profile.role!=='admin'; if(categoryGrant.disabled)categoryGrant.checked=false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); }
             };
             select.onchange = async () => { select.disabled = grant.disabled = true; try { await setMemberRole(profile.uid, select.value); profile.role = select.value;
-              document.dispatchEvent(new CustomEvent('omniplay-member-role-changed',{detail:{groupId:profile.groupId,username:profile.username,role:profile.role,owner:profile.owner}})); if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); } }; row.append(select, grantLabel);
+              document.dispatchEvent(new CustomEvent('omniplay-member-role-changed',{detail:{groupId:profile.groupId,username:profile.username,role:profile.role,owner:profile.owner}})); if (select.value !== 'admin') grant.checked = false; message.textContent = profile.username + ' 的權限已更新；重新登入後套用。'; } catch (error) { select.value = profile.role || 'member'; message.textContent = error.message; } finally { select.disabled = false; grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked); } }; const categoryLabel=document.createElement('label'), categoryGrant=document.createElement('input');
+            categoryGrant.type='checkbox';categoryGrant.checked=profile.manageGroupCategories===true && profile.role==='admin';
+            categoryLabel.append(categoryGrant,document.documentElement.lang.startsWith('en')?' Manage Group Categories':' 群組分類管理');
+            categoryGrant.disabled=profile.role!=='admin';
+            categoryGrant.onchange=async()=>{
+              categoryGrant.disabled=select.disabled=true;
+              try {await setDoc(doc(db,'omniplay-member-access',profile.uid),{manageGroupCategories:categoryGrant.checked},{merge:true});}
+              catch(error){categoryGrant.checked=!categoryGrant.checked;message.textContent=error.message;}
+              finally{select.disabled=false;categoryGrant.disabled=profile.role!=='admin';}
+            };
+            row.append(select, grantLabel, categoryLabel);
           }
           list.append(row);
         }

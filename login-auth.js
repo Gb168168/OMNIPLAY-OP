@@ -1,4 +1,4 @@
-import { accessSession, BOOTSTRAP_UID, BOOTSTRAP_EMAIL } from './access-model.js?v=20261020-platform-1';
+import { accessSession, BOOTSTRAP_UID, BOOTSTRAP_EMAIL } from './access-model.js?v=group-category-grant';
 import { memberCredentials, ADMIN_UID, ADMIN_EMAIL, ADMIN_USERNAME } from './member-model.js?v=20261026-api-entry-editor-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,doc,getDoc,collection,addDoc,getDocs,query,orderBy,limit,serverTimestamp,setDoc,updateDoc,onSnapshot,where,writeBatch}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -81,7 +81,7 @@ if(session){ void flushPendingLoginAudit();
  void startPresence(session);
  document.documentElement.classList.add('is-authenticated','auth-ready');window.__omniplaySession=session;window.__omniplayCanEdit=!!session.canEdit;
  if(!session.canEdit)installReadOnlyMode();
- if(session.role==='admin'){document.documentElement.classList.add('regular-admin');const style=document.createElement('style');style.textContent='.regular-admin #groupManagerBtn,.regular-admin #addManagedGroup,.regular-admin .add-option[data-target="customerGroup"]{display:none!important}';document.head.append(style);}
+ if(session.role==='admin'){document.documentElement.classList.add('regular-admin');const style=document.createElement('style');style.textContent='.regular-admin .add-option[data-target="customerGroup"]{display:none!important}';document.head.append(style);}
  installDownloadAudit(session);
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>addLogout(session),{once:true});else addLogout(session);
 }else{

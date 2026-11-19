@@ -7,11 +7,11 @@ import { installReleaseNotifications } from './release-notifications.js?v=uat-dm
 import { ensureGameInformationPage, renderGameInformationPage } from './game-information.js?v=20261027-review-actions-1';
 import { gameListRows, preferredGameRows } from './game-list-source.js?v=20261020-pagcor-1';
 import { isInternalReferenceCategory, ensureCustomerOpPage, platformVisible } from './member-model.js?v=20261026-api-entry-editor-1';
-import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=20261026-api-entry-editor-1';
+import { getDoc, setDoc, saveGroupPermissions, getCustomerGameCatalog, syncMembersAndViews } from './member-access.js?v=group-category-grant';
 import { storedAsset, downloadAsset, uniqueGames, openGameAssetsFromRecords } from './op-game-form.js?v=20261027-review-actions-1';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 
-import{getFirestore,doc,onSnapshot}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
+import{getFirestore,doc,onSnapshot,runTransaction,serverTimestamp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 
 const cfg={apiKey:'AIzaSyB02CLJIYLJgQ2LkMVgYomObyl1kQC84eI',authDomain:'omniplay-op.firebaseapp.com',projectId:'omniplay-op',storageBucket:'omniplay-op.firebasestorage.app',messagingSenderId:'742295844045',appId:'1:742295844045:web:8399ae7bdb21c6a9d12584'};
 
@@ -848,7 +848,7 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-pill{display:inline-block;padding:3px 8px;background:#edf3fd;border-radius:6px;color:#315f9c;font-size:12px}
 .platform-list-workspace .platform-directory .platform-muted{color:#a0aabb}
 .platform-list-workspace .platform-directory .platform-notes{white-space:pre-wrap;overflow-wrap:anywhere;max-width:none;line-height:1.5}
-.directory-permissions{position:relative}.directory-permissions summary{cursor:pointer;padding:9px 12px;border:1px solid #b9cbea;border-radius:8px}.directory-permissions[open] #groupManagerBtn{position:absolute;right:0;top:calc(100% + 4px);z-index:8;white-space:nowrap}</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplayCanEdit?'<button class="secondary" id="directorySortBtn">'+(customerLanguage==='en'?'Arrange Groups':'編輯順序')+'</button>':''}${canManageGroupCategories()?'<details class="directory-permissions"><summary class="secondary">'+(customerLanguage==='en'?'Manage Permissions':'管理權限')+'</summary><button type="button" class="secondary" id="groupManagerBtn">'+(customerLanguage==='en'?'Group Categories':'群組分類管理')+'</button></details>':''}<button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:15%">平台名稱</th><th style="width:10%">客戶域名</th><th style="width:15%">所屬群組 / GAME LIST 權限</th><th style="width:10%">客戶類型</th><th style="width:12%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
+</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span>${window.__omniplayCanEdit?'<button class="secondary" id="directorySortBtn">'+(customerLanguage==='en'?'Arrange Groups':'編輯順序')+'</button>':''}${canManageGroupCategories()?'<button type="button" class="secondary" id="groupManagerBtn">'+(customerLanguage==='en'?'Group Categories':'群組分類管理')+'</button>':''}<button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:15%">平台名稱</th><th style="width:10%">客戶域名</th><th style="width:15%">所屬群組 / GAME LIST 權限</th><th style="width:10%">客戶類型</th><th style="width:12%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
 const rows=$('#platformRows');
 const search=$('#platformDirectorySearch');
 search.value=previousSearch;
@@ -911,7 +911,7 @@ if(sortButton)sortButton.onclick=()=>openDirectorySort(platformDirectoryGroups(c
   renderCustomers();
  }
 });
-$('#groupManagerBtn')?.addEventListener('click',event=>{event.currentTarget.closest('details').open=false; openGroupManager()});
+$('#groupManagerBtn')?.addEventListener('click',openGroupManager);
 $('#newPlatform').onclick=()=>openCustomerDialog();
 if(oldViewport){
  const viewport=w.querySelector('.platform-table-wrap');
@@ -1049,9 +1049,36 @@ function openGroupMembers(g,editingId=null){if(!window.__omniplaySession?.superA
 }dialog.querySelectorAll('[data-manage-person]').forEach(button=>button.onclick=()=>{const member=g.members.find(m=>String(m.id)===button.dataset.managePerson);if(member)window.manageGroupPerson({groupId:g.id,groupName:g.name,username:member.username});});dialog.querySelectorAll('[data-member-edit]').forEach(button=>button.onclick=()=>openGroupMembers(g,button.dataset.memberEdit));dialog.querySelectorAll('[data-member-delete]').forEach(button=>button.onclick=()=>{const member=g.members.find(item=>item.id===button.dataset.memberDelete);if(!member||!confirm(`確定要刪除人員「${member.name}」嗎？`))return;g.members=g.members.filter(item=>item.id!==member.id);save();openGroupMembers(g)});dialog.querySelector('#groupMemberForm').onsubmit=event=>{event.preventDefault();const name=$('#groupMemberName').value.trim(),username=$('#groupMemberUsername').value.trim(),password=$('#groupMemberPassword').value;if(!name||!username||!password)return;const duplicate=allInternalMembers().find(member=>member.id!==editingId&&String(member.username||'').trim().toLowerCase()===username.toLowerCase());if(duplicate){alert('此登入帳號已被其他人員使用');return}if(editing&&String(editing.username||'').toLowerCase()==='rondo'&&username.toLowerCase()!=='rondo'&&!window.__omniplaySession?.bootstrap){alert('最高管理者帳號必須保留 Rondo');return}if(editing)Object.assign(editing,{name,username,password,updatedAt:new Date().toISOString()});else g.members.push({id:uid('member'),name,username,password,platformId:'',createdAt:new Date().toISOString()});save();openGroupMembers(g)};if(!dialog.open)dialog.showModal();if(editing)dialog.querySelector('#groupMemberName').focus()}
 function canManageGroupCategories(){
  const session=window.__omniplaySession;
- return !!session?.superAdmin && state.customerGroups.some(group=>group.id===session.groupId && group.name.trim()==='OMNIPLAY Support');
+ return !!(session?.superAdmin || session?.manageGroupCategories) && state.customerGroups.some(group=>group.id===session.groupId && group.name.trim()==='OMNIPLAY Support');
 }
-function openGroupManager(){if(!canManageGroupCategories())return;const list=$('#groupManagerList');list.innerHTML='';if(!state.customerGroups.length)list.innerHTML='<div class="empty-mini"><div>👥</div><strong>尚無群組分類</strong><span>按下方按鈕新增第一個群組</span></div>';state.customerGroups.forEach(g=>{const count=state.customers.filter(u=>u.groupId===g.id).length,row=document.createElement('div');row.className='group-manager-row';row.innerHTML=`<div class="group-icon">👥</div><div class="group-manager-main"><strong>${esc(g.name)}</strong><span>${count} 個平台・可看 ${(g.allowedPages||[]).length} 個頁面</span></div><div class="group-manager-actions"><button type="button" class="group-members">人員管理</button><button type="button" class="group-permissions">群組可見內容</button><button type="button" class="group-edit">編輯</button><button type="button" class="group-delete" ${count?'disabled':''}>刪除</button></div>`;row.querySelector('.group-members').onclick=()=>openGroupMembers(g);row.querySelector('.group-permissions').onclick=()=>{$('#groupManagerDialog').close();editGroupPermissions(g)};row.querySelector('.group-edit').onclick=()=>{const name=prompt('編輯群組名稱：',g.name)?.trim();if(!name||name===g.name)return;if(state.customerGroups.some(group=>group.id!==g.id&&String(group.name||'').trim().toLowerCase()===name.toLowerCase())){alert('已有相同名稱的群組');return}g.name=name;save();openGroupManager()};const del=row.querySelector('.group-delete');if(count)del.title='請先將此群組的平台移到其他群組';del.onclick=()=>{if(count){alert(`「${g.name}」仍有 ${count} 個平台使用中，請先將平台移到其他群組。`);return}if(!confirm(`確定要刪除群組「${g.name}」嗎？\n刪除後無法復原。`))return;state.customerGroups=state.customerGroups.filter(group=>group.id!==g.id);save();openGroupManager()};list.append(row)});const dialog=$('#groupManagerDialog');if(window.manageGroupPerson && !dialog.querySelector('[data-account-search]')){const search=document.createElement('input');search.type='search';search.placeholder='搜尋登入帳號';search.setAttribute('aria-label','搜尋登入帳號');search.dataset.accountSearch='';const results=document.createElement('div');results.dataset.accountResults='';list.before(search,results);}installGroupAccountSearch(dialog);if(!dialog.open)dialog.showModal()}
+async function changeGroupCategory(action, group, name=''){
+ if(!canManageGroupCategories())return;
+ try {
+  const groups=await runTransaction(db,async tx=>{
+   const ws=(await tx.get(ref)).data(), groups=ws.customerGroups.slice();
+   const index=groups.findIndex(row=>row.id===group?.id);
+   if(action!=='create' && (index<0 || groups[index].name!==group.name))throw Error('群組已變更，請重新整理。');
+   if(name && groups.some(row=>row.name.trim().toLowerCase()===name.toLowerCase()))throw Error('已有相同名稱的群組');
+   if(action==='delete' && ((groups[index].members||[]).length || ws.customers.some(row=>row.groupId===group.id)))throw Error('請先移出此群組的人員與平台');
+   if(action==='create'){
+    const categoryId='managed-'+crypto.randomUUID();
+    tx.set(doc(db,'omniplay-group-category-ids',categoryId),{createdAt:serverTimestamp()});
+    groups.push({id:categoryId,name,allowedPages:[],pageOrder:[],permissionMode:'all'});
+   }
+   if(action==='rename') groups[index]={...groups[index],name};
+   if(action==='delete') groups.splice(index,1);
+   tx.set(doc(db,'omniplay-group-category-changes',window.__omniplaySession.authUid),{action,index,at:serverTimestamp()});
+   tx.update(ref,{customerGroups:groups});
+   return groups;
+  });
+  state.customerGroups=groups;openGroupManager();
+ } catch(error){alert(firebaseError(error));}
+}
+function openGroupManager(){if(!canManageGroupCategories())return;const list=$('#groupManagerList');list.innerHTML='';if(!state.customerGroups.length)list.innerHTML='<div class="empty-mini"><div>👥</div><strong>尚無群組分類</strong><span>按下方按鈕新增第一個群組</span></div>';state.customerGroups.forEach(g=>{const count=state.customers.filter(u=>u.groupId===g.id).length,row=document.createElement('div');row.className='group-manager-row';row.innerHTML=`<div class="group-icon">👥</div><div class="group-manager-main"><strong>${esc(g.name)}</strong><span>${count} 個平台・可看 ${(g.allowedPages||[]).length} 個頁面</span></div><div class="group-manager-actions"><button type="button" class="group-members">人員管理</button><button type="button" class="group-permissions">群組可見內容</button><button type="button" class="group-edit">編輯</button><button type="button" class="group-delete" ${count?'disabled':''}>刪除</button></div>`;if(!window.__omniplaySession.superAdmin){
+ for(const selector of ['.group-members','.group-permissions'])row.querySelector(selector).hidden=true;
+ if(['omniplay','omniplay support'].includes(g.name.trim().toLowerCase()))for(const selector of ['.group-edit','.group-delete'])row.querySelector(selector).disabled=true;
+}
+row.querySelector('.group-members').onclick=()=>openGroupMembers(g);row.querySelector('.group-permissions').onclick=()=>{$('#groupManagerDialog').close();editGroupPermissions(g)};row.querySelector('.group-edit').onclick=()=>{const name=prompt('編輯群組名稱：',g.name)?.trim();if(!name||name===g.name)return;if(state.customerGroups.some(group=>group.id!==g.id&&String(group.name||'').trim().toLowerCase()===name.toLowerCase())){alert('已有相同名稱的群組');return}if(!window.__omniplaySession.superAdmin)return changeGroupCategory('rename',g,name);g.name=name;save();openGroupManager()};const del=row.querySelector('.group-delete');if(count)del.title='請先將此群組的平台移到其他群組';del.onclick=()=>{if(count){alert(`「${g.name}」仍有 ${count} 個平台使用中，請先將平台移到其他群組。`);return}if(!confirm(`確定要刪除群組「${g.name}」嗎？\n刪除後無法復原。`))return;if(!window.__omniplaySession.superAdmin)return changeGroupCategory('delete',g);state.customerGroups=state.customerGroups.filter(group=>group.id!==g.id);save();openGroupManager()};list.append(row)});const dialog=$('#groupManagerDialog');if(window.manageGroupPerson && !dialog.querySelector('[data-account-search]')){const search=document.createElement('input');search.type='search';search.placeholder='搜尋登入帳號';search.setAttribute('aria-label','搜尋登入帳號');search.dataset.accountSearch='';const results=document.createElement('div');results.dataset.accountResults='';list.before(search,results);}installGroupAccountSearch(dialog);if(!dialog.open)dialog.showModal()}
 let pendingGroupPermissions = null;
 function editGroupPermissions(g){if(!window.__omniplaySession?.superAdmin)return;g.allowedPages||=[];
 const w=$('#workspace');
@@ -1146,7 +1173,7 @@ state.customerGroups.push(newCustomerGroup(n));
 save();
 $('#groupDialog').close();
 renderCustomers()};
-$('#addManagedGroup').onclick=()=>{const name=prompt('新增群組分類名稱：')?.trim();if(!name)return;if(state.customerGroups.some(g=>g.name===name)){alert('已有相同名稱的群組');return}state.customerGroups.push(newCustomerGroup(name));save();openGroupManager()};
+$('#addManagedGroup').onclick=()=>{if(!canManageGroupCategories())return;const name=prompt('新增群組分類名稱：')?.trim();if(!name)return;if(state.customerGroups.some(g=>g.name===name)){alert('已有相同名稱的群組');return}if(!window.__omniplaySession.superAdmin)return changeGroupCategory('create',null,name);state.customerGroups.push(newCustomerGroup(name));save();openGroupManager()};
 document.querySelectorAll('.add-option').forEach(b=>b.onclick=()=>{const target=b.dataset.target,isType=target==='customerType',isCommApp=target==='customerCommApp',isGroup=target==='customerGroup',label=isType?'客戶類型':isCommApp?'通訊 APP':isGroup?'Game List 權限群組':'對接進度',value=prompt(`新增${label}選項：`)?.trim();
 if(!value)return;
 if(isGroup){let group=state.customerGroups.find(g=>g.name===value);if(!group){group=newCustomerGroup(value);state.customerGroups.push(group)}const sel=$('#customerGroup');sel.innerHTML=state.customerGroups.map(g=>`<option value="${g.id}">${esc(g.name)}</option>`).join('');sel.value=group.id}else{const items=isType?state.customerTypeOptions:isCommApp?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);fillCustomerOptionSelect(`#${target}`,items);$(`#${target}`).value=value}

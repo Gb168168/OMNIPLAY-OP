@@ -139,7 +139,48 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create, update, delete: if isAdmin();
     }
+    function categoryManager() {
+      return isAdmin() && member().groupName == 'OMNIPLAY Support'
+        && member().role == 'admin' && member().get('manageGroupCategories', false) == true;
+    }
+    match /omniplay-group-category-changes/{uid} {
+      allow create, update: if categoryManager() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['action','index','at'])
+        && request.resource.data.action in ['create','rename','delete']
+        && request.resource.data.index is int && request.resource.data.at == request.time;
+    }
+    match /omniplay-group-category-ids/{id} {
+      allow create: if categoryManager() && id.matches('managed-[0-9a-f-]{36}')
+        && request.resource.data == {'createdAt':request.time};
+    }
+    function freshCategoryId(id) {
+      return id is string && id.matches('managed-[0-9a-f-]{36}')
+        && !exists(/databases/$(database)/documents/omniplay-group-category-ids/$(id))
+        && getAfter(/databases/$(database)/documents/omniplay-group-category-ids/$(id)).data.createdAt == request.time;
+    }
+    function ordinaryCategoryName(name) {
+      return name is string && name.size()>0 && name.size()<=100 && name==name.trim()
+        && !(name.lower() in ['omniplay','omniplay support']);
+    }
+    function validCategoryChange() {
+      let op = getAfter(/databases/$(database)/documents/omniplay-group-category-changes/$(request.auth.uid)).data;
+      let before = resource.data.customerGroups;
+      let after = request.resource.data.customerGroups;
+      let i = op.index;
+      return op.at == request.time && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerGroups'])
+        && ((op.action == 'create' && after.size() == before.size()+1
+            && after == before.concat([after[before.size()]])
+            && after[before.size()].keys().hasOnly(['id','name','allowedPages','pageOrder','permissionMode'])
+            && freshCategoryId(after[before.size()].id) && ordinaryCategoryName(after[before.size()].name)
+            && after[before.size()].allowedPages == [] && after[before.size()].pageOrder == [] && after[before.size()].permissionMode == 'all')
+          || (i >= 0 && i < before.size() && ordinaryCategoryName(before[i].name)
+            && ((op.action == 'rename' && before.size() == after.size()
+              && ordinaryCategoryName(after[i].name) && after[i].diff(before[i]).affectedKeys().hasOnly(['name'])
+              && before.removeAll([before[i]]) == after.removeAll([after[i]]))
+            || (op.action == 'delete' && before[i].get('members',[]) == [] && after == before.removeAll([before[i]])))));
+    }
     match /omniplay/{documentId} {
+      allow update: if documentId == 'workspace' && categoryManager() && validCategoryChange();
       allow read: if isAdmin();
       allow create, update, delete: if isOwner() && documentId != 'game-release-notifications';
       allow create, update, delete: if isAdmin() && documentId != 'game-release-notifications' && documentId != 'workspace';
