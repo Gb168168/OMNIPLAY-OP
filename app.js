@@ -698,7 +698,7 @@ renderPage()}};
 ps.append(row)});
 r.append(b)});
 const adminView=isAdminWorkspaceView();r.querySelectorAll('.mini,.page-delete,.page-rename').forEach(button=>button.classList.toggle('hidden',!adminView));$('#addCategoryBtn').classList.toggle('hidden',!adminView);$('#addPageBtn').classList.add('hidden');$('#customerBtn').classList.toggle('hidden',!canAccessPlatformList());$('#addPageBtn').disabled=!state.activeCategoryId||!adminView;document.documentElement.classList.remove('access-loading');if(canManageResources()){const platformButton=document.createElement('button');platformButton.id='platformViewBtn';platformButton.type='button';platformButton.className='side-action platform-view-entry';platformButton.textContent='🖥️ 平台視角';platformButton.onclick=openPlatformView;r.append(platformButton);renderCustomerNav(true);syncResourceNavigation();}}
-async function renderPage(){if(!isCustomerPortal()){syncResourceNavigation(customerSectionPages().some(entry=>entry.page?.id===state.activePageId));if(cat()&&isInternalReferenceCategory(cat())){resourcePreviewGroup='';resourcePreviewPlatform='';}}$('#gameInformationTooltip')?.remove();$('#resourceGameEditor')?.remove();dispose();rememberView('page');$('#customerBtn').classList.remove('active');
+async function renderPage(){if(pendingGroupPermissions?.(()=>renderPage()))return;if(!isCustomerPortal()){syncResourceNavigation(customerSectionPages().some(entry=>entry.page?.id===state.activePageId));if(cat()&&isInternalReferenceCategory(cat())){resourcePreviewGroup='';resourcePreviewPlatform='';}}$('#gameInformationTooltip')?.remove();$('#resourceGameEditor')?.remove();dispose();rememberView('page');$('#customerBtn').classList.remove('active');
 $('.topbar').classList.remove('hidden');
 const p=page(),c=cat(),pageName=String(p?.name||'').trim(),isOpGame=p?.type==='sheet'&&pageName==='OP GAME',isGameList=p?.type==='sheet'&&pageName==='Game List_Online';
 if(p&&/^API$/i.test(pageName)&&[c?.name,c?.displayName].some(name=>String(name||'').trim()==='操作手冊')){$('#workspace').classList.remove('hidden');$('#emptyState').classList.add('hidden');$('#breadcrumb').textContent=isCustomerPortal()?(customerLanguage==='en'?'OMNIPLAY / User Manual':'OMNIPLAY / 操作手冊'):'工作區 / 操作手冊';$('#pageTitle').textContent=p.displayName||p.name;return renderApiManualPage($('#workspace'),{admin:!isCustomerPortal()&&!!window.__omniplayCanEdit,page:p});}
@@ -784,7 +784,7 @@ function directorySummary(children){
  const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
  return {names,domains,parentName};
 }
-function renderCustomers({editedId}={}){if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}
+function renderCustomers({editedId}={}){if(pendingGroupPermissions?.(()=>renderCustomers({editedId})))return;if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}
 const oldViewport=$('#workspace .platform-table-wrap');
 const previousSearch=$('#platformDirectorySearch')?.value||'';
 const oldTop=oldViewport?.scrollTop||0;
@@ -1029,6 +1029,7 @@ function openGroupMembers(g,editingId=null){if(!window.__omniplaySession?.superA
  }).catch(()=>{const msg=document.createElement('small');msg.textContent='同步帳號暫時無法載入';panel.append(msg)});
 }dialog.querySelectorAll('[data-manage-person]').forEach(button=>button.onclick=()=>{const member=g.members.find(m=>String(m.id)===button.dataset.managePerson);if(member)window.manageGroupPerson({groupId:g.id,username:member.username});});dialog.querySelectorAll('[data-member-edit]').forEach(button=>button.onclick=()=>openGroupMembers(g,button.dataset.memberEdit));dialog.querySelectorAll('[data-member-delete]').forEach(button=>button.onclick=()=>{const member=g.members.find(item=>item.id===button.dataset.memberDelete);if(!member||!confirm(`確定要刪除人員「${member.name}」嗎？`))return;g.members=g.members.filter(item=>item.id!==member.id);save();openGroupMembers(g)});dialog.querySelector('#groupMemberForm').onsubmit=event=>{event.preventDefault();const name=$('#groupMemberName').value.trim(),username=$('#groupMemberUsername').value.trim(),password=$('#groupMemberPassword').value;if(!name||!username||!password)return;const duplicate=allInternalMembers().find(member=>member.id!==editingId&&String(member.username||'').trim().toLowerCase()===username.toLowerCase());if(duplicate){alert('此登入帳號已被其他人員使用');return}if(editing&&String(editing.username||'').toLowerCase()==='rondo'&&username.toLowerCase()!=='rondo'&&!window.__omniplaySession?.bootstrap){alert('最高管理者帳號必須保留 Rondo');return}if(editing)Object.assign(editing,{name,username,password,updatedAt:new Date().toISOString()});else g.members.push({id:uid('member'),name,username,password,platformId:'',createdAt:new Date().toISOString()});save();openGroupMembers(g)};if(!dialog.open)dialog.showModal();if(editing)dialog.querySelector('#groupMemberName').focus()}
 function openGroupManager(){if(!window.__omniplaySession?.superAdmin)return;const list=$('#groupManagerList');list.innerHTML='';if(!state.customerGroups.length)list.innerHTML='<div class="empty-mini"><div>👥</div><strong>尚無群組分類</strong><span>按下方按鈕新增第一個群組</span></div>';state.customerGroups.forEach(g=>{const count=state.customers.filter(u=>u.groupId===g.id).length,row=document.createElement('div');row.className='group-manager-row';row.innerHTML=`<div class="group-icon">👥</div><div class="group-manager-main"><strong>${esc(g.name)}</strong><span>${count} 個平台・可看 ${(g.allowedPages||[]).length} 個頁面</span></div><div class="group-manager-actions"><button type="button" class="group-members">人員管理</button><button type="button" class="group-permissions">群組可見內容</button><button type="button" class="group-edit">編輯</button><button type="button" class="group-delete" ${count?'disabled':''}>刪除</button></div>`;row.querySelector('.group-members').onclick=()=>openGroupMembers(g);row.querySelector('.group-permissions').onclick=()=>{$('#groupManagerDialog').close();editGroupPermissions(g)};row.querySelector('.group-edit').onclick=()=>{const name=prompt('編輯群組名稱：',g.name)?.trim();if(!name||name===g.name)return;if(state.customerGroups.some(group=>group.id!==g.id&&String(group.name||'').trim().toLowerCase()===name.toLowerCase())){alert('已有相同名稱的群組');return}g.name=name;save();openGroupManager()};const del=row.querySelector('.group-delete');if(count)del.title='請先將此群組的平台移到其他群組';del.onclick=()=>{if(count){alert(`「${g.name}」仍有 ${count} 個平台使用中，請先將平台移到其他群組。`);return}if(!confirm(`確定要刪除群組「${g.name}」嗎？\n刪除後無法復原。`))return;state.customerGroups=state.customerGroups.filter(group=>group.id!==g.id);save();openGroupManager()};list.append(row)});const dialog=$('#groupManagerDialog');if(window.manageGroupPerson && !dialog.querySelector('[data-account-search]')){const search=document.createElement('input');search.type='search';search.placeholder='搜尋登入帳號';search.setAttribute('aria-label','搜尋登入帳號');search.dataset.accountSearch='';const results=document.createElement('div');results.dataset.accountResults='';list.before(search,results);}installGroupAccountSearch(dialog);if(!dialog.open)dialog.showModal()}
+let pendingGroupPermissions = null;
 function editGroupPermissions(g){if(!window.__omniplaySession?.superAdmin)return;g.allowedPages||=[];
 const w=$('#workspace');
 w.innerHTML=`<div class="permission-top"><button id="backGroup" class="secondary">← 返回 ${esc(g.name)}</button></div><div class="admin-card permission-card"><div class="modal-head"><div><div class="eyebrow">GROUP PAGE ACCESS</div><h2>${esc(g.name)} 的群組權限</h2><p>依照「分類 → 頁面」顯示，勾選要開放給此群組查看的頁面。</p></div><div class="group-icon">👥</div></div><div id="permissionList" class="permission-list"></div><div class="permission-footer"><span id="permCount">已選 ${g.allowedPages.length} 個頁面</span><button id="savePerm" class="primary">儲存群組權限</button></div></div>`;
@@ -1049,19 +1050,53 @@ const inputs=[...l.querySelectorAll('input[type=checkbox]')];
 const baseline=inputs.map(input=>input.checked);
 const dirty=()=>inputs.some((input,i)=>input.checked!==baseline[i]);
 const guard=new AbortController(),options={signal:guard.signal};
-const warning='尚未儲存群組權限，確定要放棄變更並離開嗎？';
 const count=$('#permCount');
 function updateCount(){count.textContent=(dirty()?'尚未儲存群組權限 · ':'')+'已選 '+inputs.filter(input=>input.checked).length+' 個頁面';}
 l.addEventListener('change',updateCount,options);
 updateCount();
-function leave(event){
- if(!dirty())return;
- if(!confirm(warning)){event.preventDefault();event.stopImmediatePropagation();}
- else guard.abort();
+const notice=document.createElement('dialog');
+notice.setAttribute('aria-labelledby','unsavedGroupTitle');
+notice.innerHTML='<div class="dialog-form"><h3 id="unsavedGroupTitle">尚未儲存群組權限</h3><p>離開會放棄這次勾選的變更。</p><div class="dialog-actions"><button type="button" class="primary" data-stay autofocus>繼續編輯</button><button type="button" class="secondary" data-leave>放棄變更並離開</button></div></div>';
+document.body.append(notice);
+let proceed=null,afterBack=null,hasHistoryEntry=false,replaying=false;
+function intercept(action){
+ if(replaying||!dirty())return false;
+ if(!notice.open){proceed=action;notice.showModal();}
+ return true;
 }
-document.addEventListener('click',event=>{
- if(event.target.closest('#backGroup,#customerBtn,.page-link,.customer-section,#platformViewBtn,.logout-btn,[data-page-id] button,.resource-entry button')&&!l.contains(event.target))leave(event);
+notice.querySelector('[data-stay]').onclick=()=>notice.close();
+notice.querySelector('[data-leave]').onclick=()=>{
+ const next=proceed;
+ notice.close();
+ const run=()=>{replaying=true;try{next?.();}finally{replaying=false;}};
+ if(hasHistoryEntry && history.state?.groupPermissionDraft===g.id){
+   afterBack=run;history.back();
+ }else run();
+};
+function addHistoryEntry(){
+ if(hasHistoryEntry||!dirty())return;
+ history.pushState({...history.state,groupPermissionDraft:g.id},'');
+ hasHistoryEntry=true;
+}
+l.addEventListener('change',addHistoryEntry,options);
+window.addEventListener('popstate',()=>{
+ if(!hasHistoryEntry)return;
+ hasHistoryEntry=false;
+ if(afterBack){const action=afterBack;afterBack=null;action();return;}
+ if(dirty()){addHistoryEntry();intercept(renderCustomers);}
+ else renderCustomers();
+},options);
+window.addEventListener('click',event=>{
+ const target=event.target.closest?.('button,a,summary,[role="button"]');
+ if(!target||notice.contains(target)||target.closest('#savePerm,#permissionList'))return;
+ if(target.id!=='backGroup'&&!target.closest('.sidebar')&&!target.matches('a[href]'))return;
+ if(intercept(()=>target.click())){event.preventDefault();event.stopImmediatePropagation();}
 },{capture:true,signal:guard.signal});
+pendingGroupPermissions=intercept;
+guard.signal.addEventListener('abort',()=>{
+ if(pendingGroupPermissions===intercept)pendingGroupPermissions=null;
+ notice.remove();
+},{once:true});
 window.addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}},options);
 const observer=new MutationObserver(()=>{if(!l.isConnected){guard.abort();observer.disconnect();}});
 observer.observe(w,{childList:true});
