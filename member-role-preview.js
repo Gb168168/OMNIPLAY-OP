@@ -19,31 +19,47 @@ export function choosePagePermissions(categories, current = {}) {
     parent.append(label);
     fields.push({input, scope, id, action});
   }
-  for (const category of categories) {
-    const section = document.createElement('fieldset');
-    const legend = document.createElement('legend');
+  const list = document.createElement('div');
+  list.className = 'permission-list';
+  form.append(list);
+  const order = category => {
+    const name = category.displayName || category.name;
+    if (name.includes('內部參考')) return 0;
+    if (name.includes('操作手冊')) return 1;
+    return 2;
+  };
+  for (const category of [...categories].sort((a,b) => order(a)-order(b))) {
+    const section = document.createElement('section');
+    const legend = document.createElement('h4');
     legend.textContent = category.displayName || category.name;
-    section.append(legend);
+    const actions = document.createElement('div');
+    actions.className = 'category-actions';
+    section.append(legend, actions);
     for (const [action, caption] of [['rename','重新命名分類'], ['delete','刪除分類'], ['visibility','變更平台可見']]) {
-      addPermission(section, 'categories', category.id, action, caption);
+      addPermission(actions, 'categories', category.id, action, caption);
     }
     for (const page of category.pages || []) {
-      const row = document.createElement('fieldset');
-      const name = document.createElement('legend');
+      const row = document.createElement('div');
+      row.className = 'permission-page';
+      row.setAttribute('role','group');
+      row.setAttribute('aria-label', page.displayName || page.name);
+      const name = document.createElement('span');
       name.textContent = page.displayName || page.name;
       row.append(name);
       addPermission(row, 'pages', page.id, 'edit', '編輯');
       addPermission(row, 'pages', page.id, 'delete', '刪除');
       section.append(row);
     }
-    form.append(section);
+    list.append(section);
   }
+  const footer = document.createElement('footer');
+  form.append(footer);
   for (const [value, caption] of [['cancel','取消'], ['apply','確認預覽']]) {
     const button = document.createElement('button');
     button.type = 'submit';
     button.value = value;
     button.textContent = caption;
-    form.append(button);
+    footer.append(button);
   }
   dialog.append(form);
   document.body.append(dialog);
