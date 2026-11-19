@@ -1,5 +1,5 @@
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
-import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=20261026-api-entry-editor-1';
+import { listMemberProfiles, setMemberRole, syncMembersAndViews, transferToRondo } from './member-access.js?v=support-grants-1';
 const session = window.__omniplaySession;
 if (session?.superAdmin) {
   const controls = document.querySelector('.account-settings-menu') || document.querySelector('.session-controls') || document.querySelector('.sidebar');
@@ -37,6 +37,7 @@ if (session?.superAdmin) {
     finally { resync.disabled = false; }
   };
   const showPermissions = async (host = null, person = null) => {
+    if (person && person.groupName?.trim() !== 'OMNIPLAY Support') return;
     if (host?.querySelector('.owner-permissions-dialog')) { host.replaceChildren(); return; }
     const dialog = document.createElement(host ? 'section' : 'dialog'); dialog.className = 'owner-permissions-dialog'; dialog.setAttribute('aria-labelledby', 'ownerPermissionsTitle'); dialog.setAttribute('aria-describedby', 'ownerPermissionsHelp'); if (host) { host.append(dialog); dialog.close = () => { dialog.remove(); document.querySelector('#platformAdminPermissionsBtn')?.setAttribute('aria-expanded', 'false'); }; } else document.body.append(dialog);
     dialog.addEventListener('close', () => dialog.remove());
@@ -66,7 +67,7 @@ if (session?.superAdmin) {
         const db = getFirestore();
         const [profiles, grants] = await Promise.all([listMemberProfiles(), getDocs(collection(db, 'omniplay-template-grants'))]);
         const granted = new Set(grants.docs.map(row => row.id));
-        const enabled = profiles.filter(item => item.enabled && (!person || (item.groupId === person.groupId && (person.uid ? item.uid === person.uid : item.username?.trim().toLowerCase() === person.username.trim().toLowerCase()))));
+        const enabled = profiles.filter(item => item.enabled && item.groupName?.trim() === 'OMNIPLAY Support' && (!person || (item.groupId === person.groupId && (person.uid ? item.uid === person.uid : item.username?.trim().toLowerCase() === person.username.trim().toLowerCase()))));
         message.textContent = enabled.length ? '' : '此帳號尚未同步或未啟用。';
         for (const profile of enabled) {
           const row = document.createElement('div'); row.className = 'owner-permissions-row';
@@ -79,7 +80,7 @@ if (session?.superAdmin) {
             for (const [value, text] of [['member', '一般使用者'], ['admin', '管理員']]) { const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option); }
             select.value = profile.role === 'admin' ? 'admin' : 'member';
             const grant = document.createElement('input'), grantLabel = document.createElement('label');
-            const eligible = ['OMNIPLAY','OMNIPLAY Support'].includes(profile.groupName);
+            const eligible = profile.groupName?.trim() === 'OMNIPLAY Support';
             grant.type = 'checkbox'; grant.checked = granted.has(profile.uid); grant.disabled = !eligible || (profile.role !== 'admin' && !grant.checked);
             grantLabel.append(grant, ' 管理通知固定模板');
             grant.onchange = async () => {
@@ -123,7 +124,7 @@ if (session?.superAdmin) {
       }
     }
     function watchPanel(panel){
-      if(panels.has(panel))return;
+      if(panel.dataset.supportRoles!=='true'||panels.has(panel))return;
       const state={profiles:null};panels.set(panel,state);
       displayRoles(panel,null);
       new MutationObserver(changes=>{
@@ -131,7 +132,7 @@ if (session?.superAdmin) {
       }).observe(panel,{childList:true});
       profileRequest ||= window.listGroupAccounts().finally(()=>{profileRequest=null});
       profileRequest.then(profiles=>{
-        state.profiles=new Map(profiles.map(p=>[p.username.trim().toLowerCase(),p]));
+        state.profiles=new Map(profiles.filter(p=>p.groupName?.trim()==='OMNIPLAY Support').map(p=>[p.username.trim().toLowerCase(),p]));
         if(panel.isConnected)displayRoles(panel,state.profiles);
       }).catch(()=>{});
     }

@@ -250,7 +250,7 @@ export async function setMemberRole(uid, role, db = getFirestore()) {
   if (!['admin', 'member'].includes(role)) throw new Error('無效的管理員權限');
   const ref = doc(db, 'omniplay-member-access', uid), snap = await firebaseGetDoc(ref);
   if (!snap.exists() || snap.data().enabled !== true) throw new Error('此人員尚未啟用');
-  if (role === 'admin' && !['OMNIPLAY', 'OMNIPLAY Support'].includes(String(snap.data().groupName || '').trim())) throw new Error('其他群組只能查看與下載，不能設為管理員');
+  if (role === 'admin' && String(snap.data().groupName || '').trim() !== 'OMNIPLAY Support') throw new Error('其他群組只能查看與下載，不能設為管理員');
   const batch = writeBatch(db);
   batch.set(ref, { role, superAdmin: false }, { merge: true });
   if (role === 'member') batch.delete(doc(db, 'omniplay-template-grants', uid));
