@@ -814,6 +814,8 @@ API 串接指南與常見問題|API Integration Guide and FAQ
 全部|All
 Excel 模組載入失敗，請確認網路連線|Unable to load Excel tools. Check your network connection.
 Excel 匯出失敗：|Excel export failed:
+依平台名稱、客戶域名、所屬群組依序自動分組。|Groups are matched by platform name, then customer domain, then access group.
+相同所屬群組|Same Access Group
 相同平台名稱或客戶域名自動集中；每筆資料直接顯示，不重複展開表格。|Platforms with the same name or customer domain are grouped together. Each record appears once.
 平台名稱|Platform Name
 所屬群組 / GAME LIST 權限|Group / Game List Access

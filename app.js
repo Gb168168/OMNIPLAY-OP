@@ -771,29 +771,32 @@ function allPages(){return state.categories.flatMap(c=>(c.pages||[]).map(p=>({id
 function formatLaunchDate(value=''){const match=String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);return match?`${match[1].slice(2)}/${match[2]}/${match[3]}`:(value||'—')}
 function platformOptionMarkup(items,current){const empty=current?'':'<option value="" selected>未設定</option>';return empty+items.map(item=>{const value=typeof item==='string'?item:item.id,label=typeof item==='string'?item:item.name;return `<option value="${esc(value)}" ${value===current?'selected':''}>${esc(label)}</option>`}).join('')+'<option value="__add__">＋ 新增選項…</option>'}
 function handlePlatformOption(select,u,field){if(select.value!=='__add__'){u[field]=select.value;save();return}const labels={customerType:'客戶群組',commApp:'通訊 APP',progress:'對接進度',groupId:'所屬群組'},value=prompt(`新增${labels[field]}選項：`)?.trim();if(!value){renderCustomers();return}if(field==='groupId'&&!window.__omniplaySession?.superAdmin){alert('只有最高管理者可以新增群組');renderCustomers();return}if(field==='groupId'){let group=state.customerGroups.find(g=>g.name===value);if(!group){group=newCustomerGroup(value);state.customerGroups.push(group)}u.groupId=group.id}else{const items=field==='customerType'?state.customerTypeOptions:field==='commApp'?state.customerCommAppOptions:state.customerProgressOptions;if(!items.includes(value))items.push(value);u[field]=value}save();renderCustomers()}
-function platformDirectoryGroups(customers){
-const parentGroups=new Map();
-// 依平台名稱或客戶域名分組，不使用舊主表格 ID。
-const parents=customers.map((_,i)=>i);
-const root=i=>{while(parents[i]!==i){parents[i]=parents[parents[i]];i=parents[i]}return i};
-const union=(a,b)=>{a=root(a);b=root(b);if(a!==b)parents[b]=a};
-const nameIndex=new Map(),domainIndex=new Map(),manualIndex=new Map();
-customers.forEach((u,i)=>{
- if(Object.prototype.hasOwnProperty.call(u,'directoryGroupId')){
- if(u.directoryGroupId){if(manualIndex.has(u.directoryGroupId))union(i,manualIndex.get(u.directoryGroupId));else manualIndex.set(u.directoryGroupId,i)}
- return;
+function platformDirectoryGroups(customers, accessGroups=state.customerGroups){
+ const available=new Set(customers);
+ const sections=[];
+ function collect(keyFor,labelFor,relation,minimum){
+  const buckets=new Map();
+  for(const row of available){
+   const key=keyFor(row);
+   if(!key)continue;
+   if(!buckets.has(key))buckets.set(key,[]);
+   buckets.get(key).push(row);
+  }
+  for(const [key,children] of buckets){
+   if(children.length<minimum)continue;
+   sections.push({children,parentName:labelFor(children[0],key),relation});
+   for(const row of children)available.delete(row);
+  }
  }
- const name=String(u.name||'').trim().toLocaleLowerCase(),domain=String(u.domain||u.username||'').trim().toLocaleLowerCase();
- [[name,nameIndex],[domain,domainIndex]].forEach(([value,index])=>{if(!value)return;if(index.has(value))union(i,index.get(value));else index.set(value,i)});
-});
-customers.forEach((u,i)=>{const key=root(i);if(!parentGroups.has(key))parentGroups.set(key,[]);parentGroups.get(key).push(u)});
-return parentGroups;
-}
-function directorySummary(children){
- const names=[...new Set(children.map(u=>String(u.name||'').trim()).filter(Boolean))];
- const domains=[...new Set(children.map(u=>String(u.domain||u.username||'').trim()).filter(Boolean))];
- const parentName=children.find(u=>u.directoryGroupId)?.directoryGroupName||(names.length===1?names[0]:(domains.length===1?domains[0]:(names[0]||'平台群組')));
- return {names,domains,parentName};
+ collect(row=>row.directoryGroupId,row=>row.directoryGroupName||row.name,'自訂群組',1);
+ const normalize=value=>String(value||'').trim().toLowerCase();
+ const automatic=keyFor=>row=>row.directoryAutoGroupDisabled?'':keyFor(row);
+ collect(automatic(row=>normalize(row.name)),row=>row.name,'相同平台名稱',2);
+ collect(automatic(row=>normalize(row.domain||row.username)),row=>row.domain||row.username,'相同客戶域名',2);
+ const labels=new Map(accessGroups.map(group=>[group.id,group.name]));
+ collect(automatic(row=>labels.has(row.groupId)?row.groupId:null),(_,key)=>labels.get(key),'相同所屬群組',2);
+ if(available.size)sections.push({children:[...available],ungrouped:true});
+ return sections;
 }
 function renderCustomers({editedId}={}){if(pendingGroupPermissions?.(()=>renderCustomers({editedId})))return;if(!canAccessPlatformList()){alert('此帳號沒有「所有平台列表」權限');renderPage();return}
 const oldViewport=$('#workspace .platform-table-wrap');
@@ -843,17 +846,11 @@ w.innerHTML=`<style>
 .platform-list-workspace .platform-directory .platform-group-pill{display:inline-block;padding:3px 8px;background:#edf3fd;border-radius:6px;color:#315f9c;font-size:12px}
 .platform-list-workspace .platform-directory .platform-muted{color:#a0aabb}
 .platform-list-workspace .platform-directory .platform-notes{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
-</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>相同平台名稱或客戶域名自動集中；每筆資料直接顯示，不重複展開表格。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span><button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
+</style><div class="customer-hero"><div><div class="eyebrow">PLATFORM DIRECTORY</div><h2>所有平台列表</h2><p>依平台名稱、客戶域名、所屬群組依序自動分組。</p></div><div class="customer-tools"><span class="platform-count">共 ${liveCount} 個平台正式上線</span><button class="secondary" id="groupManagerBtn">群組分類管理</button><button class="primary" id="newPlatform">＋ 新增平台</button></div></div><input type="search" id="platformDirectorySearch" aria-label="搜尋平台名稱或域名" placeholder="搜尋平台名稱或域名"><section class="platform-directory"><div class="platform-table-wrap"><table><thead><tr><th style="width:17%">平台名稱</th><th style="width:13%">客戶域名</th><th style="width:19%">所屬群組 / GAME LIST 權限</th><th style="width:13%">對接進度</th><th style="width:11%">上線日期</th><th style="width:14%">備註</th><th style="width:13%;text-align:right">操作</th></tr></thead><tbody id="platformRows"></tbody></table></div><div id="platformEmpty" class="empty-mini hidden"><strong>尚未建立平台</strong></div></section>`;
 const rows=$('#platformRows');
 const search=$('#platformDirectorySearch');
 search.value=previousSearch;
-const parentGroups=platformDirectoryGroups(customers);
-const groupedPlatforms=[...parentGroups.values()].filter(children=>children.length>1||children[0].directoryGroupId);
-const ungroupedPlatforms=[...parentGroups.values()].filter(children=>children.length===1&&!children[0].directoryGroupId).flat();
-const displaySections=groupedPlatforms.map(children=>({children,ungrouped:false}));
-if(ungroupedPlatforms.length)displaySections.push({children:ungroupedPlatforms,ungrouped:true});
-displaySections.forEach(({children,ungrouped})=>{
- const {names,domains,parentName}=directorySummary(children);
+platformDirectoryGroups(customers).forEach(({children,ungrouped,parentName,relation})=>{
  const isGrouped=!ungrouped;
  if(ungrouped){
  const heading=document.createElement('tr');heading.className='platform-group-heading platform-ungrouped-heading';
@@ -861,14 +858,13 @@ displaySections.forEach(({children,ungrouped})=>{
  rows.append(heading);
  }
  if(isGrouped){
- const relation=children.some(u=>u.directoryGroupId)?'自訂群組':names.length===1?'相同平台名稱':(domains.length===1?'相同客戶域名':'平台名稱／客戶域名關聯');
  const heading=document.createElement('tr');heading.className='platform-group-heading';
  heading.innerHTML=`<td colspan="5">${esc(parentName)} <span style="font-weight:400;color:#6983a7;margin-left:8px">（${children.length} 筆）</span><span class="platform-relation">${esc(relation)}</span></td><td colspan="2"><div class="platform-action-row"><button type="button" class="platform-add-child">＋ 在此分組新增平台</button><button type="button" class="platform-rename-parent">編輯群組</button><button type="button" class="platform-remove-parent">刪除群組</button></div></td>`;
  rows.append(heading);
  heading.querySelector('.platform-add-child').onclick=()=>openCustomerDialog('',null,children[0].id);
  heading.querySelector('.platform-rename-parent').onclick=()=>openPlatformDirectoryEditor(children,parentName);
  heading.querySelector('.platform-remove-parent').textContent='解除群組';
- heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm('解除「'+parentName+'」？平台資料將保留並移至未分組平台。'))return;children.forEach(u=>{u.directoryGroupId=null;delete u.directoryGroupName});save();renderCustomers()};
+ heading.querySelector('.platform-remove-parent').onclick=()=>{if(!confirm('解除「'+parentName+'」？平台資料將保留並移至未分組平台。'))return;children.forEach(u=>{u.directoryGroupId=null;u.directoryAutoGroupDisabled=true;delete u.directoryGroupName});save();renderCustomers()};
 
  }
  children.forEach((u,childIndex)=>{
@@ -933,7 +929,7 @@ function openPlatformDirectoryEditor(children=[],name=''){
  if(!nextName)return;
  const selected=new Set([...dialog.querySelectorAll('[name="platform"]:checked')].map(input=>state.customers[Number(input.value)].id));
  if(!selected.size){alert('請至少選擇一個平台；如需移出全部平台，請使用解除群組。');return}
- state.customers.forEach(u=>{if(selected.has(u.id)){u.directoryGroupId=groupId;u.directoryGroupName=nextName}else if(previous.has(u.id)){u.directoryGroupId=null;delete u.directoryGroupName}});
+ state.customers.forEach(u=>{if(selected.has(u.id)){u.directoryGroupId=groupId;u.directoryGroupName=nextName}else if(previous.has(u.id)){u.directoryGroupId=null;u.directoryAutoGroupDisabled=true;delete u.directoryGroupName}});
  save();dialog.close();renderCustomers();
  };
  dialog.showModal();
@@ -965,9 +961,8 @@ function openCustomerDialog(groupId,customer=null,groupMemberId=null){
  const choices=$('#platformDirectoryOptions');
  choices.replaceChildren();
  const used=new Set();
- for(const children of platformDirectoryGroups(state.customers).values()){
-  if(children.length===1&&!children[0].directoryGroupId)continue;
-  const {parentName}=directorySummary(children);
+ for(const {children,parentName,ungrouped} of platformDirectoryGroups(state.customers)){
+  if(ungrouped)continue;
   let label=parentName;
   let suffix=2;
   while(used.has(label.toLowerCase()))label=parentName+' ('+(suffix++)+')';
@@ -1145,6 +1140,7 @@ if(!name)return;
 const existing=editingCustomerId?state.customers.find(customer=>customer.id===editingCustomerId):null,inputDate=$('#customerLaunchDate').value.trim(),data={name,domain:$('#customerDomain').value.trim(),customerType:$('#customerType').value,groupId,progress:$('#customerProgress').value,launchDate:inputDate||((existing?.launchDate&&!/^\d{4}-\d{2}-\d{2}$/.test(existing.launchDate))?existing.launchDate:''),notes:$('#customerNotes').value.trim()};
 const directoryLabel=$('#platformDirectoryName').value.trim();
 if(!existing||directoryLabel!==initialDirectoryLabel){
+ data.directoryAutoGroupDisabled=Boolean(existing&&!directoryLabel);
  data.directoryGroupId=null;
  data.directoryGroupName='';
  if(directoryLabel){
