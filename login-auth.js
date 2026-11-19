@@ -69,6 +69,10 @@ async function resolveSession(user){
  if(profileResult.value?.exists())profile=profileResult.value.data();
  if(profile?.enabled&&user.uid!==ownerUid&&!(config?.credentialsMigrated&&['OMNIPLAY','OMNIPLAY Support'].includes(String(profile.groupName||'').trim()))){const snap=await getDoc(doc(db,'omniplay-group-views',profile.groupId));if(snap.exists())view=snap.data();}
  const session=accessSession(user,config,profile,view);
+ if (session && !session.superAdmin && profile?.enabled && profile.role==='admin' && profile.groupName==='OMNIPLAY Support') {
+   const grants=await getDoc(doc(db,'omniplay-page-grants',user.uid));
+   session.pageGrants=grants.exists()?grants.data():{};
+ }
  if(session){const previous=readSession();session.loginAt=previous?.authUid===user.uid?previous.loginAt:new Date().toISOString();session.auditSessionId=previous?.authUid===user.uid?previous.auditSessionId:undefined;}
  return session;
 }
