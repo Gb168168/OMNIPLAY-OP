@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { initializeApp, deleteApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeTestEnvironment, assertFails } from '@firebase/rules-unit-testing';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { refreshGroup } from '../projection-worker/sync.js';
+
+test('customer reads granted sheet edits only in the assigned group', async () => {
+  const projectId = 'demo-omniplay-members';
+  const app = initializeApp({projectId}, 'projection-test');
+  const admin = getFirestore(app);
+  const env = await initializeTestEnvironment({projectId, firestore: {
+    host: '127.0.0.1', port: 8088, rules: await readFile('firestore.rules','utf8')
+  }});
+  try {
+    await env.clearFirestore();
+    const groups = [{id:'client', name:'Client', allowedPages:['guide']},
+      {id:'other', name:'Other', allowedPages:[]}];
+    await admin.doc('omniplay/workspace').set({customerGroups:groups, categories:[
+      {id:'manual',name:'Manual',platformVisible:true,pages:[{id:'guide',type:'sheet',name:'Guide',platformVisible:true}]}
+    ]});
+    await admin.doc('omniplay-security/access').set({ownerUid:'rondo',credentialsMigrated:true});
+    for(const [uid,groupId,groupName,role] of [['editor','support','OMNIPLAY Support','admin'],
+      ['reader','client','Client','member'], ['other','other','Other','member']]) {
+      await admin.doc('omniplay-member-access/'+uid).set({enabled:true,groupId,groupName,role});
+    }
+    await admin.doc('omniplay-page-grants/editor').set({pages:{guide:['edit']},categories:{}});
+    const editor = env.authenticatedContext('editor').firestore();
+    await setDoc(doc(editor,'omniplay/sheet-guide'), {summary:'updated'});
+    await refreshGroup(admin, 'client');
+    await refreshGroup(admin, 'other');
+    const customer = env.authenticatedContext('reader').firestore();
+    const path = 'omniplay-group-views/client/documents/sheet-guide';
+    assert.equal((await getDoc(doc(customer,path))).data().summary,'updated');
+    await assertFails(getDoc(doc(env.authenticatedContext('other').firestore(),path)));
+  } finally { await env.cleanup(); await deleteApp(app); }
+});

@@ -122,7 +122,7 @@ async function provision(db, member) {
   } finally { await signOut(auth); }
 }
 export async function syncMembersAndViews(db, workspace) {
-  if (!await editable(db)) return;
+  if (!await owner(db)) return;
   syncQueue = syncQueue.catch(() => {}).then(() => synchronize(db, workspace));
   return syncQueue;
 }

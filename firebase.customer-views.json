@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "source": "tmp/customer-view-function",
+    "codebase": "customer-views",
+    "predeploy": ["node projection-worker/prepare.mjs"]
+  },
+  "firestore": { "rules": "firestore.rules" }
+}
