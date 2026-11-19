@@ -1,4 +1,4 @@
-import { mountSupportRoleField } from './member-role-preview.js?v=compact-1';
+import { mountSupportRoleField } from './member-role-preview.js?v=columns-1';
 import {installMobilePreview} from './mobile-preview.js?v=20261027-mobile-preview-1';
 import {installGameSourceUpdates} from './game-source-updates.js?v=20261027-review-actions-1';
 import { renderApiManualPage } from './api-manual.js?v=20261030-faq-polish-1';

@@ -1,5 +1,5 @@
 /** Return the confirmed grant, or null when the owner cancels the dialog. */
-export function choosePagePermissions(categories, current = {}) {
+export function choosePagePermissions(categories, current = null) {
   const dialog = document.createElement('dialog');
   const form = document.createElement('form');
   form.className = 'dialog-form';
@@ -14,10 +14,11 @@ export function choosePagePermissions(categories, current = {}) {
     const label = document.createElement('label');
     const input = document.createElement('input');
     input.type = 'checkbox';
-    input.checked = current[scope]?.[id]?.includes(action) === true;
+    input.checked = current === null || current[scope]?.[id]?.includes(action) === true;
     label.append(input, ' ' + caption);
     parent.append(label);
     fields.push({input, scope, id, action});
+    return input;
   }
   const list = document.createElement('div');
   list.className = 'permission-list';
@@ -34,10 +35,19 @@ export function choosePagePermissions(categories, current = {}) {
     legend.textContent = category.displayName || category.name;
     const actions = document.createElement('div');
     actions.className = 'category-actions';
-    section.append(legend, actions);
+    const heading = document.createElement('header');
+    heading.append(legend, actions);
+    section.append(heading);
     for (const [action, caption] of [['rename','重新命名分類'], ['delete','刪除分類'], ['visibility','變更平台可見']]) {
       addPermission(actions, 'categories', category.id, action, caption);
     }
+    const columns = {edit: [], delete: []};
+    const controls = document.createElement('div');
+    controls.className = 'permission-page permission-all';
+    const pageHeading = document.createElement('span');
+    pageHeading.textContent = '頁面';
+    controls.append(pageHeading);
+    if (category.pages?.length) section.append(controls);
     for (const page of category.pages || []) {
       const row = document.createElement('div');
       row.className = 'permission-page';
@@ -46,9 +56,30 @@ export function choosePagePermissions(categories, current = {}) {
       const name = document.createElement('span');
       name.textContent = page.displayName || page.name;
       row.append(name);
-      addPermission(row, 'pages', page.id, 'edit', '編輯');
-      addPermission(row, 'pages', page.id, 'delete', '刪除');
+      columns.edit.push(addPermission(row, 'pages', page.id, 'edit', '編輯'));
+      columns.delete.push(addPermission(row, 'pages', page.id, 'delete', '刪除'));
       section.append(row);
+    }
+    for (const [action, caption] of [['edit','編輯'], ['delete','刪除']]) {
+      const items = columns[action];
+      if (!items.length) continue;
+      const label = document.createElement('label');
+      const all = document.createElement('input');
+      all.type = 'checkbox';
+      all.setAttribute('aria-label', legend.textContent + '：' + caption + '全選');
+      label.append(all, '全選');
+      controls.append(label);
+      const refresh = () => {
+        const count = items.filter(item => item.checked).length;
+        all.checked = count === items.length;
+        all.indeterminate = count > 0 && count < items.length;
+      };
+      all.onchange = () => {
+        for (const item of items) item.checked = all.checked;
+        refresh();
+      };
+      for (const item of items) item.addEventListener('change', refresh);
+      refresh();
     }
     list.append(section);
   }
@@ -104,7 +135,7 @@ export function mountSupportRoleField(form, group, categories) {
   label.append(note);
   let permissions = null;
   async function configurePermissions() {
-    const result = await choosePagePermissions(categories, permissions || {});
+    const result = await choosePagePermissions(categories, permissions);
     if (result) permissions = result;
     if (!permissions) role.value = 'member';
     configure.hidden = role.value !== 'admin';
