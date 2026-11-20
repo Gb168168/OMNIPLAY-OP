@@ -83,7 +83,7 @@ export function customerGameCatalog(rowData = {}, recordData = {}, group = null,
   const rows = preferredGameRows(gameListRows(rowData));
   const source = recordData.records || {}, records = {}, fields = ['mandarinName', 'status', 'releaseDate', 'pagcor', 'freeSpin'];
   const selected = rows.filter(row => Array.isArray(row) && String(row[0] ?? '').trim() && (
-    !group || (Array.isArray(source[String(row[0]).trim()]?.groupIds) && source[String(row[0]).trim()].groupIds.includes(group.id))
+    !group || String(group.name||'').trim()==='OMNIPLAY Support' || (Array.isArray(source[String(row[0]).trim()]?.groupIds) && source[String(row[0]).trim()].groupIds.includes(group.id))
   )).map(row => projectLinkedRow(row.slice(0, 19).map(value => ['string', 'number', 'boolean'].includes(typeof value) ? value : ''), source[String(row[0]).trim()]?.linkedFieldRules, group?.id ?? null));
   for (const row of selected) {
     const id = String(row[0]).trim(), sourceRecord = source[id] || {};
