@@ -485,8 +485,9 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    paintTypes();
    const gameLabel=game=>game.id+' · '+(game.mandarinName?game.mandarinName+' / ':'')+game.name;
    const allowedGames=()=>[...games.values()];
-   let recipientGameId='';
-   const syncRecipients=gameId=>{if(gameId===recipientGameId)return;recipientGameId=gameId;const defaults=new Set(defaultReleaseGroupIds(gameId,records,groups));form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=defaults.has(input.value));form.querySelector('[data-recipient-hint]').textContent=!gameId?'選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。':defaults.size?'已依遊戲所屬群組預設勾選 '+defaults.size+' 個接收群組，可手動調整；切換遊戲會重新帶入。':'此遊戲尚未設定所屬群組，請手動選擇接收群組。';};
+   const supportGroup=groups.find(group=>group.name?.trim()==='OMNIPLAY Support');
+   let recipientGameId=null;
+   const syncRecipients=gameId=>{if(gameId===recipientGameId)return;recipientGameId=gameId;const defaults=new Set(defaultReleaseGroupIds(gameId,records,groups));if(supportGroup)defaults.add(supportGroup.id);form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=defaults.has(input.value));form.querySelector('[data-recipient-hint]').textContent=!gameId?'選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。':defaults.size?'已預設勾選 '+defaults.size+' 個接收群組，可手動調整；切換遊戲會重新帶入。':'此遊戲尚未設定所屬群組，請手動選擇接收群組。';};
    const resolveGame=()=>{const value=form.elements.gameSearch.value.trim(),allowed=allowedGames(),exact=allowed.find(game=>game.id===value||gameLabel(game)===value);if(exact)return exact;const names=allowed.filter(game=>[game.name,game.mandarinName].some(name=>name&&name.toLowerCase()===value.toLowerCase()));return names.length===1?names[0]:null;};
    const filteredGames=()=>{const selected=resolveGame();return selected?[selected]:filterReleaseGames([...games.values()],records,groups,'',form.elements.gameSearch.value);};
    const gameInput=form.elements.gameSearch,menu=form.querySelector('#releaseGameOptions'),combo=form.querySelector('[data-game-combo]');let optionGames=[],activeOption=-1;
