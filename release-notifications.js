@@ -25,7 +25,11 @@ function notificationTemplateDates(copy,record){
  if(!copy)return copy;const date=defaultNotificationDate(record);if(!date)return copy;
  return {...copy,messageZh:fillDescriptionDate(copy.messageZh,0,date,'zh'),messageEn:fillDescriptionDate(copy.messageEn,0,date,'en')};
 }
-function descriptionDatePattern(){return /〔UTC\+8[ \t]+(?:YYYY\/MM\/DD|\d{4}[-/]\d{2}[-/]\d{2})[ \t]+(?:HH:mm|\d{2}:\d{2})〕|[ \t]*(?:【請輸入 YYYY \/ MM \/ DD】|\[Enter YYYY \/ MM \/ DD\]|\d{4}[ \t]*[-/][ \t]*\d{2}[ \t]*[-/][ \t]*\d{2}(?:[ T]+\d{2}:\d{2})?)?[ \t]*(?:（UTC\+8）|\(UTC\+8\))/g;}
+const selectedPeriodType=id=>['selected-uat','selected-pord','first-uat','first-pord','first-pord-extension'].includes(id);
+function periodDateText(text){
+ return String(text||'').replace(descriptionDatePattern(),match=>'〔UTC+8 '+(stampParts(match).date.replaceAll('-','/')||'YYYY/MM/DD')+'〕');
+}
+function descriptionDatePattern(){return /〔UTC\+8[ \t]+(?:YYYY\/MM\/DD|\d{4}[-/]\d{2}[-/]\d{2})(?:[ \t]+(?:HH:mm|\d{2}:\d{2}))?〕|[ \t]*(?:【請輸入 YYYY \/ MM \/ DD】|\[Enter YYYY \/ MM \/ DD\]|\d{4}[ \t]*[-/][ \t]*\d{2}[ \t]*[-/][ \t]*\d{2}(?:[ T]+\d{2}:\d{2})?)?[ \t]*(?:（UTC\+8）|\(UTC\+8\))/g;}
 function stampParts(text){return {date:String(text).match(/\d{4}[ \t]*[-/][ \t]*\d{2}[ \t]*[-/][ \t]*\d{2}/)?.[0]?.replace(/[ \t]/g,'').replaceAll('/','-')||'',time:String(text).match(/\b(?:[01]\d|2[0-3]):[0-5]\d\b/)?.[0]||''};}
 export function descriptionDateSlots(text){return [...String(text||'').matchAll(descriptionDatePattern())].map(match=>{
  const parts=stampParts(match[0]),line=String(text).slice(String(text).lastIndexOf('\n',match.index)+1,match.index).replace(descriptionDatePattern(),'').trim();
@@ -37,12 +41,13 @@ export function fillDescriptionDate(text,index,date,lang,time){
  let slot=0;return String(text||'').replace(descriptionDatePattern(),match=>{
   if(slot++!==index)return match;
   const clock=time===undefined?stampParts(match).time:time;
-  return '〔UTC+8 '+(date?date.replaceAll('-','/'):'YYYY/MM/DD')+' '+(clock||'HH:mm')+'〕';
+  return '〔UTC+8 '+(date?date.replaceAll('-','/'):'YYYY/MM/DD')+(time===null?'':' '+(clock||'HH:mm'))+'〕';
  });
 }
-export function validateDescriptionDates(zh,en){
+export function validateDescriptionDates(zh,en,dateOnly=false){
  const z=descriptionDateSlots(zh),e=descriptionDateSlots(en);
  for(let i=0;i<Math.max(z.length,e.length);i++)if(z[i]?.newStyle||e[i]?.newStyle){
+  if(dateOnly){if(!z[i]?.date||!e[i]?.date||z[i].date!==e[i].date)throw new Error('請填寫一致的中英文說明日期');continue;}
   if(!z[i]?.date||!z[i]?.time||!e[i]?.date||!e[i]?.time)throw new Error('請完整填寫通知說明的日期與時間（UTC+8）');
   if(z[i].date!==e[i].date||z[i].time!==e[i].time)throw new Error('中英文日期與時間不一致，請使用上方欄位同步填寫');
  }
@@ -126,7 +131,7 @@ function styles(){if(document.querySelector('#releaseNotificationStyles'))return
 
 .release-compose .release-section:not(.release-game-section){padding:18px;border-radius:12px}.release-compose-side .release-preview{border-radius:12px;padding:18px}.release-compose-side .release-message-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.release-compose-side .release-preview .release-message-pair p{white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:visible;line-height:1.7;font-size:14px}.release-compose-side .release-title-pair h3{font-size:16px;line-height:1.5}.release-compose-side .release-title-pair h3[lang=en]{font-size:14px}.release-compose-side .release-footer button{flex:0 1 auto;min-width:100px;padding:9px 15px!important;font-size:13px!important}.release-publish{display:block;width:max-content;max-width:100%;margin:12px 0 0 auto;padding:9px 16px;border:1px solid #3977e8;border-radius:8px;background:#3977e8;color:#fff;font-size:13px;font-weight:600;line-height:1.5;box-shadow:none;white-space:normal;text-align:center}.release-publish:hover{background:#2b65d3;box-shadow:none}@media(min-width:1051px){.release-compose .release-compose-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.release-compose .release-game-section{grid-template-columns:120px minmax(200px,1fr) auto;gap:10px}}@media(max-width:700px){.release-compose-side .release-message-pair{grid-template-columns:1fr}}
 
-.release-description-dates{display:grid;width:100%;min-width:0}.release-date-slot{display:grid;grid-template-columns:minmax(100px,1fr) 155px 100px;gap:8px;align-items:center;min-width:0}.release-date-slot>span{min-width:0;overflow-wrap:anywhere}.release-date-slot input{width:100%!important;min-width:0}.release-date-slot input[type=time]{width:100px!important}@media(max-width:650px){.release-date-slot{grid-template-columns:minmax(0,1fr) 100px}.release-date-slot>span{grid-column:1/-1}}
+.release-description-dates{display:grid;width:100%;min-width:0}.release-date-slot{display:grid;grid-template-columns:minmax(100px,1fr) 155px 100px;gap:8px;align-items:center;min-width:0}.release-date-slot:has(input[type=date]:last-child){grid-template-columns:minmax(0,1fr) minmax(125px,155px)}.release-date-slot>span{min-width:0;overflow-wrap:anywhere}.release-date-slot input{width:100%!important;min-width:0}.release-date-slot input[type=time]{width:100px!important}@media(max-width:650px){.release-date-slot{grid-template-columns:minmax(0,1fr) 100px}.release-date-slot>span{grid-column:1/-1}}
 `;document.head.append(style);}
 function notificationDialog(id){let dialog=document.getElementById(id);if(!dialog){dialog=document.createElement('dialog');dialog.id=id;dialog.className='release-dialog';dialog.setAttribute('data-viewer-control','');document.body.append(dialog);}return dialog;}
 const RELEASE_COLLECTION='omniplay-release-notifications';
@@ -425,12 +430,14 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    bindReleaseImagePicker(form,imageInput,addImages);
 
    const updateDateReminder=()=>{
+    const dateOnly=selectedPeriodType(form.elements.environment.value);
+    form.querySelector('[data-date-reminder] strong').textContent=dateOnly?'說明日期（UTC+8）':'說明日期時間（UTC+8）';
     const slots=text=>form.elements.environment.value==='flow-uat-dm'?[]:descriptionDateSlots(text);
     const zh=slots(form.elements.messageZh.value),en=slots(form.elements.messageEn.value),count=Math.max(zh.length,en.length),panel=form.querySelector('[data-date-reminder]'),fields=form.querySelector('[data-description-dates]'),extension=usesLegacyExtensionDays(form),days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);panel.hidden=!count&&!extension;
-    fields.innerHTML=(extension?'<label>延長天數 <input type="number" min="1" max="365" required data-extension-days aria-label="延長天數（同步中英文）" placeholder="請輸入實際天數" value="'+esc(days.zh&&days.zh===days.en?days.zh:'')+'"></label>':'')+Array.from({length:count},(_,index)=>{const slot=zh[index]||en[index],required=slot.newStyle?' required':'';return '<div class="release-date-slot"><span>'+esc(slot.label)+'</span><input type="date" data-description-date="'+index+'" aria-label="通知說明日期 '+(index+1)+'" title="預設採實際發行日期，空白才用預計日期；日期和時間同步帶入中英文。" value="'+esc(zh[index]?.date||en[index]?.date||'')+'"'+required+'><input type="time" step="60" data-description-time="'+index+'" aria-label="通知說明時間 '+(index+1)+'（UTC+8）" value="'+esc(zh[index]?.time||en[index]?.time||'')+'"'+required+'></div>';}).join('');
+    fields.innerHTML=(extension?'<label>延長天數 <input type="number" min="1" max="365" required data-extension-days aria-label="延長天數（同步中英文）" placeholder="請輸入實際天數" value="'+esc(days.zh&&days.zh===days.en?days.zh:'')+'"></label>':'')+Array.from({length:count},(_,index)=>{const slot=zh[index]||en[index],required=slot.newStyle?' required':'';return '<div class="release-date-slot"><span>'+esc(slot.label)+'</span><input type="date" data-description-date="'+index+'" aria-label="通知說明日期 '+(index+1)+'" title="預設採實際發行日期，空白才用預計日期；同步帶入中英文。" value="'+esc(zh[index]?.date||en[index]?.date||'')+'"'+required+'>'+(dateOnly?'':'<input type="time" step="60" data-description-time="'+index+'" aria-label="通知說明時間 '+(index+1)+'（UTC+8）" value="'+esc(zh[index]?.time||en[index]?.time||'')+'"'+required+'>')+'</div>';}).join('');
     const daysInput=fields.querySelector('[data-extension-days]');if(daysInput)daysInput.oninput=()=>{if(daysInput.value&&!daysInput.validity.valid)return;for(const [field,lang]of [['messageZh','zh'],['messageEn','en']])form.elements[field].value=fillExtensionDays(form.elements[field].value,daysInput.value,lang);resizeReleaseMessageFields(form);preview.hidden=true;};
     fields.querySelectorAll('[data-description-date],[data-description-time]').forEach(input=>input.oninput=()=>{
-     const index=Number(input.dataset.descriptionDate??input.dataset.descriptionTime),date=fields.querySelector('[data-description-date="'+index+'"]').value,time=fields.querySelector('[data-description-time="'+index+'"]').value;
+     const index=Number(input.dataset.descriptionDate??input.dataset.descriptionTime),date=fields.querySelector('[data-description-date="'+index+'"]').value,time=fields.querySelector('[data-description-time="'+index+'"]')?.value??null;
      for(const [field,lang] of [['messageZh','zh'],['messageEn','en']])form.elements[field].value=fillDescriptionDate(form.elements[field].value,index,date,lang,time);
      resizeReleaseMessageFields(form);preview.hidden=true;
     });
@@ -440,6 +447,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    const applyTemplate=(force=false)=>{
     form.querySelector('.release-image-upload').hidden=omitImages();
     const selectedType=form.elements.environment.value,game=games.get(form.elements.gameId.value);const copy=selectedType==='flow-uat-dm'?composeTemplate(selectedType,game,templates):notificationTemplateDates(composeTemplate(selectedType,game,templates),selectedType==='first-pord-extension'?{}:(records[game?.id]||{})),fields=['titleZh','titleEn','messageZh','messageEn'];
+    if(copy&&selectedPeriodType(selectedType)){for(const key of ['messageZh','messageEn'])copy[key]=periodDateText(copy[key]);}
     const selectedTypeInfo=notificationTypes.find(type=>type.id===selectedType),pord=isPordNotification({environment:selectedType,typeName:selectedTypeInfo?.name}),noReleaseDate=notificationHasNoReleaseDate({environment:selectedType,typeName:selectedTypeInfo?.name});
     if(form.elements.releaseAt){form.elements.releaseAt.required=!noReleaseDate;form.elements.releaseAt.disabled=noReleaseDate;form.querySelector('[data-release-date-label]').textContent=selectedType==='flow-uat-dm'?'正式環境預計上線日期（UTC+8）':(pord?'PROD ':'')+'上架時間（UTC+8）';if(noReleaseDate)form.elements.releaseAt.value='';}
     if(!noReleaseDate&&game&&form.elements.releaseAt){const record=records[game.id]||{},date=selectedType==='flow-uat-dm'?defaultNotificationDate({plannedReleaseDate:record.plannedReleaseDate}):defaultNotificationDate(record);if(previousDateGameId!==game.id||!form.elements.releaseAt.value||form.elements.releaseAt.value===previousAutoReleaseDate)form.elements.releaseAt.value=date;previousDateGameId=game.id;previousAutoReleaseDate=date;}
@@ -497,9 +505,18 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    const progress=dialog.querySelector('[data-release-flow]');
    let flowGame=null,request=0,manualEdit=0;
    form.addEventListener('input',event=>{if(event.target!==gameInput)manualEdit++});
+   let flowHistory=null,typeChosen=false;
+   const paintFlow=()=>{
+    if(!flowHistory)return;
+    const id=form.elements.environment.value,{sent}=releaseFlow(flowHistory);
+    const steps=selectedPeriodType(id)?['selected-uat','selected-pord',...(id==='first-pord-extension'||sent.has('first-pord-extension')?['first-pord-extension']:[])]:(['flow-uat-no-dm','flow-uat-dm'].includes(id)||(id==='flow-pord'&&(sent.has('flow-uat-dm')||sent.has('flow-uat-no-dm'))))?['flow-uat-no-dm','flow-uat-dm','flow-pord']:['flow-uat','flow-pord','other-uat','other-pord','combined'].includes(id)?['flow-uat','flow-pord']:[];
+     const names={'flow-uat':'UAT','flow-pord':'PROD','flow-uat-no-dm':'UAT（無 DM）','flow-uat-dm':'UAT（補 DM）','selected-uat':'UAT 特選','selected-pord':'PROD 特選','first-pord-extension':'PROD 特選延長'};
+     progress.innerHTML=steps.length?steps.map(id=>'<span class="release-flow-step'+(sent.has(id)?' sent':'')+'">'+names[id]+' · '+(sent.has(id)?'已發送':'待發送')+'</span>').join(' → ')+'<small class="release-flow-note">PROD 不放宣傳圖，沿用 UAT 的遊戲素材入口。</small>':'';
+
+   };
    const syncFlow=async gameId=>{
     if(gameId===flowGame)return;
-    flowGame=gameId;
+    flowGame=gameId;flowHistory=null;
     const ticket=++request,edit=manualEdit;
     progress.textContent='';
     if(!gameId)return;
@@ -507,14 +524,14 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     try{
      const result=await getDocs(query(collection(db,RELEASE_COLLECTION),where('game.id','==',gameId)));
      if(ticket!==request||!progress.isConnected)return;
-     const {steps,sent}=releaseFlow(result.docs.map(row=>row.data()));
-     const names={'flow-uat':'UAT','flow-pord':'PROD','flow-uat-no-dm':'UAT（無 DM）','flow-uat-dm':'UAT（補 DM）','selected-uat':'UAT 特選','selected-pord':'PROD 特選','first-pord-extension':'PROD 特選延長'};
-     progress.innerHTML=steps.map(id=>'<span class="release-flow-step'+(sent.has(id)?' sent':'')+'">'+names[id]+' · '+(sent.has(id)?'已發送':'待發送')+'</span>').join(' → ')+'<small class="release-flow-note">PROD 不放宣傳圖，沿用 UAT 的遊戲素材入口。</small>';
+     flowHistory=result.docs.map(row=>row.data());
+     const {steps,sent}=releaseFlow(flowHistory);
      const next=steps.find(id=>!sent.has(id));
-     if(!existing&&!prefill&&next&&manualEdit===edit&&notificationTypes.some(type=>type.id===next)){
+     if(!typeChosen&&!existing&&!prefill&&next&&manualEdit===edit&&notificationTypes.some(type=>type.id===next)){
       form.elements.environment.value=next;
       applyTemplate(true);
      }
+     paintFlow();
     }catch{
      if(ticket===request)progress.textContent='無法讀取發送紀錄，請手動選擇通知類型。';
     }
@@ -529,13 +546,14 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    dialog.onclick=event=>{if(!combo.contains(event.target))closeGames();};
    if(typeof ResizeObserver!=='undefined'){let messageWidth=0;const observer=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width!==messageWidth){messageWidth=width;resizeReleaseMessageFields(form);}});observer.observe(form.querySelector('.release-message-pair'));dialog.addEventListener('close',()=>observer.disconnect(),{once:true});}
    resizeReleaseMessageFields(form);
-   form.elements.environment.onchange=()=>{const previous=previousTemplateType;if(!replaceTemplate()){form.elements.environment.value=previous;return}autoTitle();};redrawGames();
+   form.elements.environment.onchange=()=>{const previous=previousTemplateType;if(!replaceTemplate()){form.elements.environment.value=previous;return}typeChosen=true;autoTitle();paintFlow();};redrawGames();
    form.querySelector('[data-cancel]').onclick=()=>dialog.close();form.querySelector('[data-select-all]').onclick=()=>{const checkboxes=[...form.querySelectorAll('[name="groupId"]')],checked=!checkboxes.every(input=>input.checked);checkboxes.forEach(input=>input.checked=checked);preview.hidden=true;};
    if(existing){
     const savedVariant=existing.templateVariant||(/revised release schedule/i.test(existing.messageEn||'')?'rescheduled':/game materials|遊戲資料預計/i.test((existing.messageEn||'')+(existing.messageZh||''))?'no-dm':'standard');const promoted=savedVariant==='rescheduled'&&existing.environment==='schedule-change'?'schedule-updated':savedVariant==='combined'&&existing.environment==='flow-pord'?'combined':savedVariant==='no-dm'&&['flow-uat','other-uat','selected-uat'].includes(existing.environment)?'flow-uat-no-dm':'';
     form.elements.environment.value=notificationTypes.some(type=>type.id===promoted)?promoted:existing.environment;form.elements.gameSearch.value=gameLabel(games.get(existing.game.id));redrawGames();
     form.elements.titleZh.value=existing.titleZh||existing.title||'';form.elements.titleEn.value=existing.titleEn||releaseTemplate(existing.environment,games.get(existing.game.id))?.titleEn||'';form.elements.releaseAt.value=notificationHasNoReleaseDate(existing)||!existing.releaseAt?'':new Date(new Date(existing.releaseAt).getTime()+8*3600000).toISOString().slice(0,10);
     form.elements.messageZh.value=existing.messageZh??existing.message??'';form.elements.messageEn.value=existing.messageEn||'';
+    if(selectedPeriodType(form.elements.environment.value)){for(const key of ['messageZh','messageEn'])form.elements[key].value=periodDateText(form.elements[key].value);}
     form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=(existing.groupIds||[]).includes(input.value));
     form.querySelector('[data-recipient-hint]').textContent='已帶入原通知的接收群組；儲存後會同步更新新增、保留與移除的群組。';
     draftImages=await Promise.all((existing.images||[]).map(async image=>{if(quotaLimited)return {...image,data:''};try{return {...image,data:await readReleaseImage(db,existing.id,image.id)}}catch{return {...image,data:''}}}));renderDrafts();resizeReleaseMessageFields(form);
@@ -549,7 +567,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    }
    updateDateReminder();form.addEventListener('input',event=>{resizeReleaseMessageFields(form);if(!event.target.matches('[data-description-date],[data-description-time],[data-extension-days]'))updateDateReminder();preview.hidden=true;});form.addEventListener('change',()=>preview.hidden=true);
    form.querySelector('[type="submit"]').disabled=false;
-   form.onsubmit=event=>{event.preventDefault();errorBox.textContent='';try{syncDmDate();validateDescriptionDates(form.elements.messageZh.value,form.elements.messageEn.value);if(usesLegacyExtensionDays(form)){const days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);if(!days.zh||days.zh!==days.en)throw new Error('請填寫延長天數，並確認中英文天數一致');}if(imageBusy)throw new Error('圖片處理中，請稍候');if(!filteredGames().some(game=>game.id===form.elements.gameId.value))throw new Error('請輸入或選擇有效的遊戲');if(progress.textContent==='讀取通知流程…')throw new Error('正在讀取通知流程，請稍候再預覽');const images=omitImages()?[]:draftImages;const notification=buildReleaseNotification({images,environment:form.elements.environment.value,titleZh:form.elements.titleZh.value,titleEn:form.elements.titleEn.value,messageZh:form.elements.messageZh.value,messageEn:form.elements.messageEn.value,releaseAt:form.elements.releaseAt.value?form.elements.releaseAt.value+'T00:00:00+08:00':'',groupIds:[...form.querySelectorAll('[name="groupId"]:checked')].map(input=>input.value)},{uid:getAuth().currentUser?.uid,name:session.name||session.username,game:games.get(form.elements.gameId.value),groups,types:notificationTypes,id:existing?.id||crypto.randomUUID()});notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.hidden=false;preview.className='release-preview';preview.innerHTML='<strong>通知預覽</strong><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div><div>接收群組（'+notification.groupIds.length+'）：'+esc(notification.groupNames.join('、'))+'</div><button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button>';bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}form.querySelectorAll('button,input,textarea,select').forEach(element=>element.disabled=true);dialog.querySelector('[data-close]').disabled=true;try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);dialog.close();parent.close();openList();}catch(error){errorBox.textContent='發布失敗：'+releaseErrorMessage(error);form.querySelectorAll('button,input,textarea,select').forEach(element=>element.disabled=false);form.elements.releaseAt.disabled=notificationHasNoReleaseDate({environment:form.elements.environment.value,typeName:notificationTypes.find(type=>type.id===form.elements.environment.value)?.name});}finally{dialog.querySelector('[data-close]').disabled=false;}};preview.scrollIntoView({block:'nearest'});}catch(error){errorBox.textContent=error.message||String(error);}};
+   form.onsubmit=event=>{event.preventDefault();errorBox.textContent='';try{syncDmDate();validateDescriptionDates(form.elements.messageZh.value,form.elements.messageEn.value,selectedPeriodType(form.elements.environment.value));if(usesLegacyExtensionDays(form)){const days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);if(!days.zh||days.zh!==days.en)throw new Error('請填寫延長天數，並確認中英文天數一致');}if(imageBusy)throw new Error('圖片處理中，請稍候');if(!filteredGames().some(game=>game.id===form.elements.gameId.value))throw new Error('請輸入或選擇有效的遊戲');if(progress.textContent==='讀取通知流程…')throw new Error('正在讀取通知流程，請稍候再預覽');const images=omitImages()?[]:draftImages;const notification=buildReleaseNotification({images,environment:form.elements.environment.value,titleZh:form.elements.titleZh.value,titleEn:form.elements.titleEn.value,messageZh:form.elements.messageZh.value,messageEn:form.elements.messageEn.value,releaseAt:form.elements.releaseAt.value?form.elements.releaseAt.value+'T00:00:00+08:00':'',groupIds:[...form.querySelectorAll('[name="groupId"]:checked')].map(input=>input.value)},{uid:getAuth().currentUser?.uid,name:session.name||session.username,game:games.get(form.elements.gameId.value),groups,types:notificationTypes,id:existing?.id||crypto.randomUUID()});notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.hidden=false;preview.className='release-preview';preview.innerHTML='<strong>通知預覽</strong><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div><div>接收群組（'+notification.groupIds.length+'）：'+esc(notification.groupNames.join('、'))+'</div><button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button>';bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}form.querySelectorAll('button,input,textarea,select').forEach(element=>element.disabled=true);dialog.querySelector('[data-close]').disabled=true;try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);dialog.close();parent.close();openList();}catch(error){errorBox.textContent='發布失敗：'+releaseErrorMessage(error);form.querySelectorAll('button,input,textarea,select').forEach(element=>element.disabled=false);form.elements.releaseAt.disabled=notificationHasNoReleaseDate({environment:form.elements.environment.value,typeName:notificationTypes.find(type=>type.id===form.elements.environment.value)?.name});}finally{dialog.querySelector('[data-close]').disabled=false;}};preview.scrollIntoView({block:'nearest'});}catch(error){errorBox.textContent=error.message||String(error);}};
   }catch(error){dialog.querySelector('[data-content]').innerHTML='<div class="release-error" role="alert">'+esc(releaseErrorMessage(error))+'</div><button type="button" data-retry-compose>重新載入表單</button>';dialog.querySelector('[data-retry-compose]').onclick=()=>{dialog.close();compose(parent,existing,prefill);};}
  }
  button.onclick=openList;paintBell();
