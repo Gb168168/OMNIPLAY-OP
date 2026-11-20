@@ -39,7 +39,7 @@ function installStyles(){if(document.querySelector('#opGameFormStyles'))return;c
 
 .op-profile-panel{min-width:0;border:1px solid #dce4ef;border-radius:14px;background:#fff;overflow:hidden}
 .op-profile-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;background:#f6f8fc;cursor:pointer;list-style:none;font-size:14px;font-weight:700;color:#334b6c}.op-profile-summary::-webkit-details-marker{display:none}.op-profile-summary:focus-visible{outline:2px solid #4f8cff;outline-offset:-3px}.op-profile-toggle{display:flex;align-items:center;gap:8px;flex:none;color:#6d7e95;font-size:12px;font-weight:500}.op-profile-collapse{display:none}.op-profile-panel[open] .op-profile-expand{display:none}.op-profile-panel[open] .op-profile-collapse{display:inline}.op-profile-panel[open] .op-profile-toggle>span:last-child{transform:rotate(180deg)}
-.op-profile-content{padding:0 18px 18px}.op-profile-section{padding-top:18px;min-width:0}.op-profile-section+.op-profile-section{margin-top:18px;border-top:1px solid #edf1f6}.op-profile-section h4{margin:0 0 12px;font-size:13px;color:#334b6c}.op-profile-caption{margin-left:8px;font-size:12px;font-weight:400;color:#7b889b}.op-profile-panel .op-field{min-width:0}.op-profile-panel input,.op-profile-panel textarea{box-sizing:border-box;min-width:0;font-size:14px}.op-profile-panel textarea{min-height:96px;line-height:1.6}
+.op-profile-content{padding:0 18px 18px}.op-profile-section{padding-top:18px;min-width:0}.op-profile-section+.op-profile-section{margin-top:18px;border-top:1px solid #edf1f6}.op-jackpot-heading{display:flex;align-items:center}.op-jackpot-heading [data-manage-jackpots]{position:static;margin-left:auto}.op-profile-section h4{margin:0 0 12px;font-size:13px;color:#334b6c}.op-profile-caption{margin-left:8px;font-size:12px;font-weight:400;color:#7b889b}.op-profile-panel .op-field{min-width:0}.op-profile-panel input,.op-profile-panel textarea{box-sizing:border-box;min-width:0;font-size:14px}.op-profile-panel textarea{min-height:96px;line-height:1.6}
 .op-profile-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(170px,100%),1fr));gap:8px}.op-profile-choice{display:flex;align-items:center;gap:10px;min-width:0;min-height:46px;box-sizing:border-box;padding:11px 12px;border:1px solid #dfe6f0;border-radius:9px;background:#fff;cursor:pointer;font-size:13px;line-height:1.5;color:#42546d}.op-profile-choice:hover{border-color:#adc7eb;background:#f8faff}.op-profile-choice:has(input:checked){border-color:#a9c7f5;background:#edf4ff;color:#245b9f}.op-profile-panel .op-profile-choice input[type="checkbox"]{appearance:auto;width:16px;height:16px;min-width:16px;flex:0 0 16px;margin:0;padding:0;accent-color:#4f80ed;box-shadow:none}.op-profile-choice:focus-within{outline:2px solid #4f8cff;outline-offset:2px}.op-profile-choice>span{min-width:0;white-space:normal;word-break:normal;overflow-wrap:break-word}.op-profile-add{display:flex;align-items:center;gap:8px;margin-top:12px}.op-profile-add input{width:100%;flex:1;border:1px solid #bccbdd;border-radius:9px;background:#fff;color:#172033;padding:10px 11px;min-height:40px;font:inherit;font-size:14px}.op-profile-add input:focus{outline:2px solid #4f8cff;outline-offset:1px}.op-profile-add button{flex:none;white-space:nowrap;min-height:40px;font-size:12px}
 @media(max-width:480px){.op-profile-summary{padding:13px 12px}.op-profile-content{padding:0 12px 14px}.op-profile-choices{grid-template-columns:1fr}.op-profile-add{flex-wrap:wrap}.op-profile-add input{flex-basis:100%}.op-profile-add button{margin-left:auto}}
 @media(max-width:760px){.op-linked-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.op-form-head{align-items:stretch;flex-direction:column}.op-form-search{width:100%}.op-form-grid,.op-check-sections{grid-template-columns:1fr}.op-game-table th:nth-child(n+4),.op-game-table td:nth-child(n+4){display:none}}
@@ -151,6 +151,7 @@ function installJackpotManager(editor,redraw,onChanged){
   const mode=event.target.closest('button')?.dataset.action;
   const old=list.value;
   if(!mode||!old)return;
+  const moving=mode==='up'||mode==='down';
   let next='';
   if(mode==='rename'){
    const raw=prompt('新的彩金名稱',old)?.trim();
@@ -160,12 +161,23 @@ function installJackpotManager(editor,redraw,onChanged){
    next=names[0];
    if(next===old)return;
    if(boxes().some(box=>box.value===next)){alert('已有相同名稱的彩金');return;}
-  }else if(!confirm('確定刪除「'+old+'」？所有遊戲都會移除這項彩金，其餘彩金會保留。'))return;
+  }else if(mode==='delete'&&!confirm('確定刪除「'+old+'」？所有遊戲都會移除這項彩金，其餘彩金會保留。'))return;
   const replace=values=>gameInformationJackpotValues(values).flatMap(v=>v===old?(next?[next]:[]):[v]);
   const buttons=panel.querySelectorAll('button');buttons.forEach(b=>b.disabled=true);
   try{
    const result=await runTransaction(db,async tx=>{
     const data=(await tx.get(recordsRef)).data()||{};
+    if(moving){
+     const catalog=jackpotCatalog(data);
+     const options=gameInformationJackpotValues([...catalog,...boxes().map(box=>box.value).filter(v=>!gameInformationJackpotOptions.includes(v))]);
+     const from=options.indexOf(old), to=from+(mode==='up'?-1:1);
+     if(from<0)throw Error('此選項已被更新，請重新開啟編輯視窗。');
+     if(to>=0&&to<options.length){
+      [options[from],options[to]]=[options[to],options[from]];
+      tx.set(recordsRef,{gameInformationJackpotOptions:options,jackpotCatalogManaged:true},{merge:true});
+     }
+     return {options,changes:{}};
+    }
     const source=(await tx.get(rowsRef)).data()||{};
     const base=Object.fromEntries(uniqueGames(gameListRows(source)).map(g=>[g.id,g.progressiveJackpotGroup]));
     const catalog=jackpotCatalog(data);
@@ -181,9 +193,11 @@ function installJackpotManager(editor,redraw,onChanged){
    });
    gameInformationJackpotOptions=result.options;
    for(const [id,change] of Object.entries(result.changes))Object.assign(records[id]??={},change);
-   const selected=new Set(replace(boxes().filter(b=>b.checked).map(b=>b.value)));
+   const checked=boxes().filter(b=>b.checked).map(b=>b.value);
+   const selected=new Set(moving?checked:replace(checked));
    choices.innerHTML=result.options.map(v=>profileJackpotChoice(v,selected.has(v))).join('');
    list.replaceChildren(...result.options.map(v=>new Option(v,v)));
+   if(moving){list.value=old;return;}
    onChanged?.(result.changes);
    redraw();
    await syncMembersAndViews(db);
@@ -195,7 +209,7 @@ function installJackpotManager(editor,redraw,onChanged){
 function profileJackpotChoice(value,checked=false){return '<label class="op-profile-choice"><input type="checkbox" name="profileJackpot" value="'+esc(value)+'"'+(checked?' checked':'')+'><span data-i18n-ignore>'+esc(value)+'</span></label>'}
 function profileInformationFields(game,record){
  const chosen=new Set(gameInformationJackpotValues(record.jackpot??game.progressiveJackpotGroup)),choices=gameInformationJackpotValues([...gameInformationJackpotOptions,...chosen]);
- return `<details class="op-profile-panel" open><summary class="op-profile-summary"><span>遊戲資訊補充設定</span><span class="op-profile-toggle"><span class="op-profile-expand">展開</span><span class="op-profile-collapse">收合</span><span aria-hidden="true">⌄</span></span></summary><div class="op-profile-content"><section class="op-profile-section"><h4>基本資料</h4><div class="op-form-grid"><label class="op-field"><span>遊戲資訊英文名稱</span><input name="gameInformationName" value="${esc(record.gameInformationName||game.name||'')}"></label><label class="op-field"><span>預計發行日期</span><input type="date" name="plannedReleaseDate" value="${esc(record.plannedReleaseDate||'')}"></label></div></section><section class="op-profile-section"><h4>彩金<span class="op-profile-caption">可多選</span><button type="button" class="op-option-manage" data-manage-jackpots>管理選項</button></h4><div data-jackpot-manager hidden><select aria-label="選擇要管理的彩金"></select> <button type="button" data-action="rename">改名</button> <button type="button" data-action="delete">刪除</button></div><div class="op-profile-choices" data-profile-jackpots>${choices.map(value=>profileJackpotChoice(value,chosen.has(value))).join('')}</div><div class="op-profile-add"><input data-profile-new-jackpot aria-label="其他彩金名稱" placeholder="輸入其他彩金名稱"><button type="button" class="op-folder-add" data-profile-add-jackpot>＋ 新增選項</button></div></section><section class="op-profile-section"><h4>補充備註</h4><div class="op-form-grid"><label class="op-field"><span>備註 1（特選／首發遊戲資訊）</span><textarea name="note1">${esc(record.note1??record.notes??'')}</textarea></label><label class="op-field"><span>備註 2（聯名遊戲資訊）</span><textarea name="note2">${esc(record.note2||'')}</textarea></label></div></section></div></details>`;
+ return `<details class="op-profile-panel" open><summary class="op-profile-summary"><span>遊戲資訊補充設定</span><span class="op-profile-toggle"><span class="op-profile-expand">展開</span><span class="op-profile-collapse">收合</span><span aria-hidden="true">⌄</span></span></summary><div class="op-profile-content"><section class="op-profile-section"><h4>基本資料</h4><div class="op-form-grid"><label class="op-field"><span>遊戲資訊英文名稱</span><input name="gameInformationName" value="${esc(record.gameInformationName||game.name||'')}"></label><label class="op-field"><span>預計發行日期</span><input type="date" name="plannedReleaseDate" value="${esc(record.plannedReleaseDate||'')}"></label></div></section><section class="op-profile-section"><h4 class="op-jackpot-heading">彩金<span class="op-profile-caption">可多選</span><button type="button" class="op-option-manage" data-manage-jackpots>管理選項</button></h4><div data-jackpot-manager hidden><select aria-label="選擇要管理的彩金"></select> <button type="button" data-action="up">↑ 上移</button> <button type="button" data-action="down">↓ 下移</button> <button type="button" data-action="rename">改名</button> <button type="button" data-action="delete">刪除</button></div><div class="op-profile-choices" data-profile-jackpots>${choices.map(value=>profileJackpotChoice(value,chosen.has(value))).join('')}</div><div class="op-profile-add"><input data-profile-new-jackpot aria-label="其他彩金名稱" placeholder="輸入其他彩金名稱"><button type="button" class="op-folder-add" data-profile-add-jackpot>＋ 新增選項</button></div></section><section class="op-profile-section"><h4>補充備註</h4><div class="op-form-grid"><label class="op-field"><span>備註 1（特選／首發遊戲資訊）</span><textarea name="note1">${esc(record.note1??record.notes??'')}</textarea></label><label class="op-field"><span>備註 2（聯名遊戲資訊）</span><textarea name="note2">${esc(record.note2||'')}</textarea></label></div></section></div></details>`;
 }
 function openForm(game,state,redraw,options={}){activeGame=game;const record=records[game.id]||{},assets=allAssets(state),groups=state.customerGroups||[],selectedAssets=new Set(record.assetIds||record.resourceIds||[]),selectedGroups=new Set(record.groupIds ?? groups.filter(group=>group.name?.trim()==='OMNIPLAY Support').map(group=>group.id)),dialog=ensureDialog();
 dialog.innerHTML=`<form method="dialog" id="opGameEditor" class="op-dialog-body"><div class="op-dialog-head"><div><div class="eyebrow">GAME PROFILE</div><h3>GAME ID ${esc(game.id)}</h3><p>${esc(game.name||'未命名遊戲')} · ${esc(game.version||'未設定版本')}</p></div><button type="button" class="op-close">×</button></div>
