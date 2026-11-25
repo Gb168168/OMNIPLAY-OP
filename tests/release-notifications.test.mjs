@@ -28,7 +28,7 @@ test('limits history, de-duplicates IDs, hides withdrawals and orders newest fir
  assert.equal(appendReleaseNotification(rows,make()).filter(item=>item.id==='n1').length,1);
  assert.deepEqual(visibleReleaseNotifications([{...make(),id:'old',createdAt:'2020'},{...make(),id:'withdrawn',status:'withdrawn'},make()]).map(item=>item.id),['n1','old']);
 });
-async function mockStore(seed={}){
+async function mockStore(seed={},actor){
  const data=new Map(Object.entries(seed)),source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
  const context={console,Date,structuredClone,appendReleaseNotification,publicReleaseNotification,
   getDoc:async ref=>({exists:()=>data.has(ref.path),data:()=>structuredClone(data.get(ref.path))}),
@@ -41,7 +41,7 @@ async function mockStore(seed={}){
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
- return{data,edit:(item,revision,status,republish)=>context.editReleaseNotification({},item,revision,status,republish),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),delete:id=>context.deleteReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
+ return{data,edit:(item,revision,status,republish)=>context.editReleaseNotification({},item,revision,status,republish,actor),publish:item=>context.publishReleaseNotification({},item,actor),withdraw:id=>context.withdrawReleaseNotification({},id,'withdrawn',actor),delete:id=>context.deleteReleaseNotification({},id,actor),migrate:()=>context.migrateReleaseNotifications({})};
 }
 test('publishes only selected groups atomically, preserves permission fields, retries once per ID',async()=>{
  const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
@@ -527,4 +527,19 @@ test('Lucky Diamond applies UAT and PROD exceptions inside the GAME LIST group',
  assert.equal(store.data.get(path('eligible')).releaseNotifications.length,1);
  await store.withdraw(item.id);
  assert.deepEqual(store.data.get(path('eligible')).releaseNotifications,[]);
+});
+
+test('release operations record the administrator, page and changed fields only after success',async()=>{
+ const store=await mockStore({'omniplay-group-views/a':{enabled:true}},{username:'k',name:'K',groupName:'OMNIPLAY Support'});
+ const original=make(),changed={...original,messageZh:'已修改'};
+ await store.publish(original);
+ await store.publish(original);
+ await store.edit(changed,original.createdAt);
+ await store.withdraw(original.id);
+ await store.delete(original.id);
+ const {rows}=store.data.get('omniplay/release-operation-audit');
+ assert.deepEqual(rows.map(row=>row.action),['delete','withdraw','edit','publish']);
+ assert.equal(rows[2].name,'K');
+ assert.deepEqual(JSON.parse(rows[2].item).changed,['中文內容']);
+ assert.equal(JSON.parse(rows[2].item).page,'上架通知管理');
 });

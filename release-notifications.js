@@ -186,17 +186,38 @@ async function syncRecipientFeeds(db,transaction,previous,next){
   else transaction.set(ref,{releaseNotifications});
  });
 }
-export async function publishReleaseNotification(db,notification){
+async function prepareReleaseAudit(db,transaction,actor,action,item,previous){
+ if(!actor)return null;
+ const ref=doc(db,'omniplay','release-operation-audit');
+ const snapshot=await transaction.get(ref);
+ const fields={
+  game:'遊戲',environment:'通知類型',titleZh:'中文標題',titleEn:'英文標題',
+  messageZh:'中文內容',messageEn:'英文內容',releaseAt:'上架日期',
+  groupIds:'接收群組',recipientScope:'接收平台',images:'圖片'
+ };
+ const changed=previous?Object.entries(fields).filter(([key])=>
+  JSON.stringify(item[key]??null)!==JSON.stringify(previous[key]??null)).map(([,name])=>name):[];
+ const target=[item.game?.id,item.game?.mandarinName||item.game?.name,item.typeName||item.environment].filter(Boolean).join(' · ').slice(0,180);
+ const event={
+  action,createdAtIso:new Date().toISOString(),username:(actor.username||'').slice(0,100),
+  name:(actor.name||actor.username||'').slice(0,100),groupName:(actor.groupName||'').slice(0,100),
+  item:JSON.stringify({page:'上架通知管理',target,notificationId:item.id,changed})
+ };
+ return {ref,rows:[event,...(snapshot.data()?.rows||[])].slice(0,500)};
+}
+export async function publishReleaseNotification(db,notification,actor){
  await migrateReleaseNotifications(db);
  const ref=doc(db,RELEASE_COLLECTION,notification.id);
  await runTransaction(db,async transaction=>{
   const source=await transaction.get(ref);
   if(source.exists())return;
+  const audit=await prepareReleaseAudit(db,transaction,actor,'publish',notification);
   await syncRecipientFeeds(db,transaction,null,notification);
+  if(audit)transaction.set(audit.ref,{rows:audit.rows});
   transaction.set(ref,notification);
  });
 }
-export async function editReleaseNotification(db,notification,expectedRevision,expectedStatus='published',republish=false){
+export async function editReleaseNotification(db,notification,expectedRevision,expectedStatus='published',republish=false,actor){
  const ref=doc(db,RELEASE_COLLECTION,notification.id);
  await runTransaction(db,async transaction=>{
   const source=await transaction.get(ref),previous=source.exists()?source.data():null;
@@ -204,7 +225,9 @@ export async function editReleaseNotification(db,notification,expectedRevision,e
   if((previous.updatedAt||previous.createdAt)!==expectedRevision)throw new Error('通知已被其他管理員修改，請重新開啟後再編輯');
   const status=republish?'published':previous.status;
   const updated={...notification,status,...(status==='withdrawn'&&previous.withdrawnAt?{withdrawnAt:previous.withdrawnAt}:{}),createdAt:previous.createdAt,createdBy:previous.createdBy,createdByName:previous.createdByName,updatedAt:new Date().toISOString(),updatedBy:notification.createdBy,updatedByName:notification.createdByName};
+  const audit=await prepareReleaseAudit(db,transaction,actor,republish?'republish':'edit',updated,previous);
   if(status==='published')await syncRecipientFeeds(db,transaction,previous.status==='published'?previous:null,updated);
+  if(audit)transaction.set(audit.ref,{rows:audit.rows});
   transaction.set(ref,updated);
  });
 }
@@ -249,18 +272,20 @@ function recipientSummaryMarkup(items,platforms,compact=false){
  if(compact&&!pills.length)return '';
  return '<span class="release-recipient-summary'+(compact?' release-recipient-inline':'')+'">'+(compact?'':'<strong>接收群組（'+groupIds.size+'）</strong>')+'<span class="release-recipient-pills">'+pills.join('')+'</span></span>';
 }
-export async function withdrawReleaseNotification(db,id,status='withdrawn'){
+export async function withdrawReleaseNotification(db,id,status='withdrawn',actor){
  await migrateReleaseNotifications(db);
  const ref=doc(db,RELEASE_COLLECTION,id);
  await runTransaction(db,async transaction=>{
   const source=await transaction.get(ref),notification=source.exists()?source.data():null;
   if(!notification||notification.status==='deleted'||(status==='withdrawn'&&notification.status!=='published'))return;
+  const audit=await prepareReleaseAudit(db,transaction,actor,status==='deleted'?'delete':'withdraw',notification);
   await syncRecipientFeeds(db,transaction,notification,null);
+  if(audit)transaction.set(audit.ref,{rows:audit.rows});
   const now=new Date().toISOString();
   transaction.update(ref,{status,...(status==='deleted'?{deletedAt:now}:{withdrawnAt:now})});
  });
 }
-export async function deleteReleaseNotification(db,id){return withdrawReleaseNotification(db,id,'deleted');}
+export async function deleteReleaseNotification(db,id,actor){return withdrawReleaseNotification(db,id,'deleted',actor);}
 const recipientCategories={
  philweb:'Philweb 旗下平台',
  restricted:'UAT 和 PROD 不可上架（尚未取得 Pagcor 驗證）',
@@ -446,7 +471,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
   list.querySelectorAll('[data-transition]').forEach(button=>button.onclick=()=>{const item=find(button);compose(dialog,null,{game:item.game,groupIds:item.groupIds,recipientScope:item.recipientScope,transition:notificationTransition(item)});});
   list.querySelectorAll('[data-withdraw],[data-delete]').forEach(button=>button.onclick=async()=>{
    const deleting=button.hasAttribute('data-delete');if(!confirm(deleting?'刪除這則通知？管理列表與接收端會一起移除。':'撤回這則通知？接收端會移除，管理列表保留紀錄。'))return;
-   button.disabled=true;try{if(deleting)await deleteReleaseNotification(db,find(button).id);else await withdrawReleaseNotification(db,find(button).id);}catch(error){alert('操作失敗：'+(error.message||error));button.disabled=false;}
+   button.disabled=true;try{if(deleting)await deleteReleaseNotification(db,find(button).id,session);else await withdrawReleaseNotification(db,find(button).id,'withdrawn',session);}catch(error){alert('操作失敗：'+(error.message||error));button.disabled=false;}
   });
   list.querySelectorAll('[data-details]').forEach(button=>button.onclick=()=>{
    const item=find(button),detail=notificationDialog('releaseNotificationDetail');
@@ -789,7 +814,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     const recipients=platforms.filter(platform=>scope.shared.includes(platform.groupId)||scope.targeted[platform.id]===platform.groupId);
     const scopeMarkup=recipients.length?'<div class="release-small"><strong>本次接收平台</strong> '+recipients.map(platform=>esc(platform.name||platform.id)).join('、')+'</div>':'';
     const withdrawn=existing?.status==='withdrawn';
-    notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true,platforms)+scopeMarkup+'<div class="release-preview-actions"><button type="button" class="release-publish" data-publish>'+(withdrawn?'儲存修改':existing?'儲存修改並同步群組':'確認發布通知')+'</button>'+(withdrawn?' <button type="button" class="release-publish" data-publish="republish">重新發布通知</button>':'')+'</div><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);for(const button of preview.querySelectorAll('[data-publish]')){button.disabled=quotaLimited;button.onclick=async()=>{const republish=button.dataset.publish==='republish';if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt,existing.status,republish);else await publishReleaseNotification(db,notification);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent=(existing&&!republish?'儲存失敗：':'發布失敗：')+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};}preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
+    notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true,platforms)+scopeMarkup+'<div class="release-preview-actions"><button type="button" class="release-publish" data-publish>'+(withdrawn?'儲存修改':existing?'儲存修改並同步群組':'確認發布通知')+'</button>'+(withdrawn?' <button type="button" class="release-publish" data-publish="republish">重新發布通知</button>':'')+'</div><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);for(const button of preview.querySelectorAll('[data-publish]')){button.disabled=quotaLimited;button.onclick=async()=>{const republish=button.dataset.publish==='republish';if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt,existing.status,republish,session);else await publishReleaseNotification(db,notification,session);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent=(existing&&!republish?'儲存失敗：':'發布失敗：')+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};}preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
   }catch(error){dialog.querySelector('[data-content]').innerHTML='<div class="release-error" role="alert">'+esc(releaseErrorMessage(error))+'</div><button type="button" data-retry-compose>重新載入表單</button>';dialog.querySelector('[data-retry-compose]').onclick=()=>{dialog.close();compose(parent,existing,prefill);};}
  }
  button.onclick=openList;paintBell();

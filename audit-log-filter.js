@@ -1,4 +1,4 @@
-import { auditDate, auditMeta, auditSessions, auditOperations, logoutLabel } from './audit-history-model.js?v=20261025-audit-tabs-2';
+import { auditDate, auditMeta, auditSessions, auditOperations, logoutLabel } from './audit-history-model.js?v=release-operations-1';
 import { getDoc } from './member-access.js?v=20261026-api-entry-editor-1';
 import{getApps,initializeApp}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js';
 import{getFirestore,collection,doc,getDocs,query,orderBy,limit}from'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
@@ -10,9 +10,9 @@ const dateOf=row=>row.createdAt?.toDate?.()||new Date(row.createdAtIso||0);
 const dayOf=row=>{const d=dateOf(row);return Number.isNaN(d.getTime())?'':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const timeOf=row=>{const d=dateOf(row);return Number.isNaN(d.getTime())?'—':d.toLocaleString('zh-TW',{hour12:false})};
 
-const actionLabel=action=>({login:'登入',logout:'登出',download:'下載'})[action]||'其他';
+const actionLabel=action=>({login:'登入',logout:'登出',download:'下載',publish:'發布',republish:'重新發布',edit:'編輯',withdraw:'撤回',delete:'刪除'})[action]||'其他';
 
-function createDialog(){let dialog=document.querySelector('#auditFilterDialog');if(dialog)return dialog;dialog=document.createElement('dialog');dialog.id='auditFilterDialog';dialog.style.cssText='width:min(960px,calc(100vw - 32px));max-height:86vh;border:1px solid #cbd5e1;border-radius:14px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.3)';dialog.innerHTML=`<section style="padding:20px;background:#fff;color:#172033"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h2 style="margin:0 0 4px">操作紀錄</h2><small style="color:#64748b">最多顯示最近 500 筆</small></div><button type="button" data-close class="secondary">關閉</button></div><div role="tablist" aria-label="紀錄類型" style="display:flex;gap:8px;margin-bottom:16px"><button type="button" role="tab" id="auditSessionTab" aria-selected="true" aria-controls="auditFilterBody" data-audit-tab="sessions" class="secondary">登入/登出</button><button type="button" role="tab" id="auditOperationTab" aria-selected="false" aria-controls="auditFilterBody" data-audit-tab="operations" class="secondary" tabindex="-1">操作（下載/強制登出）</button></div><div style="display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-bottom:14px;padding:12px;background:#f4f7fb;border:1px solid #dbe3ee;border-radius:10px"><label style="display:grid;gap:5px;font-size:13px">起始日期<input id="auditDateFrom" type="date"></label><label style="display:grid;gap:5px;font-size:13px">結束日期<input id="auditDateTo" type="date"></label><label style="display:grid;gap:5px;font-size:13px;min-width:210px">群組<select id="auditGroup"><option value="">全部群組</option></select></label><button type="button" id="auditClear" class="secondary">清除篩選</button><span id="auditCount" style="margin-left:auto;color:#64748b;font-size:13px"></span></div><div id="auditFilterBody" role="tabpanel" aria-labelledby="auditSessionTab" style="overflow:auto;max-height:60vh">載入中…</div></section>`;dialog.querySelectorAll('input,select').forEach(el=>el.style.cssText='height:36px;border:1px solid #b8c4d4;border-radius:7px;padding:0 9px;background:#fff;color:#172033');dialog.querySelector('#auditClear').style.height='36px';dialog.querySelector('[data-close]').onclick=()=>dialog.close();document.body.append(dialog);return dialog}
+function createDialog(){let dialog=document.querySelector('#auditFilterDialog');if(dialog)return dialog;dialog=document.createElement('dialog');dialog.id='auditFilterDialog';dialog.style.cssText='width:min(960px,calc(100vw - 32px));max-height:86vh;border:1px solid #cbd5e1;border-radius:14px;padding:0;box-shadow:0 24px 70px rgba(15,23,42,.3)';dialog.innerHTML=`<section style="padding:20px;background:#fff;color:#172033"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h2 style="margin:0 0 4px">操作紀錄</h2><small style="color:#64748b">最多顯示最近 500 筆</small></div><button type="button" data-close class="secondary">關閉</button></div><div role="tablist" aria-label="紀錄類型" style="display:flex;gap:8px;margin-bottom:16px"><button type="button" role="tab" id="auditSessionTab" aria-selected="true" aria-controls="auditFilterBody" data-audit-tab="sessions" class="secondary">登入/登出</button><button type="button" role="tab" id="auditOperationTab" aria-selected="false" aria-controls="auditFilterBody" data-audit-tab="operations" class="secondary" tabindex="-1">操作</button></div><div style="display:flex;flex-wrap:wrap;align-items:end;gap:10px;margin-bottom:14px;padding:12px;background:#f4f7fb;border:1px solid #dbe3ee;border-radius:10px"><label style="display:grid;gap:5px;font-size:13px">起始日期<input id="auditDateFrom" type="date"></label><label style="display:grid;gap:5px;font-size:13px">結束日期<input id="auditDateTo" type="date"></label><label style="display:grid;gap:5px;font-size:13px;min-width:210px">群組<select id="auditGroup"><option value="">全部群組</option></select></label><button type="button" id="auditClear" class="secondary">清除篩選</button><span id="auditCount" style="margin-left:auto;color:#64748b;font-size:13px"></span></div><div id="auditFilterBody" role="tabpanel" aria-labelledby="auditSessionTab" style="overflow:auto;max-height:60vh">載入中…</div></section>`;dialog.querySelectorAll('input,select').forEach(el=>el.style.cssText='height:36px;border:1px solid #b8c4d4;border-radius:7px;padding:0 9px;background:#fff;color:#172033');dialog.querySelector('#auditClear').style.height='36px';dialog.querySelector('[data-close]').onclick=()=>dialog.close();document.body.append(dialog);return dialog}
 
 
 export async function openAudit(){
@@ -25,11 +25,11 @@ export async function openAudit(){
   const sessions=selected==='sessions';
   const filtered=(sessions?auditSessions(rows):auditOperations(rows)).filter(row=>inRange(sessions?(row.login||row.logout):row));
   count.textContent=filtered.length+' 筆';
-  const headers=sessions?['人員','帳號','群組','登入時間','登出時間','狀態']:['時間','操作人員','帳號','群組','動作','項目／對象'];
+  const headers=sessions?['人員','帳號','群組','登入時間','登出時間','狀態']:['時間','操作人員','帳號','群組','頁面','動作','項目／對象','變更欄位'];
   body.innerHTML=filtered.length?'<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'+headers.map(value=>'<th>'+value+'</th>').join('')+'</tr></thead><tbody>'+filtered.map(row=>{
    if(sessions)return cells([row.name||'—',row.username||'—',row.groupName||'—',row.login?timeOf(row.login):'未取得登入紀錄',row.logout?timeOf(row.logout):'—',logoutLabel(row.logout)]);
    const meta=auditMeta(row),forced=meta.kind==='force_logout';
-   return cells([timeOf(row),row.name||'—',row.username||'—',row.groupName||'—',forced?'強制登出':'下載',forced?meta.target||'—':row.item||'—']);
+   return cells([timeOf(row),row.name||'—',row.username||'—',row.groupName||'—',meta.page||'—',forced?'強制登出':actionLabel(row.action),meta.target||row.item||'—',meta.changed?.join('、')||'—']);
   }).join('')+'</tbody></table>':'沒有符合條件的紀錄';
   body.querySelectorAll('th,td').forEach(cell=>cell.style.cssText='padding:11px 10px;border-bottom:1px solid #e2e8f0;text-align:left;white-space:nowrap');
   dialog.querySelector('#activeSessionPanel')?.toggleAttribute('hidden',!sessions);
@@ -43,9 +43,17 @@ export async function openAudit(){
  from.onchange=render;to.onchange=render;group.onchange=render;
  dialog.querySelector('#auditClear').onclick=()=>{from.value='';to.value='';group.value='';render()};
  const refresh=async()=>{const id=++request;try{
-  const logs=await getDocs(query(collection(db,'omniplay-audit-events'),orderBy('createdAt','desc'),limit(500)));
+  const [logs,releaseAudit]=await Promise.all([
+   getDocs(query(collection(db,'omniplay-audit-events'),orderBy('createdAt','desc'),limit(500))),
+   getDoc(doc(db,'omniplay','release-operation-audit')).catch(error=>{
+    if(error.code!=='permission-denied')throw error;
+    return null;
+   })
+  ]);
   if(id!==request)return;
-  rows=logs.docs.map(item=>item.data()).filter(row=>!(row.action==='download'&&String(row.item||'').includes('操作紀錄')));
+  rows=[...logs.docs.map(item=>item.data()),...(releaseAudit?.data()?.rows||[])]
+   .sort((a,b)=>auditDate(b)-auditDate(a)).slice(0,500)
+   .filter(row=>!(row.action==='download'&&String(row.item||'').includes('操作紀錄')));
   render();
  }catch(error){console.error(error);body.textContent='紀錄載入失敗'}};
  window.refreshOmniplayAudit=refresh;
