@@ -287,7 +287,13 @@ test('group badges remain admin-only, and updated notifications become unread',a
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function notificationReadKey('),end=source.indexOf('export async function withdrawReleaseNotification(',start),context={esc:value=>String(value)};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
  const item={id:'n',groupNames:['Support','OKBET']};
- assert.match(context.recipientGroupsMarkup(item,true,''),/Support/);assert.match(context.recipientGroupsMarkup(item,true,''),/OKBET/);
+ assert.match(context.recipientGroupsMarkup(item,true),/Support/);assert.match(context.recipientGroupsMarkup(item,true),/OKBET/);
+ const platforms=[{id:'a',groupId:'ok',name:'Platform A'},{id:'b',groupId:'ok',name:'Platform B'}];
+ const grouped={...item,groupNames:['OKBET'],groupIds:['ok']};
+ assert.match(context.recipientGroupsMarkup(grouped,true,platforms),/title="Platform A、Platform B"/);
+ const targeted={...grouped,recipientScope:{shared:[],targeted:{b:'ok'}}};
+ assert.match(context.recipientGroupsMarkup(targeted,true,platforms),/title="Platform B"/);
+ assert.doesNotMatch(context.recipientGroupsMarkup(targeted,true,platforms),/Platform A/);
  const customer=context.recipientGroupsMarkup(item,false,'OKBET');assert.equal(customer,'');
  assert.equal(context.notificationReadKey(item),'n');assert.notEqual(context.notificationReadKey({...item,updatedAt:'new'}),'n');
 });

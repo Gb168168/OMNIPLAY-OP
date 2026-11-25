@@ -206,15 +206,27 @@ export async function editReleaseNotification(db,notification,expectedRevision){
  });
 }
 function notificationReadKey(item){return item.updatedAt?item.id+':'+item.updatedAt:item.id}
-function recipientGroupNames(item){
+function recipientGroups(item){
  const scope=item.recipientScope;
  const delivered=scope?new Set([...scope.shared,...Object.values(scope.targeted)]):null;
- return (item.groupNames||[]).filter((name,index)=>name.trim()&&name.trim()!=='OMNIPLAY Support'&&(!delivered||delivered.has(item.groupIds[index])));
+ return (item.groupNames||[]).map((name,index)=>({name,id:item.groupIds?.[index]}))
+  .filter(({name,id})=>name.trim()&&name.trim()!=='OMNIPLAY Support'&&(!delivered||delivered.has(id)));
 }
-function recipientGroupsMarkup(item,admin,ownGroup){
+function recipientGroupNames(item){
+ return recipientGroups(item).map(({name})=>name);
+}
+function recipientGroupsMarkup(item,admin,platforms=[]){
  if(!admin)return '';
- const names=recipientGroupNames(item);
- return '<div class="release-recipient-summary"><strong>接收群組'+(admin?'（'+names.length+'）':'')+'</strong><div>'+names.map(name=>'<span class="release-group-pill">'+esc(name)+'</span>').join('')+'</div></div>';
+ const groups=recipientGroups(item),scope=item.recipientScope;
+ const pills=groups.map(({name,id})=>{
+  const recipients=!scope||scope.shared.includes(id)
+   ? (id?platforms.filter(platform=>platform.groupId===id):[]).map(platform=>platform.name||platform.id)
+   : Object.entries(scope.targeted).filter(([,groupId])=>groupId===id)
+    .map(([platformId])=>platforms.find(platform=>platform.id===platformId)?.name||platformId);
+  const title=recipients.join('、')||'無對應平台';
+  return '<span class="release-group-pill" title="'+esc(title)+'">'+esc(name)+'</span>';
+ });
+ return '<div class="release-recipient-summary"><strong>接收群組（'+groups.length+'）</strong><div>'+pills.join('')+'</div></div>';
 }
 export async function withdrawReleaseNotification(db,id,status='withdrawn'){
  await migrateReleaseNotifications(db);
@@ -419,7 +431,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
   });
   list.querySelectorAll('[data-details],[data-groups]').forEach(button=>button.onclick=()=>{
    const item=find(button),groupsOnly=button.hasAttribute('data-groups'),detail=notificationDialog('releaseNotificationDetail');
-   detail.innerHTML='<section class="release-shell"><div class="release-head"><h2>'+(groupsOnly?'接收群組':'通知內容')+'</h2><button type="button" data-close>關閉</button></div>'+recipientGroupsMarkup(item,true,'')+(groupsOnly?'':notificationTitleMarkup(item,true)+notificationGameMarkup(item,true)+bilingualMessageMarkup(item)+'<div class="release-image-grid">'+imageMarkup(item)+'</div>')+'</section>';
+   detail.innerHTML='<section class="release-shell"><div class="release-head"><h2>'+(groupsOnly?'接收群組':'通知內容')+'</h2><button type="button" data-close>關閉</button></div>'+recipientGroupsMarkup(item,true,state.customers||[])+(groupsOnly?'':notificationTitleMarkup(item,true)+notificationGameMarkup(item,true)+bilingualMessageMarkup(item)+'<div class="release-image-grid">'+imageMarkup(item)+'</div>')+'</section>';
    detail.querySelector('[data-close]').onclick=()=>detail.close();loadImages(detail);bindGameLinks(detail,detail);detail.showModal();
   });
  }
@@ -430,7 +442,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    const name=[game.id,english()?game.name||game.mandarinName:game.mandarinName||game.name].filter(Boolean).join(' · ');
    const tag='<span class="release-tag">'+esc(notificationTypeLabel(item))+'</span>';
    const summary='<summary>'+tag+' <strong>'+esc(name)+'</strong> <span class="release-meta">'+esc(releaseDate(item.createdAt))+'</span>'+(unread?' <span class="release-meta">'+label('未讀','Unread')+'</span>':'')+'</summary>';
-   const body=notificationTitleMarkup(item)+recipientGroupsMarkup(item,false,session.groupName||state.customerGroups?.find(group=>group.id===groupId)?.name)+notificationGameMarkup(item)+notificationReleaseTimeMarkup(item)+'<p>'+notificationMessageMarkup(notificationMessage(item),game.id)+'</p><div class="release-image-grid">'+imageMarkup(item)+'</div><div class="release-meta">'+label('發布時間','Published')+'：'+esc(time(item.createdAt))+'</div>';
+   const body=notificationTitleMarkup(item)+recipientGroupsMarkup(item,false)+notificationGameMarkup(item)+notificationReleaseTimeMarkup(item)+'<p>'+notificationMessageMarkup(notificationMessage(item),game.id)+'</p><div class="release-image-grid">'+imageMarkup(item)+'</div><div class="release-meta">'+label('發布時間','Published')+'：'+esc(time(item.createdAt))+'</div>';
    return '<details class="release-card release-compact '+(unread?'unread':'')+'" data-item="'+esc(item.id)+'"'+(expanded.has(String(item.id))?' open':'')+'>'+summary+'<div class="release-expanded">'+body+(unread?'<button type="button" data-read="'+esc(item.id)+'">'+label('標為已讀','Mark as read')+'</button>':'')+'</div></details>';
   }).join('')||'<div class="release-empty">'+label('目前沒有通知','No notifications yet')+'</div>';
   list.querySelectorAll('details').forEach(row=>{row.ontoggle=()=>{if(row.open)loadImages(row)};if(row.open)loadImages(row)});
@@ -757,7 +769,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     if(Object.keys(scope.targeted).length)notification.recipientScope=scope;
     const recipients=platforms.filter(platform=>scope.shared.includes(platform.groupId)||scope.targeted[platform.id]===platform.groupId);
     const scopeMarkup=recipients.length?'<div class="release-small"><strong>本次接收平台</strong> '+recipients.map(platform=>esc(platform.name||platform.id)).join('、')+'</div>':'';
-    notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true)+scopeMarkup+'<button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent='發布失敗：'+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
+    notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true,platforms)+scopeMarkup+'<button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent='發布失敗：'+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
   }catch(error){dialog.querySelector('[data-content]').innerHTML='<div class="release-error" role="alert">'+esc(releaseErrorMessage(error))+'</div><button type="button" data-retry-compose>重新載入表單</button>';dialog.querySelector('[data-retry-compose]').onclick=()=>{dialog.close();compose(parent,existing,prefill);};}
  }
  button.onclick=openList;paintBell();
