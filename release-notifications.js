@@ -221,11 +221,15 @@ function recipientGroupsMarkup(item,admin,platforms=[]){
 }
 function recipientSummaryMarkup(items,platforms,compact=false){
  const groups=new Map();
+ const groupIds=new Set();
  for(const item of items){
   const scope=item.recipientScope;
   for(const {name,id} of recipientGroups(item)){
-   const key=id||name;
-   if(!groups.has(key))groups.set(key,{name,recipients:new Set()});
+   const groupId=id||name;
+   const type=compact?notificationTypeLabel(item,true):'';
+   const key=JSON.stringify([type,groupId]);
+   groupIds.add(groupId);
+   if(!groups.has(key))groups.set(key,{name:type?type+' · '+name:name,recipients:new Set()});
    const recipients=!scope||scope.shared.includes(id)
     ? (id?platforms.filter(platform=>platform.groupId===id):[]).map(platform=>platform.name||platform.id)
     : Object.entries(scope.targeted).filter(([,groupId])=>groupId===id)
@@ -243,7 +247,7 @@ function recipientSummaryMarkup(items,platforms,compact=false){
   const tooltip=remaining.map(({name,recipients})=>name+'：'+([...recipients].join('、')||'無對應平台')).join('\n');
   pills.push('<span class="release-group-pill release-group-more" title="'+esc(tooltip)+'">＋'+remaining.length+'</span>');
  }
- return '<span class="release-recipient-summary'+(compact?' release-recipient-inline':'')+'"><strong>接收群組（'+groups.size+'）</strong><span class="release-recipient-pills">'+pills.join('')+'</span></span>';
+ return '<span class="release-recipient-summary'+(compact?' release-recipient-inline':'')+'"><strong>接收群組（'+groupIds.size+'）</strong><span class="release-recipient-pills">'+pills.join('')+'</span></span>';
 }
 export async function withdrawReleaseNotification(db,id,status='withdrawn'){
  await migrateReleaseNotifications(db);
@@ -434,7 +438,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     const transition=notificationTransition(item),published=item.status==='published';
     const groups=recipientGroupNames(item);
     const groupTooltip=groups.join('\n')||label('無接收群組','No recipient groups');
-    return '<tr><td><button type="button" class="release-game-link" data-notification-game="'+esc(item.game?.id)+'">'+esc(item.game?.id)+'</button></td><td><button type="button" class="release-type-detail" data-details="'+esc(item.id)+'">'+esc(notificationTypeLabel(item,true))+'</button>'+(published?'':' <span class="release-meta">已撤回</span>')+'</td><td>'+esc(notificationHasNoReleaseDate(item)?'':releaseDate(item.releaseAt))+'</td><td class="release-actions-cell"><div class="release-row-actions">'+(transition?'<button type="button" data-transition="'+esc(item.id)+'">'+esc(transition.label)+'</button>':'')+(published?'<button type="button" data-edit="'+esc(item.id)+'">編輯</button><button type="button" data-withdraw="'+esc(item.id)+'">撤回</button>':'')+'<button type="button" data-delete="'+esc(item.id)+'">刪除</button><button type="button" data-groups="'+esc(item.id)+'" title="'+esc(groupTooltip)+'">接收群組（'+groups.length+'）</button></div></td></tr>';
+    return '<tr><td><button type="button" class="release-game-link" data-notification-game="'+esc(item.game?.id)+'">'+esc(item.game?.id)+'</button></td><td><button type="button" class="release-type-detail" data-details="'+esc(item.id)+'">'+esc(notificationTypeLabel(item,true))+'</button>'+(published?'':' <span class="release-meta">已撤回</span>')+'</td><td>'+esc(notificationHasNoReleaseDate(item)?'':releaseDate(item.releaseAt))+'</td><td class="release-actions-cell"><div class="release-row-actions">'+(transition?'<button type="button" data-transition="'+esc(item.id)+'">'+esc(transition.label)+'</button>':'')+(published?'<button type="button" data-edit="'+esc(item.id)+'">編輯</button><button type="button" data-withdraw="'+esc(item.id)+'">撤回</button>':'')+'<button type="button" data-delete="'+esc(item.id)+'">刪除</button><button type="button" data-groups="'+esc(item.id)+'" title="'+esc(groupTooltip)+'">'+esc(groups.join('、')||groupTooltip)+'</button></div></td></tr>';
    }).join('');
   }).join('');
   list.innerHTML='<div class="release-table-scroll"><table class="release-admin-table"><thead><tr><th scope="col">Game ID</th><th scope="col">通知類型</th><th scope="col">上架時間（UTC+8）</th><th scope="col" class="release-actions-heading">功能鍵</th></tr></thead><tbody>'+(sections||'<tr><td colspan="4" class="release-meta">目前沒有通知</td></tr>')+'</tbody></table></div>';
