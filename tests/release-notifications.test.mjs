@@ -13,7 +13,8 @@ test('validates environment, game, recipients, length and dates; stores Taipei t
  assert.equal(make({environment:'production'}).environment,'production');
 });
 test('customer payload excludes other recipient identities and publisher account',()=>{
- const data=publicReleaseNotification(make({groupIds:['a','b']}));assert.equal(data.title,'龍門天下測試上架');
+ const data=publicReleaseNotification(make({groupIds:['a','b']}));assert.equal(data.title,'龍門天下測試上架');assert.equal(data.publisherName,'管理者');
+ assert.equal('publisherName' in publicReleaseNotification({...make(),createdByName:''}),false);
  for(const key of ['groupIds','groupNames','createdBy','createdByName'])assert.equal(key in data,false);
 });
 test('preserves notification history through workspace sync and permission changes',()=>{
