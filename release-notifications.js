@@ -3,7 +3,7 @@ import {prepareReleaseImage,uploadReleaseImages,readReleaseImage,MAX_RELEASE_IMA
 import {getFirestore,doc,collection,query,orderBy,limit,where,serverTimestamp,getDocs,getDoc,getDocFromCache,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import {getAuth} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
-import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames,defaultReleaseGroupIds,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate,releaseRecipientScope} from './release-notification-model.js?v=recipient-exceptions-1';
+import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames,defaultReleaseGroupIds,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate} from './release-notification-model.js?v=recipient-exceptions-1';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const english=()=>localStorage.getItem('omniplay-customer-language')==='en',label=(zh,en)=>english()?en:zh;
 const time=value=>{const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleString(english()?'en-GB':'zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'—';};
@@ -247,7 +247,7 @@ function setupRecipientEditor(form,groups,initial,save){
   const selected=new Set(Array.from(list.querySelectorAll('input:checked'),input=>input.value));
   list.innerHTML=layout.filter(section=>section.key!=='other'||section.groupIds.length).map(({key,groupIds})=>
    '<section><strong>'+recipientCategories[key]+'</strong><div class="release-recipients">'+groupIds.map(id=>
-    '<div class="release-recipient-card"><label><input type="checkbox" name="groupId" value="'+esc(id)+'"'+(selected.has(id)?' checked':'')+'><span>'+esc(names.get(id))+'</span></label><button type="button" data-group-exceptions="'+esc(id)+'" aria-label="'+esc(names.get(id))+' 本遊戲通知例外">例外</button></div>').join('')+(groupIds.length?'':'<small>尚無群組</small>')+'</div></section>').join('');
+    '<div class="release-recipient-card"><label><input type="checkbox" name="groupId" value="'+esc(id)+'"'+(selected.has(id)?' checked':'')+'><span>'+esc(names.get(id))+'</span></label><button type="button" data-group-exceptions="'+esc(id)+'" aria-label="'+esc(names.get(id))+' 選擇接收平台">平台</button></div>').join('')+(groupIds.length?'':'<small>尚無群組</small>')+'</div></section>').join('');
  }
  render();
  const edit=form.querySelector('[data-edit-recipients]');
@@ -605,51 +605,54 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    let recipientGameId=null;
    const syncRecipients=gameId=>{if(gameId===recipientGameId)return;recipientGameId=gameId;const defaults=new Set(defaultReleaseGroupIds(gameId,records,selectableGroups));form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=defaults.has(input.value));form.querySelector('[data-recipient-hint]').textContent=!gameId?'選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。':defaults.size?'已預設勾選 '+defaults.size+' 個接收群組，可手動調整；切換遊戲會重新帶入。':'此遊戲尚未設定所屬群組，請手動選擇接收群組。';};
    const platforms=(workspaceSnapshot.data()?.customers||state.customers||[]).filter(platform=>platform.id&&platform.groupId);
-   const exceptionsDialog=notificationDialog('releaseGameRecipientExceptions');
-   exceptionsDialog.innerHTML='<section class="release-shell"><div class="release-head"><h2 data-exception-heading>本遊戲通知例外</h2><button type="button" data-close>完成</button></div><div class="release-recipients" data-exception-platforms></div></section>';
-   const exceptionList=exceptionsDialog.querySelector('[data-exception-platforms]');
-   const exceptionDrafts=new Map();
-   const currentExceptions=()=>exceptionDrafts.get(form.elements.gameId.value)||{uat:[],prod:[]};
-   let exceptionGroupId='';
-   exceptionsDialog.querySelector('[data-close]').onclick=()=>exceptionsDialog.close();
-   function paintExceptions(){
-    if(!exceptionsDialog.open)return;
-    const groupId=exceptionGroupId,exceptions=currentExceptions();
-     const rows=platforms.filter(platform=>platform.groupId===groupId).map(platform=>{
-      const name=esc(platform.name||platform.id);
-      const reason=exceptions.reasons?.[platform.id]||'';
-      const checks=['uat','prod'].map(stage=>'<label><input type="checkbox" data-exception-stage="'+stage+'" value="'+esc(platform.id)+'"'+(exceptions[stage].some(item=>item.id===platform.id)?' checked':'')+'>排除 '+stage.toUpperCase()+'</label>').join('');
-      return '<div class="release-exception-row"><span>'+name+'</span>'+checks+'<input type="text" maxlength="120" data-exception-reason="'+esc(platform.id)+'" aria-label="'+name+' 排除原因" placeholder="排除原因（選填）" value="'+esc(reason)+'"></div>';
-     }).join('');
-    exceptionList.innerHTML=rows||'<small>這個群組沒有平台資料</small>';
+   const platformDialog=notificationDialog('releaseGameRecipientPlatforms');
+   platformDialog.innerHTML='<section class="release-shell"><div class="release-head"><h2 data-platform-heading>選擇接收平台</h2><button type="button" data-close>完成</button></div><div class="release-recipients" data-exception-platforms></div></section>';
+   const platformList=platformDialog.querySelector('[data-exception-platforms]');
+   const selections=new Map();
+   let platformGroupId='';
+   const groupCheckbox=groupId=>Array.from(form.querySelectorAll('[name="groupId"]')).find(input=>input.value===groupId);
+   platformDialog.querySelector('[data-close]').onclick=()=>platformDialog.close();
+   function refreshPlatformButtons(){
+    for(const button of form.querySelectorAll('[data-group-exceptions]')){
+     const selection=selections.get(button.dataset.groupExceptions);
+     button.textContent=selection?selection.size+' 個':'平台';
+    }
    }
-   form.querySelector('[data-recipient-list]').addEventListener('click',event=>{
+   const recipientList=form.querySelector('[data-recipient-list]');
+   new MutationObserver(refreshPlatformButtons).observe(recipientList,{childList:true});
+   recipientList.addEventListener('click',event=>{
     const button=event.target.closest('[data-group-exceptions]');
     if(!button)return;
     if(!form.elements.gameId.value){
-     errorBox.textContent='請先選擇遊戲，再設定通知例外。';
+     errorBox.textContent='請先選擇遊戲，再選擇接收平台。';
      return;
     }
     errorBox.textContent='';
-    exceptionGroupId=button.dataset.groupExceptions;
-    const name=selectableGroups.find(group=>group.id===exceptionGroupId)?.name;
-    exceptionsDialog.querySelector('[data-exception-heading]').textContent=name+' · 本遊戲通知例外';
-    exceptionsDialog.showModal();
-    paintExceptions();
+    platformGroupId=button.dataset.groupExceptions;
+    const group=selectableGroups.find(group=>group.id===platformGroupId);
+    platformDialog.querySelector('[data-platform-heading]').textContent=group.name+' · 選擇接收平台';
+    const selection=selections.get(platformGroupId);
+    const groupSelected=groupCheckbox(platformGroupId).checked;
+    const members=platforms.filter(platform=>platform.groupId===platformGroupId);
+    platformList.innerHTML=members.map(platform=>{
+     const name=platform.name||platform.id;
+     const matched=members.filter(member=>member.name===platform.name).length>1;
+     const domain=platform.domain||platform.website||platform.url||platform.id;
+     const caption=matched&&domain!==name?name+' · '+domain:name;
+     const checked=groupSelected&&(!selection||selection.has(platform.id));
+     return '<label><input type="checkbox" data-platform-recipient value="'+esc(platform.id)+'"'+(checked?' checked':'')+'><span>'+esc(caption)+'</span></label>';
+    }).join('')||'<small>這個群組沒有個別平台資料，可用群組勾選。</small>';
+    platformDialog.showModal();
    });
-   exceptionList.onchange=event=>{
-    const input=event.target,stage=input.dataset.exceptionStage;
-    if(!stage){
-     const platformId=input.dataset.exceptionReason;
-     if(platformId){
-      const saved=currentExceptions();
-      exceptionDrafts.set(form.elements.gameId.value,{...saved,reasons:{...saved.reasons,[platformId]:input.value.trim()}});
-     }
-     return;
-    }
-    const saved=currentExceptions(),next=saved[stage].filter(item=>item.id!==input.value);
-    if(input.checked)next.push({id:input.value});
-    exceptionDrafts.set(form.elements.gameId.value,{...saved,[stage]:next});
+   platformList.onchange=event=>{
+    if(!event.target.matches('[data-platform-recipient]'))return;
+    const inputs=Array.from(platformList.querySelectorAll('[data-platform-recipient]'));
+    const selected=new Set(inputs.filter(input=>input.checked).map(input=>input.value));
+    if(selected.size===inputs.length||!selected.size)selections.delete(platformGroupId);
+    else selections.set(platformGroupId,selected);
+    groupCheckbox(platformGroupId).checked=selected.size>0;
+    refreshPlatformButtons();
+    preview.close();
    };
    const resolveGame=()=>{const value=form.elements.gameSearch.value.trim(),allowed=allowedGames(),exact=allowed.find(game=>game.id===value||gameLabel(game)===value);if(exact)return exact;const names=allowed.filter(game=>[game.name,game.mandarinName].some(name=>name&&name.toLowerCase()===value.toLowerCase()));return names.length===1?names[0]:null;};
    const filteredGames=()=>{const selected=resolveGame();return selected?[selected]:filterReleaseGames([...games.values()],records,groups,'',form.elements.gameSearch.value);};
@@ -685,10 +688,6 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
      const result=await getDocs(query(collection(db,RELEASE_COLLECTION),where('game.id','==',gameId)));
      if(ticket!==request||!progress.isConnected)return;
      loadingFlow=false;flowHistory=result.docs.map(row=>row.data());
-     const saved=flowHistory.filter(item=>item.recipientExclusions)
-      .sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)))[0];
-     if(saved&&!exceptionDrafts.has(gameId))exceptionDrafts.set(gameId,saved.recipientExclusions);
-     paintExceptions();
      const {steps,sent}=releaseFlow(flowHistory);
      const next=steps.find(id=>!sent.has(id));
      if(!typeChosen&&!existing&&!prefill&&next&&manualEdit===edit&&notificationTypes.some(type=>type.id===next)){
@@ -700,7 +699,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
      if(ticket===request){loadingFlow=false;flowFailed=true;paintFlow();}
     }
    };
-   const redrawGames=()=>{const selected=resolveGame(),visible=filteredGames();form.elements.gameId.value=selected?.id||'';syncRecipients(form.elements.gameId.value);paintExceptions();void syncFlow(form.elements.gameId.value);gameInput.setCustomValidity(gameInput.value&&!selected?'請輸入完整遊戲名稱、Game ID，或從下拉結果選擇遊戲':'');if(selected)autoTitle();form.querySelector('[data-game-count]').textContent='可選 '+allowedGames().length+' 款遊戲';preview.close();};
+   const redrawGames=()=>{const selected=resolveGame(),visible=filteredGames();form.elements.gameId.value=selected?.id||'';if(recipientGameId!==form.elements.gameId.value){selections.clear();refreshPlatformButtons();}syncRecipients(form.elements.gameId.value);void syncFlow(form.elements.gameId.value);gameInput.setCustomValidity(gameInput.value&&!selected?'請輸入完整遊戲名稱、Game ID，或從下拉結果選擇遊戲':'');if(selected)autoTitle();form.querySelector('[data-game-count]').textContent='可選 '+allowedGames().length+' 款遊戲';preview.close();};
    const chooseGame=index=>{const game=optionGames[index];if(!game)return;gameInput.value=gameLabel(game);redrawGames();closeGames();gameInput.focus();closeGames();};
    menu.addEventListener('mousedown',event=>event.preventDefault());menu.addEventListener('click',event=>{const option=event.target.closest('[data-game-option]');if(option)chooseGame(Number(option.dataset.gameOption));});
    form.querySelector('[data-game-toggle]').onclick=()=>{if(menu.hidden){gameInput.focus();openGames();}else closeGames();};
@@ -711,14 +710,21 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    if(typeof ResizeObserver!=='undefined'){let messageWidth=0;const observer=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width!==messageWidth){messageWidth=width;resizeReleaseMessageFields(form);}});observer.observe(form.querySelector('.release-message-pair'));dialog.addEventListener('close',()=>observer.disconnect(),{once:true});}
    resizeReleaseMessageFields(form);
    form.elements.environment.onchange=()=>{const previous=previousTemplateType;if(!replaceTemplate()){form.elements.environment.value=previous;return}typeChosen=true;autoTitle();};redrawGames();
-   form.querySelector('[data-cancel]').onclick=()=>dialog.close();form.querySelector('[data-select-all]').onclick=()=>{const checkboxes=[...form.querySelectorAll('[name="groupId"]')],checked=!checkboxes.every(input=>input.checked);checkboxes.forEach(input=>input.checked=checked);paintExceptions();preview.close();};
+   form.querySelector('[data-cancel]').onclick=()=>dialog.close();form.querySelector('[data-select-all]').onclick=()=>{const checkboxes=[...form.querySelectorAll('[name="groupId"]')],checked=!checkboxes.every(input=>input.checked);selections.clear();checkboxes.forEach(input=>input.checked=checked);refreshPlatformButtons();preview.close();};
    if(existing){
     const savedVariant=existing.templateVariant||(/revised release schedule/i.test(existing.messageEn||'')?'rescheduled':/game materials|遊戲資料預計/i.test((existing.messageEn||'')+(existing.messageZh||''))?'no-dm':'standard');const promoted=savedVariant==='rescheduled'&&existing.environment==='schedule-change'?'schedule-updated':savedVariant==='combined'&&existing.environment==='flow-pord'?'combined':savedVariant==='no-dm'&&['flow-uat','other-uat','selected-uat'].includes(existing.environment)?'flow-uat-no-dm':'';
     form.elements.environment.value=notificationTypes.some(type=>type.id===promoted)?promoted:existing.environment;form.elements.gameSearch.value=gameLabel(games.get(existing.game.id));redrawGames();
     form.elements.titleZh.value=existing.titleZh||existing.title||'';form.elements.titleEn.value=existing.titleEn||releaseTemplate(existing.environment,games.get(existing.game.id))?.titleEn||'';form.elements.releaseAt.value=notificationHasNoReleaseDate(existing)||!existing.releaseAt?'':new Date(new Date(existing.releaseAt).getTime()+8*3600000).toISOString().slice(0,10);
     form.elements.messageZh.value=existing.messageZh??existing.message??'';form.elements.messageEn.value=existing.messageEn||'';
     if(selectedPeriodType(form.elements.environment.value)){for(const key of ['messageZh','messageEn'])form.elements[key].value=periodDateText(form.elements[key].value);}
-    form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=(existing.groupIds||[]).includes(input.value));
+    form.querySelectorAll('[name="groupId"]').forEach(input=>{
+     input.checked=(existing.groupIds||[]).includes(input.value);
+     if(!input.checked||!existing.recipientScope||existing.recipientScope.shared.includes(input.value))return;
+     const selected=new Set(Object.entries(existing.recipientScope.targeted).filter(([,groupId])=>groupId===input.value).map(([id])=>id));
+     if(selected.size)selections.set(input.value,selected);
+     else input.checked=false;
+    });
+    refreshPlatformButtons();
     form.querySelector('[data-recipient-hint]').textContent='已帶入原通知的接收群組；儲存後會同步更新新增、保留與移除的群組。';
     draftImages=await Promise.all((existing.images||[]).map(async image=>{if(quotaLimited)return {...image,data:''};try{return {...image,data:await readReleaseImage(db,existing.id,image.id)}}catch{return {...image,data:''}}}));renderDrafts();resizeReleaseMessageFields(form);
    }
@@ -729,18 +735,17 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     form.elements.environment.value=target.id;form.elements.gameSearch.value=gameLabel(games.get(prefill.game.id));redrawGames();applyTemplate(true);
     form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=(prefill.groupIds||[]).includes(input.value));
    }
-   paintExceptions();updateDateReminder();form.addEventListener('input',event=>{resizeReleaseMessageFields(form);if(!event.target.matches('[data-description-date],[data-description-time],[data-extension-days]'))updateDateReminder();preview.close();});form.addEventListener('change',()=>preview.close());
+   updateDateReminder();form.addEventListener('input',event=>{resizeReleaseMessageFields(form);if(!event.target.matches('[data-description-date],[data-description-time],[data-extension-days]'))updateDateReminder();preview.close();});form.addEventListener('change',()=>preview.close());
    form.querySelector('[type="submit"]').disabled=false;
-   form.onsubmit=event=>{event.preventDefault();errorBox.textContent='';try{syncDmDate();validateDescriptionDates(form.elements.messageZh.value,form.elements.messageEn.value,selectedPeriodType(form.elements.environment.value));if(usesLegacyExtensionDays(form)){const days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);if(!days.zh||days.zh!==days.en)throw new Error('請填寫延長天數，並確認中英文天數一致');}if(imageBusy)throw new Error('圖片處理中，請稍候');if(!filteredGames().some(game=>game.id===form.elements.gameId.value))throw new Error('請輸入或選擇有效的遊戲');if(loadingFlow)throw new Error('正在讀取通知流程，請稍候再預覽');if(flowFailed&&!quotaLimited)throw new Error('無法確認本遊戲的通知例外，請重新開啟表單');const images=omitImages()?[]:draftImages;const notification=buildReleaseNotification({images,environment:form.elements.environment.value,titleZh:form.elements.titleZh.value,titleEn:form.elements.titleEn.value,messageZh:form.elements.messageZh.value,messageEn:form.elements.messageEn.value,releaseAt:form.elements.releaseAt.value?form.elements.releaseAt.value+'T00:00:00+08:00':'',groupIds:[...(supportGroup?[supportGroup.id]:[]),...Array.from(form.querySelectorAll('[name="groupId"]:checked'),input=>input.value)]},{uid:getAuth().currentUser?.uid,name:session.name||session.username,game:games.get(form.elements.gameId.value),groups,types:notificationTypes,id:existing?.id||crypto.randomUUID()});const typeLabel=notification.typeName||notification.environment;
-    const isUat=/UAT|^test$/i.test(typeLabel),isProd=/P(?:ROD|ORD)/i.test(typeLabel);
-    const stage=isUat&&!isProd?'uat':isProd&&!isUat?'prod':'both';
-    const exclusions=currentExceptions();
-    const {omitted,...scope}=releaseRecipientScope(notification.groupIds,platforms,exclusions,stage,supportGroup?.id);
-    if(omitted.length){notification.recipientScope=scope;}
-    notification.recipientExclusions=exclusions;
-    const activePlatformIds=new Set(Object.keys(scope.targeted));
-    const platformList=(lead,rows)=>rows.length?'<div class="release-small"><strong>'+lead+'</strong> '+rows.map(platform=>esc(platform.name||platform.id)+(lead==='本次排除平台'&&exclusions.reasons?.[platform.id]?'（'+esc(exclusions.reasons[platform.id])+'）':'')).join('、')+'</div>':'';
-    const scopeMarkup=platformList('群組內接收平台',platforms.filter(platform=>activePlatformIds.has(platform.id)))+platformList('本次排除平台',omitted);
+   form.onsubmit=event=>{event.preventDefault();errorBox.textContent='';try{syncDmDate();validateDescriptionDates(form.elements.messageZh.value,form.elements.messageEn.value,selectedPeriodType(form.elements.environment.value));if(usesLegacyExtensionDays(form)){const days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);if(!days.zh||days.zh!==days.en)throw new Error('請填寫延長天數，並確認中英文天數一致');}if(imageBusy)throw new Error('圖片處理中，請稍候');if(!filteredGames().some(game=>game.id===form.elements.gameId.value))throw new Error('請輸入或選擇有效的遊戲');if(loadingFlow)throw new Error('正在讀取通知流程，請稍候再預覽');const images=omitImages()?[]:draftImages;const notification=buildReleaseNotification({images,environment:form.elements.environment.value,titleZh:form.elements.titleZh.value,titleEn:form.elements.titleEn.value,messageZh:form.elements.messageZh.value,messageEn:form.elements.messageEn.value,releaseAt:form.elements.releaseAt.value?form.elements.releaseAt.value+'T00:00:00+08:00':'',groupIds:[...(supportGroup?[supportGroup.id]:[]),...Array.from(form.querySelectorAll('[name="groupId"]:checked'),input=>input.value)]},{uid:getAuth().currentUser?.uid,name:session.name||session.username,game:games.get(form.elements.gameId.value),groups,types:notificationTypes,id:existing?.id||crypto.randomUUID()});const scope={shared:[],targeted:{}};
+    for(const groupId of notification.groupIds){
+     const selected=selections.get(groupId);
+     if(selected)for(const id of selected)scope.targeted[id]=groupId;
+     else scope.shared.push(groupId);
+    }
+    if(Object.keys(scope.targeted).length)notification.recipientScope=scope;
+    const recipients=platforms.filter(platform=>scope.shared.includes(platform.groupId)||scope.targeted[platform.id]===platform.groupId);
+    const scopeMarkup=recipients.length?'<div class="release-small"><strong>本次接收平台</strong> '+recipients.map(platform=>esc(platform.name||platform.id)).join('、')+'</div>':'';
     notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true)+scopeMarkup+'<button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent='發布失敗：'+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
   }catch(error){dialog.querySelector('[data-content]').innerHTML='<div class="release-error" role="alert">'+esc(releaseErrorMessage(error))+'</div><button type="button" data-retry-compose>重新載入表單</button>';dialog.querySelector('[data-retry-compose]').onclick=()=>{dialog.close();compose(parent,existing,prefill);};}
  }
