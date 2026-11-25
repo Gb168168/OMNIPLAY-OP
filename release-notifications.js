@@ -606,12 +606,12 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    const syncRecipients=gameId=>{if(gameId===recipientGameId)return;recipientGameId=gameId;const defaults=new Set(defaultReleaseGroupIds(gameId,records,selectableGroups));form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=defaults.has(input.value));form.querySelector('[data-recipient-hint]').textContent=!gameId?'選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。':defaults.size?'已預設勾選 '+defaults.size+' 個接收群組，可手動調整；切換遊戲會重新帶入。':'此遊戲尚未設定所屬群組，請手動選擇接收群組。';};
    const platforms=(workspaceSnapshot.data()?.customers||state.customers||[]).filter(platform=>platform.id&&platform.groupId);
    const platformDialog=notificationDialog('releaseGameRecipientPlatforms');
-   platformDialog.innerHTML='<section class="release-shell"><div class="release-head"><h2 data-platform-heading>選擇接收平台</h2><button type="button" data-close>完成</button></div><div class="release-recipients" data-exception-platforms></div></section>';
+   platformDialog.innerHTML='<section class="release-shell"><div class="release-head"><h2 data-platform-heading>選擇接收平台</h2><button type="button" data-done-platforms>完成</button></div><div class="release-recipients" data-exception-platforms></div></section>';
    const platformList=platformDialog.querySelector('[data-exception-platforms]');
    const selections=new Map();
    let platformGroupId='';
    const groupCheckbox=groupId=>Array.from(form.querySelectorAll('[name="groupId"]')).find(input=>input.value===groupId);
-   platformDialog.querySelector('[data-close]').onclick=()=>platformDialog.close();
+   platformDialog.querySelector('[data-done-platforms]').onclick=()=>platformDialog.close();
    function refreshPlatformButtons(){
     for(const button of form.querySelectorAll('[data-group-exceptions]')){
      const selection=selections.get(button.dataset.groupExceptions);
