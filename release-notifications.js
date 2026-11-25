@@ -213,9 +213,6 @@ function recipientGroups(item){
  return (item.groupNames||[]).map((name,index)=>({name,id:item.groupIds?.[index]}))
   .filter(({name,id})=>name.trim()&&name.trim()!=='OMNIPLAY Support'&&(!delivered||delivered.has(id)));
 }
-function recipientGroupNames(item){
- return recipientGroups(item).map(({name})=>name);
-}
 function recipientGroupsMarkup(item,admin,platforms=[]){
  return admin?recipientSummaryMarkup([item],platforms):'';
 }
@@ -437,23 +434,21 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    if(!section.length)return '';
    return '<tr class="release-category-row"><th colspan="4" scope="rowgroup"><span class="release-category-heading"><span>'+esc(categoryLabel(category))+'</span>'+recipientSummaryMarkup(section,state.customers||[],true)+'</span></th></tr>'+section.map(item=>{
     const transition=notificationTransition(item),published=item.status==='published';
-    const groups=recipientGroupNames(item);
-    const groupTooltip=groups.join('\n')||label('無接收群組','No recipient groups');
-    return '<tr><td><button type="button" class="release-game-link" data-notification-game="'+esc(item.game?.id)+'">'+esc(item.game?.id)+'</button></td><td><button type="button" class="release-type-detail" data-details="'+esc(item.id)+'">'+esc(notificationTypeLabel(item,true))+'</button>'+(published?'':' <span class="release-meta">已撤回</span>')+'</td><td>'+esc(notificationHasNoReleaseDate(item)?'':releaseDate(item.releaseAt))+'</td><td class="release-actions-cell"><div class="release-row-actions">'+(transition?'<button type="button" data-transition="'+esc(item.id)+'">'+esc(transition.label)+'</button>':'')+(published?'<button type="button" data-edit="'+esc(item.id)+'">編輯</button><button type="button" data-withdraw="'+esc(item.id)+'">撤回</button>':'')+'<button type="button" data-delete="'+esc(item.id)+'">刪除</button><button type="button" data-groups="'+esc(item.id)+'" title="'+esc(groupTooltip)+'">'+esc(groups.join('、')||groupTooltip)+'</button></div></td></tr>';
+    return '<tr><td><button type="button" class="release-game-link" data-notification-game="'+esc(item.game?.id)+'">'+esc(item.game?.id)+'</button></td><td><button type="button" class="release-type-detail" data-details="'+esc(item.id)+'">'+esc(notificationTypeLabel(item,true))+'</button>'+(published?'':' <span class="release-meta">已撤回</span>')+'</td><td>'+esc(notificationHasNoReleaseDate(item)?'':releaseDate(item.releaseAt))+'</td><td class="release-actions-cell"><div class="release-row-actions">'+(transition?'<button type="button" data-transition="'+esc(item.id)+'">'+esc(transition.label)+'</button>':'')+(published?'<button type="button" data-edit="'+esc(item.id)+'">編輯</button><button type="button" data-withdraw="'+esc(item.id)+'">撤回</button>':'')+'<button type="button" data-delete="'+esc(item.id)+'">刪除</button></div></td></tr>';
    }).join('');
   }).join('');
   list.innerHTML='<div class="release-table-scroll"><table class="release-admin-table"><thead><tr><th scope="col">Game ID</th><th scope="col">通知類型</th><th scope="col">上架時間（UTC+8）</th><th scope="col" class="release-actions-heading">功能鍵</th></tr></thead><tbody>'+(sections||'<tr><td colspan="4" class="release-meta">目前沒有通知</td></tr>')+'</tbody></table></div>';
   bindGameLinks(list,dialog);
-  const find=button=>items.find(item=>item.id===(button.dataset.edit||button.dataset.transition||button.dataset.withdraw||button.dataset.delete||button.dataset.groups||button.dataset.details));
+  const find=button=>items.find(item=>item.id===(button.dataset.edit||button.dataset.transition||button.dataset.withdraw||button.dataset.delete||button.dataset.details));
   list.querySelectorAll('[data-edit]').forEach(button=>button.onclick=()=>compose(dialog,find(button)));
   list.querySelectorAll('[data-transition]').forEach(button=>button.onclick=()=>{const item=find(button);compose(dialog,null,{game:item.game,groupIds:item.groupIds,recipientScope:item.recipientScope,transition:notificationTransition(item)});});
   list.querySelectorAll('[data-withdraw],[data-delete]').forEach(button=>button.onclick=async()=>{
    const deleting=button.hasAttribute('data-delete');if(!confirm(deleting?'刪除這則通知？管理列表與接收端會一起移除。':'撤回這則通知？接收端會移除，管理列表保留紀錄。'))return;
    button.disabled=true;try{if(deleting)await deleteReleaseNotification(db,find(button).id);else await withdrawReleaseNotification(db,find(button).id);}catch(error){alert('操作失敗：'+(error.message||error));button.disabled=false;}
   });
-  list.querySelectorAll('[data-details],[data-groups]').forEach(button=>button.onclick=()=>{
-   const item=find(button),groupsOnly=button.hasAttribute('data-groups'),detail=notificationDialog('releaseNotificationDetail');
-   detail.innerHTML='<section class="release-shell"><div class="release-head"><h2>'+(groupsOnly?'接收群組':'通知內容')+'</h2><button type="button" data-close>關閉</button></div>'+recipientGroupsMarkup(item,true,state.customers||[])+(groupsOnly?'':notificationTitleMarkup(item,true)+notificationGameMarkup(item,true)+bilingualMessageMarkup(item)+'<div class="release-image-grid">'+imageMarkup(item)+'</div>')+'</section>';
+  list.querySelectorAll('[data-details]').forEach(button=>button.onclick=()=>{
+   const item=find(button),detail=notificationDialog('releaseNotificationDetail');
+   detail.innerHTML='<section class="release-shell"><div class="release-head"><h2>通知內容</h2><button type="button" data-close>關閉</button></div>'+recipientGroupsMarkup(item,true,state.customers||[])+notificationTitleMarkup(item,true)+notificationGameMarkup(item,true)+bilingualMessageMarkup(item)+'<div class="release-image-grid">'+imageMarkup(item)+'</div></section>';
    detail.querySelector('[data-close]').onclick=()=>detail.close();loadImages(detail);bindGameLinks(detail,detail);detail.showModal();
   });
  }
