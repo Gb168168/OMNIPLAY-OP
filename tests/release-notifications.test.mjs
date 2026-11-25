@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import vm from 'node:vm';
-import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds,DEFAULT_NOTIFICATION_TYPES,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate} from '../release-notification-model.js';
+import {buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,preserveReleaseNotifications,visibleReleaseNotifications,NOTIFICATION_LIMIT,filterReleaseGames,defaultReleaseGroupIds,DEFAULT_NOTIFICATION_TYPES,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate,releaseRecipientScope} from '../release-notification-model.js';
 const groups=[{id:'a',name:'客戶 A'},{id:'b',name:'客戶 B'}];
 const make=(overrides={})=>buildReleaseNotification({environment:'test',title:'龍門天下測試上架',message:'請安排驗收',releaseAt:'2026-10-14T16:00+08:00',groupIds:['a'],...overrides},{uid:'admin',name:'管理者',id:'n1',game:{id:'001',name:'Power Dragon',mandarinName:'龍門天下',version:'2.0.0'},groups,now:'2026-10-14T07:00:00.000Z'});
 test('validates environment, game, recipients, length and dates; stores Taipei time as UTC',()=>{
@@ -30,13 +30,13 @@ test('limits history, de-duplicates IDs, hides withdrawals and orders newest fir
 async function mockStore(seed={}){
  const data=new Map(Object.entries(seed)),source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8');
  const context={console,Date,structuredClone,appendReleaseNotification,publicReleaseNotification,
-  getDoc:async ref=>({exists:()=>data.has(ref),data:()=>structuredClone(data.get(ref))}),
-  doc:(db,...parts)=>parts.join('/'),runTransaction:async(db,callback)=>{
+  getDoc:async ref=>({exists:()=>data.has(ref.path),data:()=>structuredClone(data.get(ref.path))}),
+  doc:(db,...parts)=>({path:parts.join('/')}),runTransaction:async(db,callback)=>{
    const next=new Map([...data].map(([key,value])=>[key,structuredClone(value)]));let writing=false;
-   const snapshot=ref=>({exists:()=>next.has(ref),data:()=>structuredClone(next.get(ref))});
+   const snapshot=ref=>({exists:()=>next.has(ref.path),data:()=>structuredClone(next.get(ref.path))});
    await callback({get:async ref=>{assert.equal(writing,false,'all reads must precede writes');return snapshot(ref);},
-    set:(ref,value)=>{writing=true;next.set(ref,{...(next.get(ref)||{}),...structuredClone(value)});},
-    update:(ref,value)=>{writing=true;assert.ok(next.has(ref));next.set(ref,{...next.get(ref),...structuredClone(value)});}});
+    set:(ref,value)=>{writing=true;next.set(ref.path,{...(next.get(ref.path)||{}),...structuredClone(value)});},
+    update:(ref,value)=>{writing=true;assert.ok(next.has(ref.path));next.set(ref.path,{...next.get(ref.path),...structuredClone(value)});}});
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
@@ -464,4 +464,32 @@ test('recipient release dates are prominent and recipient groups are absent',asy
  assert.match(context.notificationReleaseTimeMarkup(make()),/release-time-highlight/);assert.match(context.notificationReleaseTimeMarkup(make()),/<strong>2025\/09\/15<\/strong>/);
  assert.equal(context.notificationReleaseTimeMarkup(make({environment:'flow-pord'})),'');
  assert.match(source,/release-compose-main/);assert.match(source,/release-compose-side/);assert.match(source,/class="release-publish" data-publish/);
+});
+
+test('Lucky Diamond applies UAT and PROD exceptions inside the GAME LIST group',async()=>{
+ const groupId='a';
+ const platforms=['philweb','solaire','funalomax','okada','hh','eligible'].map(id=>({id,groupId,name:id,domain:'same-domain'}));
+ platforms.push({id:'unselected',groupId:'b',name:'eligible',domain:'same-domain'});
+ const uat=['philweb','solaire','funalomax'].map(id=>({id}));
+ const exclusions={uat,prod:[...uat,{id:'okada'},{id:'hh'}]};
+ const testScope=releaseRecipientScope([groupId],platforms,exclusions,'uat');
+ const prodScope=releaseRecipientScope([groupId],platforms,exclusions,'prod');
+ assert.deepEqual(Object.keys(testScope.targeted),['okada','hh','eligible']);
+ assert.deepEqual(Object.keys(prodScope.targeted),['eligible']);
+ assert.deepEqual(prodScope.shared,[]);
+ const store=await mockStore({'omniplay-group-views/a':{enabled:true}});
+ const item={...make(),game:{id:'101015',name:'Lucky Diamond'},recipientScope:{shared:testScope.shared,targeted:testScope.targeted},recipientExclusions:exclusions};
+ await store.publish(item);
+ const path=id=>'omniplay-group-views/a/release-platform-feeds/'+id;
+ assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications,undefined);
+ assert.equal(store.data.has(path('solaire')),false);
+ const received=store.data.get(path('okada')).releaseNotifications[0];
+ assert.equal(received.game.id,'101015');
+ assert.equal('recipientExclusions' in received,false);
+ assert.equal('recipientScope' in received,false);
+ await store.edit({...item,recipientScope:{shared:prodScope.shared,targeted:prodScope.targeted}},item.createdAt);
+ assert.deepEqual(store.data.get(path('okada')).releaseNotifications,[]);
+ assert.equal(store.data.get(path('eligible')).releaseNotifications.length,1);
+ await store.withdraw(item.id);
+ assert.deepEqual(store.data.get(path('eligible')).releaseNotifications,[]);
 });

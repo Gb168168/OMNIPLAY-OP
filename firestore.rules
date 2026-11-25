@@ -120,6 +120,20 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+    function canViewReleasePlatform(groupId, platformId) {
+      let platform = get(/databases/$(database)/documents/omniplay-platform-access/$(platformId)).data;
+      return canViewGroup(groupId) && member().get('platformId', '') == platformId
+        && platform.enabled == true && platform.groupId == groupId;
+    }
+    function canViewReleaseImage(notification) {
+      let profile = member();
+      let scope = notification.get('recipientScope', {});
+      let platformId = profile.get('platformId', '');
+      return notification.status == 'published' && (
+        (canViewGroup(profile.groupId) && profile.groupId in scope.get('shared', notification.groupIds))
+        || (platformId != '' && scope.get('targeted', {}).get(platformId, '') == profile.groupId
+          && canViewReleasePlatform(profile.groupId, platformId)));
+    }
     match /omniplay-release-notifications/{notificationId} {
       allow read, write: if isAdmin();
       match /images/{imageId} {
@@ -129,10 +143,8 @@ service cloud.firestore {
           && request.resource.data.data.size() <= 400000
           && request.resource.data.data.matches('data:image/jpeg;base64,[A-Za-z0-9+/=]+');
         allow delete: if isAdmin();
-        allow get: if isAdmin() || (signedIn()
-          && canViewGroup(member().groupId)
-          && get(/databases/$(database)/documents/omniplay-release-notifications/$(notificationId)).data.status == 'published'
-          && member().groupId in get(/databases/$(database)/documents/omniplay-release-notifications/$(notificationId)).data.groupIds);
+        allow get: if isAdmin() || (signedIn() && canViewReleaseImage(
+          get(/databases/$(database)/documents/omniplay-release-notifications/$(notificationId)).data));
       }
     }
     match /omniplay-api-guide/{entryId} {
@@ -197,6 +209,10 @@ service cloud.firestore {
       allow update: if isAdmin() && request.resource.data.allowedPages == resource.data.allowedPages
         && request.resource.data.allowedDocumentIds == resource.data.allowedDocumentIds
         && request.resource.data.enabled == resource.data.enabled;
+      match /release-platform-feeds/{platformId} {
+        allow get: if isAdmin() || canViewReleasePlatform(groupId, platformId);
+        allow write: if isAdmin();
+      }
       match /documents/{documentId} {
         allow read: if isAdmin();
         allow get: if canViewGroup(groupId)

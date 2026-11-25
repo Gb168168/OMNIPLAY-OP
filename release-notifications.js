@@ -3,7 +3,7 @@ import {prepareReleaseImage,uploadReleaseImages,readReleaseImage,MAX_RELEASE_IMA
 import {getFirestore,doc,collection,query,orderBy,limit,where,serverTimestamp,getDocs,getDoc,getDocFromCache,runTransaction,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js';
 import {getAuth} from 'https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js';
 import {gameListRows,preferredGameRows} from './game-list-source.js?v=20261020-pagcor-1';
-import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames,defaultReleaseGroupIds,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate} from './release-notification-model.js?v=uat-dm-1';
+import {ENVIRONMENTS,NOTIFICATION_LIMIT,buildReleaseNotification,publicReleaseNotification,appendReleaseNotification,visibleReleaseNotifications,filterReleaseGames,defaultReleaseGroupIds,normalizeReleaseTypes,changeReleaseTypes,upgradeReleaseTypeConfig,isPordNotification,notificationCategory,notificationTransition,notificationHasNoReleaseDate,releaseRecipientScope} from './release-notification-model.js?v=recipient-exceptions-1';
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const english=()=>localStorage.getItem('omniplay-customer-language')==='en',label=(zh,en)=>english()?en:zh;
 const time=value=>{const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleString(english()?'en-GB':'zh-TW',{timeZone:'Asia/Taipei',hour12:false}):'—';};
@@ -131,7 +131,7 @@ function styles(){if(document.querySelector('#releaseNotificationStyles'))return
 
 .release-compose .release-section:not(.release-game-section){padding:18px;border-radius:12px}.release-compose-side .release-preview{border-radius:12px;padding:18px}.release-compose-side .release-message-pair{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.release-compose-side .release-preview .release-message-pair p{white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:visible;line-height:1.7;font-size:14px}.release-compose-side .release-title-pair h3{font-size:16px;line-height:1.5}.release-compose-side .release-title-pair h3[lang=en]{font-size:14px}.release-compose-side .release-footer button{flex:0 1 auto;min-width:100px;padding:9px 15px!important;font-size:13px!important}.release-publish{display:block;width:max-content;max-width:100%;margin:12px 0 0 auto;padding:9px 16px;border:1px solid #3977e8;border-radius:8px;background:#3977e8;color:#fff;font-size:13px;font-weight:600;line-height:1.5;box-shadow:none;white-space:normal;text-align:center}.release-publish:hover{background:#2b65d3;box-shadow:none}@media(min-width:1051px){.release-compose .release-compose-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.release-compose .release-game-section{grid-template-columns:120px minmax(200px,1fr) auto;gap:10px}}@media(max-width:700px){.release-compose-side .release-message-pair{grid-template-columns:1fr}}
 
-.release-description-dates{display:grid;width:100%;min-width:0}.release-date-slot{display:grid;grid-template-columns:minmax(100px,1fr) 155px 100px;gap:8px;align-items:center;min-width:0}.release-date-slot:has(input[type=date]:last-child){grid-template-columns:minmax(0,1fr) minmax(125px,155px)}.release-date-slot>span{min-width:0;overflow-wrap:anywhere}.release-date-slot input{width:100%!important;min-width:0}.release-date-slot input[type=time]{width:100px!important}@media(max-width:650px){.release-date-slot{grid-template-columns:minmax(0,1fr) 100px}.release-date-slot>span{grid-column:1/-1}}
+[data-recipient-exceptions] summary{cursor:pointer;font-size:13px;color:#315a94}[data-exception-platforms]{display:block!important;max-height:190px!important;overflow:auto}.release-exception-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:5px;padding:4px}.release-exception-row>[data-exception-reason]{grid-column:1/-1;font-size:12px;padding:5px}.release-exception-row label{padding:4px!important;white-space:nowrap}.release-description-dates{display:grid;width:100%;min-width:0}.release-date-slot{display:grid;grid-template-columns:minmax(100px,1fr) 155px 100px;gap:8px;align-items:center;min-width:0}.release-date-slot:has(input[type=date]:last-child){grid-template-columns:minmax(0,1fr) minmax(125px,155px)}.release-date-slot>span{min-width:0;overflow-wrap:anywhere}.release-date-slot input{width:100%!important;min-width:0}.release-date-slot input[type=time]{width:100px!important}@media(max-width:650px){.release-date-slot{grid-template-columns:minmax(0,1fr) 100px}.release-date-slot>span{grid-column:1/-1}}
 `;document.head.append(style);}
 function notificationDialog(id){let dialog=document.getElementById(id);if(!dialog){dialog=document.createElement('dialog');dialog.id=id;dialog.className='release-dialog';dialog.setAttribute('data-viewer-control','');document.body.append(dialog);}return dialog;}
 const RELEASE_COLLECTION='omniplay-release-notifications';
@@ -151,17 +151,47 @@ async function migrateLegacyNotifications(db){
 export function migrateReleaseNotifications(db){
  if(!releaseMigrationTasks.has(db)){const task=migrateLegacyNotifications(db).catch(error=>{releaseMigrationTasks.delete(db);throw error});releaseMigrationTasks.set(db,task);}return releaseMigrationTasks.get(db);
 }
+function recipientFeeds(db, notification){
+ const feeds=new Map();
+ for(const groupId of notification.recipientScope?.shared??notification.groupIds??[]){
+  const ref=doc(db,'omniplay-group-views',groupId);
+  feeds.set(ref.path,{ref,shared:true});
+ }
+ for(const [id,groupId] of Object.entries(notification.recipientScope?.targeted??{})){
+  const ref=doc(db,'omniplay-group-views',groupId,'release-platform-feeds',id);
+  feeds.set(ref.path,{ref,shared:false});
+ }
+ return feeds;
+}
+async function syncRecipientFeeds(db,transaction,previous,next){
+ const old=previous?recipientFeeds(db,previous):new Map();
+ const active=next?recipientFeeds(db,next):new Map();
+ const feeds=new Map([...old,...active]);
+ const groupIds=next?.groupIds??[];
+ if(feeds.size>450)throw new Error('一次調整的接收對象過多，請分次調整');
+ const [groups,snapshots]=await Promise.all([
+  Promise.all(groupIds.map(id=>transaction.get(doc(db,'omniplay-group-views',id)))),
+  Promise.all([...feeds.values()].map(({ref})=>transaction.get(ref)))
+ ]);
+ if(groups.some(snapshot=>!snapshot.exists()||snapshot.data().enabled!==true))throw new Error('部分接收群組尚未同步或已停用');
+ const id=(next||previous).id;
+ [...feeds].forEach(([path,{ref,shared}],index)=>{
+  const snapshot=snapshots[index];
+  if(!snapshot.exists()&&!active.has(path))return;
+  const remaining=(snapshot.data()?.releaseNotifications||[]).filter(item=>item.id!==id);
+  const releaseNotifications=active.has(path)?appendReleaseNotification(remaining,publicReleaseNotification(next)):remaining;
+  if(shared)transaction.update(ref,{releaseNotifications});
+  else transaction.set(ref,{releaseNotifications});
+ });
+}
 export async function publishReleaseNotification(db,notification){
  await migrateReleaseNotifications(db);
  const ref=doc(db,RELEASE_COLLECTION,notification.id);
  await runTransaction(db,async transaction=>{
   const source=await transaction.get(ref);
   if(source.exists())return;
-  const refs=notification.groupIds.map(id=>doc(db,'omniplay-group-views',id));
-  const groups=await Promise.all(refs.map(ref=>transaction.get(ref)));
-  if(groups.some(snapshot=>!snapshot.exists()||snapshot.data().enabled!==true))throw new Error('部分群組尚未同步或已停用，請先完成群組同步後重試');
+  await syncRecipientFeeds(db,transaction,null,notification);
   transaction.set(ref,notification);
-  groups.forEach((snapshot,index)=>transaction.update(refs[index],{releaseNotifications:appendReleaseNotification(snapshot.data().releaseNotifications,publicReleaseNotification(notification))}));
  });
 }
 export async function editReleaseNotification(db,notification,expectedRevision){
@@ -170,19 +200,15 @@ export async function editReleaseNotification(db,notification,expectedRevision){
   const source=await transaction.get(ref),previous=source.exists()?source.data():null;
   if(!previous||previous.status!=='published')throw new Error('通知已撤回或不存在，請重新開啟');
   if((previous.updatedAt||previous.createdAt)!==expectedRevision)throw new Error('通知已被其他管理員修改，請重新開啟後再編輯');
-  const groupIds=[...new Set([...(previous.groupIds||[]),...notification.groupIds])];
-  if(groupIds.length>450)throw new Error('一次調整的接收群組過多，請分次調整');
-  const refs=groupIds.map(id=>doc(db,'omniplay-group-views',id)),snapshots=await Promise.all(refs.map(ref=>transaction.get(ref)));
-  snapshots.forEach((snapshot,index)=>{if(notification.groupIds.includes(groupIds[index])&&(!snapshot.exists()||snapshot.data().enabled!==true))throw new Error('部分接收群組尚未同步或已停用');});
   const updated={...notification,createdAt:previous.createdAt,createdBy:previous.createdBy,createdByName:previous.createdByName,updatedAt:new Date().toISOString(),updatedBy:notification.createdBy,updatedByName:notification.createdByName};
+  await syncRecipientFeeds(db,transaction,previous,updated);
   transaction.set(ref,updated);
-  snapshots.forEach((snapshot,index)=>{if(!snapshot.exists())return;const existing=snapshot.data().releaseNotifications||[],remaining=existing.filter(item=>item.id!==notification.id);transaction.update(refs[index],{releaseNotifications:notification.groupIds.includes(groupIds[index])?appendReleaseNotification(remaining,publicReleaseNotification(updated)):remaining});});
  });
 }
 function notificationReadKey(item){return item.updatedAt?item.id+':'+item.updatedAt:item.id}
 function recipientGroupsMarkup(item,admin,ownGroup){
  if(!admin)return '';
- const names=(item.groupNames||[]).filter(name=>name.trim()!=='OMNIPLAY Support');
+ const names=(item.groupNames||[]).filter((name,index)=>!item.recipientScope||item.recipientScope.shared.includes(item.groupIds[index])||Object.values(item.recipientScope.targeted).includes(item.groupIds[index])).filter(name=>name.trim()!=='OMNIPLAY Support');
  return '<div class="release-recipient-summary"><strong>接收群組'+(admin?'（'+names.length+'）':'')+'</strong><div>'+names.map(name=>'<span class="release-group-pill">'+esc(name)+'</span>').join('')+'</div></div>';
 }
 export async function withdrawReleaseNotification(db,id,status='withdrawn'){
@@ -191,10 +217,9 @@ export async function withdrawReleaseNotification(db,id,status='withdrawn'){
  await runTransaction(db,async transaction=>{
   const source=await transaction.get(ref),notification=source.exists()?source.data():null;
   if(!notification||notification.status==='deleted'||(status==='withdrawn'&&notification.status!=='published'))return;
-  const refs=notification.groupIds.map(groupId=>doc(db,'omniplay-group-views',groupId)),snapshots=await Promise.all(refs.map(ref=>transaction.get(ref)));
+  await syncRecipientFeeds(db,transaction,notification,null);
   const now=new Date().toISOString();
   transaction.update(ref,{status,...(status==='deleted'?{deletedAt:now}:{withdrawnAt:now})});
-  snapshots.forEach((snapshot,index)=>{if(snapshot.exists())transaction.update(refs[index],{releaseNotifications:(snapshot.data().releaseNotifications||[]).filter(item=>item.id!==id)});});
  });
 }
 export async function deleteReleaseNotification(db,id){return withdrawReleaseNotification(db,id,'deleted');}
@@ -445,7 +470,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
   const list=dialog.querySelector('[data-list]'),pager=dialog.querySelector('[data-pages]');
   if(!list)return;
   pager.replaceChildren();
-  if(error){list.innerHTML='<div class="release-error">'+esc(error)+'</div>';return}
+  if(error&&!items.length){list.innerHTML='<div class="release-error">'+esc(error)+'</div>';return}
   if(!loaded){list.textContent=label('載入中…','Loading…');return}
   const rows=admin?items.filter(item=>item.status!=='deleted'):visibleReleaseNotifications(items);
   const groups=groupNotifications(rows);
@@ -488,7 +513,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    if(!groups.length)throw new Error(quotaLimited?'Firebase 配額不足，且此瀏覽器沒有可用的接收群組資料，暫時無法開啟通知表單。':'尚無接收群組，請先建立群組');
    const local='';
    if(quotaLimited){const warning=document.createElement('p');warning.className='release-error';warning.setAttribute('role','status');warning.textContent='目前使用上次資料或內建資料編寫草稿。Firebase 配額不足，暫時無法發布、儲存修改或變更通知類型。';dialog.querySelector('[data-content]').before(warning);}
-   dialog.querySelector('[data-content]').innerHTML='<form class="release-form release-compose-grid"><div class="release-compose-main"><section class="release-section release-game-section"><div class="release-section-title"><span class="release-step">01</span>選擇遊戲</div><label for="releaseGameSearch">遊戲</label><div class="release-combo" data-game-combo><span class="release-search-icon" aria-hidden="true">⌕</span><div class="release-combo-field"><input id="releaseGameSearch" type="text" name="gameSearch" role="combobox" aria-autocomplete="list" aria-controls="releaseGameOptions" aria-expanded="false" placeholder="搜尋 Game ID、中文或英文名稱" autocomplete="off" required><button type="button" class="release-combo-toggle" data-game-toggle aria-label="展開遊戲選單">⌄</button></div><div id="releaseGameOptions" class="release-game-menu" role="listbox" aria-label="可選遊戲" hidden></div><input type="hidden" name="gameId"></div><div class="release-small" data-game-count></div></section><section class="release-section"><div class="release-content-heading"><div class="release-section-title"><span class="release-step">02</span>通知內容</div><div class="release-template-tools"><button type="button" data-apply-template>重新套用模板</button></div></div><div class="release-pair"><div class="release-type-field"><label>通知類型<select name="environment" required></select></label><details class="release-type-manager"><summary>管理類型（新增／刪除）</summary><div class="release-type-editor"><div class="release-small">類型清單會同步給所有管理員；刪除類型不影響已發布的通知。</div><div data-type-list></div><details class="release-type-group" name="release-type-tools"><summary>＋ 新增類型</summary><div class="release-type-add"><label>分類<select name="newTypeCategory"><option value="流程">'+categoryLabel('流程')+'</option><option value="特選">特選（獨家首發）</option><option>其他</option></select></label><label>類型名稱<input name="newTypeName" maxlength="80" placeholder="例如：維護通知 UAT"></label><label>英文名稱（選填）<input name="newTypeEnglish" maxlength="120" placeholder="例如：Maintenance UAT"></label><button type="button" data-add-type>新增</button></div></details></div></details></div><label><span data-release-date-label>上架時間（UTC+8）</span><input type="date" name="releaseAt" value="'+local+'" required></label></div><div class="release-message-pair"><label>通知標題（中）<input name="titleZh" lang="zh-Hant" required maxlength="200" placeholder="依通知類型自動帶入，可自行修改"></label><label>通知標題（英）<input name="titleEn" lang="en" required maxlength="200" placeholder="Auto-filled by notification type; editable"></label></div><span class="release-small" data-template-note role="status"></span><div class="release-date-reminder" data-date-reminder role="status" hidden><strong>說明日期時間（UTC+8）</strong><div class="release-description-dates" data-description-dates></div></div><div class="release-message-pair"><label>通知說明（中）<textarea name="messageZh" lang="zh-Hant" maxlength="2000" rows="5" placeholder="例如：遊戲已於測試環境上架，請安排驗收。"></textarea></label><label>通知說明（英）<textarea name="messageEn" lang="en" maxlength="2000" rows="5" placeholder="Example: The game is now available in the test environment. Please arrange acceptance testing."></textarea></label></div><div class="release-image-upload"><div class="release-image-upload-head"><span>通知圖片</span><button type="button" class="release-image-choose" data-choose-images>＋ 選擇圖片</button></div><input type="file" name="notificationImages" accept="image/jpeg,image/png,image/webp" multiple hidden><div class="release-image-paste" data-image-paste tabindex="0" role="group" aria-label="貼上通知圖片" aria-describedby="releaseImagePasteHelp"><span class="release-image-paste-icon" aria-hidden="true">▧</span><strong>在這裡貼上圖片</strong><span>點一下此區域，再按 <kbd>Ctrl</kbd> + <kbd>V</kbd>（Mac：⌘V）</span></div><div class="release-small" id="releaseImagePasteHelp">最多 3 張 JPG、PNG 或 WebP，單張上限 10 MB；圖片會自動縮圖。</div></div><div class="release-image-grid" data-image-drafts></div><div class="release-small" data-image-status role="status"></div></section></div><aside class="release-compose-side"><section class="release-section"><div class="release-head"><div class="release-section-title"><span class="release-step">03</span>接收群組</div><div class="release-actions"><button type="button" data-edit-recipients'+(quotaLimited?' disabled':'')+'>編輯排列</button><button type="button" data-select-all>全選／取消全選</button></div></div><p class="release-small">客製遊戲請選擇指定平台。</p><div data-recipient-list></div><div class="release-small" data-recipient-hint>選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。</div><div class="release-small">通知不會變更遊戲上架狀態或群組查看權限。發布後立即送出；上架時間不是排程時間。</div><div class="release-error" data-error role="alert"></div><div class="release-actions release-footer"><button type="button" data-cancel>取消</button><button type="submit" class="release-primary">預覽通知</button></div></section></aside></form>';
+   dialog.querySelector('[data-content]').innerHTML='<form class="release-form release-compose-grid"><div class="release-compose-main"><section class="release-section release-game-section"><div class="release-section-title"><span class="release-step">01</span>選擇遊戲</div><label for="releaseGameSearch">遊戲</label><div class="release-combo" data-game-combo><span class="release-search-icon" aria-hidden="true">⌕</span><div class="release-combo-field"><input id="releaseGameSearch" type="text" name="gameSearch" role="combobox" aria-autocomplete="list" aria-controls="releaseGameOptions" aria-expanded="false" placeholder="搜尋 Game ID、中文或英文名稱" autocomplete="off" required><button type="button" class="release-combo-toggle" data-game-toggle aria-label="展開遊戲選單">⌄</button></div><div id="releaseGameOptions" class="release-game-menu" role="listbox" aria-label="可選遊戲" hidden></div><input type="hidden" name="gameId"></div><div class="release-small" data-game-count></div></section><section class="release-section"><div class="release-content-heading"><div class="release-section-title"><span class="release-step">02</span>通知內容</div><div class="release-template-tools"><button type="button" data-apply-template>重新套用模板</button></div></div><div class="release-pair"><div class="release-type-field"><label>通知類型<select name="environment" required></select></label><details class="release-type-manager"><summary>管理類型（新增／刪除）</summary><div class="release-type-editor"><div class="release-small">類型清單會同步給所有管理員；刪除類型不影響已發布的通知。</div><div data-type-list></div><details class="release-type-group" name="release-type-tools"><summary>＋ 新增類型</summary><div class="release-type-add"><label>分類<select name="newTypeCategory"><option value="流程">'+categoryLabel('流程')+'</option><option value="特選">特選（獨家首發）</option><option>其他</option></select></label><label>類型名稱<input name="newTypeName" maxlength="80" placeholder="例如：維護通知 UAT"></label><label>英文名稱（選填）<input name="newTypeEnglish" maxlength="120" placeholder="例如：Maintenance UAT"></label><button type="button" data-add-type>新增</button></div></details></div></details></div><label><span data-release-date-label>上架時間（UTC+8）</span><input type="date" name="releaseAt" value="'+local+'" required></label></div><div class="release-message-pair"><label>通知標題（中）<input name="titleZh" lang="zh-Hant" required maxlength="200" placeholder="依通知類型自動帶入，可自行修改"></label><label>通知標題（英）<input name="titleEn" lang="en" required maxlength="200" placeholder="Auto-filled by notification type; editable"></label></div><span class="release-small" data-template-note role="status"></span><div class="release-date-reminder" data-date-reminder role="status" hidden><strong>說明日期時間（UTC+8）</strong><div class="release-description-dates" data-description-dates></div></div><div class="release-message-pair"><label>通知說明（中）<textarea name="messageZh" lang="zh-Hant" maxlength="2000" rows="5" placeholder="例如：遊戲已於測試環境上架，請安排驗收。"></textarea></label><label>通知說明（英）<textarea name="messageEn" lang="en" maxlength="2000" rows="5" placeholder="Example: The game is now available in the test environment. Please arrange acceptance testing."></textarea></label></div><div class="release-image-upload"><div class="release-image-upload-head"><span>通知圖片</span><button type="button" class="release-image-choose" data-choose-images>＋ 選擇圖片</button></div><input type="file" name="notificationImages" accept="image/jpeg,image/png,image/webp" multiple hidden><div class="release-image-paste" data-image-paste tabindex="0" role="group" aria-label="貼上通知圖片" aria-describedby="releaseImagePasteHelp"><span class="release-image-paste-icon" aria-hidden="true">▧</span><strong>在這裡貼上圖片</strong><span>點一下此區域，再按 <kbd>Ctrl</kbd> + <kbd>V</kbd>（Mac：⌘V）</span></div><div class="release-small" id="releaseImagePasteHelp">最多 3 張 JPG、PNG 或 WebP，單張上限 10 MB；圖片會自動縮圖。</div></div><div class="release-image-grid" data-image-drafts></div><div class="release-small" data-image-status role="status"></div></section></div><aside class="release-compose-side"><section class="release-section"><div class="release-head"><div class="release-section-title"><span class="release-step">03</span>接收群組</div><div class="release-actions"><button type="button" data-edit-recipients'+(quotaLimited?' disabled':'')+'>編輯排列</button><button type="button" data-select-all>全選／取消全選</button></div></div><p class="release-small">依所有平台列表的「所屬群組 / GAME LIST 權限」帶入平台。</p><details data-recipient-exceptions><summary>本遊戲通知例外</summary><div class="release-recipients" data-exception-platforms></div></details><div data-recipient-list></div><div class="release-small" data-recipient-hint>選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。</div><div class="release-small">通知不會變更遊戲上架狀態或群組查看權限。發布後立即送出；上架時間不是排程時間。</div><div class="release-error" data-error role="alert"></div><div class="release-actions release-footer"><button type="button" data-cancel>取消</button><button type="submit" class="release-primary">預覽通知</button></div></section></aside></form>';
    const form=dialog.querySelector('form'),preview=notificationDialog('releaseComposePreview'),errorBox=form.querySelector('[data-error]');form.onsubmit=event=>event.preventDefault();form.querySelector('[type="submit"]').disabled=true;
    preview.setAttribute('aria-labelledby','releasePreviewTitle');
    dialog.addEventListener('close',()=>preview.close(),{once:true});
@@ -579,6 +604,41 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    const allowedGames=()=>[...games.values()];
    let recipientGameId=null;
    const syncRecipients=gameId=>{if(gameId===recipientGameId)return;recipientGameId=gameId;const defaults=new Set(defaultReleaseGroupIds(gameId,records,selectableGroups));form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=defaults.has(input.value));form.querySelector('[data-recipient-hint]').textContent=!gameId?'選擇遊戲後，自動勾選該遊戲所屬群組，可再手動調整。':defaults.size?'已預設勾選 '+defaults.size+' 個接收群組，可手動調整；切換遊戲會重新帶入。':'此遊戲尚未設定所屬群組，請手動選擇接收群組。';};
+   const platforms=(workspaceSnapshot.data()?.customers||state.customers||[]).filter(platform=>platform.id&&platform.groupId);
+   const exceptionsPanel=form.querySelector('[data-recipient-exceptions]');
+   const exceptionList=form.querySelector('[data-exception-platforms]');
+   const exceptionDrafts=new Map();
+   const selectedGroups=()=>Array.from(form.querySelectorAll('[name="groupId"]:checked'),input=>input.value);
+   const currentExceptions=()=>exceptionDrafts.get(form.elements.gameId.value)||{uat:[],prod:[]};
+   function paintExceptions(){
+    const groupIds=selectedGroups();
+    const exceptions=currentExceptions();
+    exceptionsPanel.hidden=!form.elements.gameId.value||!groupIds.length;
+    exceptionList.innerHTML=selectableGroups.filter(group=>groupIds.includes(group.id)).map(group=>{
+     const rows=platforms.filter(platform=>platform.groupId===group.id).map(platform=>{
+      const name=esc(platform.name||platform.id);
+      const reason=exceptions.reasons?.[platform.id]||'';
+      const checks=['uat','prod'].map(stage=>'<label><input type="checkbox" data-exception-stage="'+stage+'" value="'+esc(platform.id)+'"'+(exceptions[stage].some(item=>item.id===platform.id)?' checked':'')+'>排除 '+stage.toUpperCase()+'</label>').join('');
+      return '<div class="release-exception-row"><span>'+name+'</span>'+checks+'<input type="text" maxlength="120" data-exception-reason="'+esc(platform.id)+'" aria-label="'+name+' 排除原因" placeholder="排除原因（選填）" value="'+esc(reason)+'"></div>';
+     }).join('');
+     return '<details><summary>'+esc(group.name)+'</summary>'+(rows||'<small>這個群組沒有平台資料</small>')+'</details>';
+    }).join('');
+   }
+   exceptionList.addEventListener('change',event=>{
+    const input=event.target,stage=input.dataset.exceptionStage;
+    if(!stage){
+     const platformId=input.dataset.exceptionReason;
+     if(platformId){
+      const saved=currentExceptions();
+      exceptionDrafts.set(form.elements.gameId.value,{...saved,reasons:{...saved.reasons,[platformId]:input.value.trim()}});
+     }
+     return;
+    }
+    const saved=currentExceptions(),next=saved[stage].filter(item=>item.id!==input.value);
+    if(input.checked)next.push({id:input.value});
+    exceptionDrafts.set(form.elements.gameId.value,{...saved,[stage]:next});
+   });
+   form.addEventListener('change',event=>{if(event.target.name==='groupId')paintExceptions();});
    const resolveGame=()=>{const value=form.elements.gameSearch.value.trim(),allowed=allowedGames(),exact=allowed.find(game=>game.id===value||gameLabel(game)===value);if(exact)return exact;const names=allowed.filter(game=>[game.name,game.mandarinName].some(name=>name&&name.toLowerCase()===value.toLowerCase()));return names.length===1?names[0]:null;};
    const filteredGames=()=>{const selected=resolveGame();return selected?[selected]:filterReleaseGames([...games.values()],records,groups,'',form.elements.gameSearch.value);};
    const gameInput=form.elements.gameSearch,menu=form.querySelector('#releaseGameOptions'),combo=form.querySelector('[data-game-combo]');let optionGames=[],activeOption=-1;
@@ -613,6 +673,10 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
      const result=await getDocs(query(collection(db,RELEASE_COLLECTION),where('game.id','==',gameId)));
      if(ticket!==request||!progress.isConnected)return;
      loadingFlow=false;flowHistory=result.docs.map(row=>row.data());
+     const saved=flowHistory.filter(item=>item.recipientExclusions)
+      .sort((a,b)=>String(b.updatedAt||b.createdAt).localeCompare(String(a.updatedAt||a.createdAt)))[0];
+     if(saved&&!exceptionDrafts.has(gameId))exceptionDrafts.set(gameId,saved.recipientExclusions);
+     paintExceptions();
      const {steps,sent}=releaseFlow(flowHistory);
      const next=steps.find(id=>!sent.has(id));
      if(!typeChosen&&!existing&&!prefill&&next&&manualEdit===edit&&notificationTypes.some(type=>type.id===next)){
@@ -624,7 +688,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
      if(ticket===request){loadingFlow=false;flowFailed=true;paintFlow();}
     }
    };
-   const redrawGames=()=>{const selected=resolveGame(),visible=filteredGames();form.elements.gameId.value=selected?.id||'';syncRecipients(form.elements.gameId.value);void syncFlow(form.elements.gameId.value);gameInput.setCustomValidity(gameInput.value&&!selected?'請輸入完整遊戲名稱、Game ID，或從下拉結果選擇遊戲':'');if(selected)autoTitle();form.querySelector('[data-game-count]').textContent='可選 '+allowedGames().length+' 款遊戲';preview.close();};
+   const redrawGames=()=>{const selected=resolveGame(),visible=filteredGames();form.elements.gameId.value=selected?.id||'';syncRecipients(form.elements.gameId.value);paintExceptions();void syncFlow(form.elements.gameId.value);gameInput.setCustomValidity(gameInput.value&&!selected?'請輸入完整遊戲名稱、Game ID，或從下拉結果選擇遊戲':'');if(selected)autoTitle();form.querySelector('[data-game-count]').textContent='可選 '+allowedGames().length+' 款遊戲';preview.close();};
    const chooseGame=index=>{const game=optionGames[index];if(!game)return;gameInput.value=gameLabel(game);redrawGames();closeGames();gameInput.focus();closeGames();};
    menu.addEventListener('mousedown',event=>event.preventDefault());menu.addEventListener('click',event=>{const option=event.target.closest('[data-game-option]');if(option)chooseGame(Number(option.dataset.gameOption));});
    form.querySelector('[data-game-toggle]').onclick=()=>{if(menu.hidden){gameInput.focus();openGames();}else closeGames();};
@@ -635,7 +699,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    if(typeof ResizeObserver!=='undefined'){let messageWidth=0;const observer=new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width!==messageWidth){messageWidth=width;resizeReleaseMessageFields(form);}});observer.observe(form.querySelector('.release-message-pair'));dialog.addEventListener('close',()=>observer.disconnect(),{once:true});}
    resizeReleaseMessageFields(form);
    form.elements.environment.onchange=()=>{const previous=previousTemplateType;if(!replaceTemplate()){form.elements.environment.value=previous;return}typeChosen=true;autoTitle();};redrawGames();
-   form.querySelector('[data-cancel]').onclick=()=>dialog.close();form.querySelector('[data-select-all]').onclick=()=>{const checkboxes=[...form.querySelectorAll('[name="groupId"]')],checked=!checkboxes.every(input=>input.checked);checkboxes.forEach(input=>input.checked=checked);preview.close();};
+   form.querySelector('[data-cancel]').onclick=()=>dialog.close();form.querySelector('[data-select-all]').onclick=()=>{const checkboxes=[...form.querySelectorAll('[name="groupId"]')],checked=!checkboxes.every(input=>input.checked);checkboxes.forEach(input=>input.checked=checked);paintExceptions();preview.close();};
    if(existing){
     const savedVariant=existing.templateVariant||(/revised release schedule/i.test(existing.messageEn||'')?'rescheduled':/game materials|遊戲資料預計/i.test((existing.messageEn||'')+(existing.messageZh||''))?'no-dm':'standard');const promoted=savedVariant==='rescheduled'&&existing.environment==='schedule-change'?'schedule-updated':savedVariant==='combined'&&existing.environment==='flow-pord'?'combined':savedVariant==='no-dm'&&['flow-uat','other-uat','selected-uat'].includes(existing.environment)?'flow-uat-no-dm':'';
     form.elements.environment.value=notificationTypes.some(type=>type.id===promoted)?promoted:existing.environment;form.elements.gameSearch.value=gameLabel(games.get(existing.game.id));redrawGames();
@@ -653,17 +717,40 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     form.elements.environment.value=target.id;form.elements.gameSearch.value=gameLabel(games.get(prefill.game.id));redrawGames();applyTemplate(true);
     form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=(prefill.groupIds||[]).includes(input.value));
    }
-   updateDateReminder();form.addEventListener('input',event=>{resizeReleaseMessageFields(form);if(!event.target.matches('[data-description-date],[data-description-time],[data-extension-days]'))updateDateReminder();preview.close();});form.addEventListener('change',()=>preview.close());
+   paintExceptions();updateDateReminder();form.addEventListener('input',event=>{resizeReleaseMessageFields(form);if(!event.target.matches('[data-description-date],[data-description-time],[data-extension-days]'))updateDateReminder();preview.close();});form.addEventListener('change',()=>preview.close());
    form.querySelector('[type="submit"]').disabled=false;
-   form.onsubmit=event=>{event.preventDefault();errorBox.textContent='';try{syncDmDate();validateDescriptionDates(form.elements.messageZh.value,form.elements.messageEn.value,selectedPeriodType(form.elements.environment.value));if(usesLegacyExtensionDays(form)){const days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);if(!days.zh||days.zh!==days.en)throw new Error('請填寫延長天數，並確認中英文天數一致');}if(imageBusy)throw new Error('圖片處理中，請稍候');if(!filteredGames().some(game=>game.id===form.elements.gameId.value))throw new Error('請輸入或選擇有效的遊戲');if(loadingFlow)throw new Error('正在讀取通知流程，請稍候再預覽');const images=omitImages()?[]:draftImages;const notification=buildReleaseNotification({images,environment:form.elements.environment.value,titleZh:form.elements.titleZh.value,titleEn:form.elements.titleEn.value,messageZh:form.elements.messageZh.value,messageEn:form.elements.messageEn.value,releaseAt:form.elements.releaseAt.value?form.elements.releaseAt.value+'T00:00:00+08:00':'',groupIds:[...(supportGroup?[supportGroup.id]:[]),...Array.from(form.querySelectorAll('[name="groupId"]:checked'),input=>input.value)]},{uid:getAuth().currentUser?.uid,name:session.name||session.username,game:games.get(form.elements.gameId.value),groups,types:notificationTypes,id:existing?.id||crypto.randomUUID()});notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true)+'<button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent='發布失敗：'+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
+   form.onsubmit=event=>{event.preventDefault();errorBox.textContent='';try{syncDmDate();validateDescriptionDates(form.elements.messageZh.value,form.elements.messageEn.value,selectedPeriodType(form.elements.environment.value));if(usesLegacyExtensionDays(form)){const days=descriptionExtensionDays(form.elements.messageZh.value,form.elements.messageEn.value);if(!days.zh||days.zh!==days.en)throw new Error('請填寫延長天數，並確認中英文天數一致');}if(imageBusy)throw new Error('圖片處理中，請稍候');if(!filteredGames().some(game=>game.id===form.elements.gameId.value))throw new Error('請輸入或選擇有效的遊戲');if(loadingFlow)throw new Error('正在讀取通知流程，請稍候再預覽');if(flowFailed&&!quotaLimited)throw new Error('無法確認本遊戲的通知例外，請重新開啟表單');const images=omitImages()?[]:draftImages;const notification=buildReleaseNotification({images,environment:form.elements.environment.value,titleZh:form.elements.titleZh.value,titleEn:form.elements.titleEn.value,messageZh:form.elements.messageZh.value,messageEn:form.elements.messageEn.value,releaseAt:form.elements.releaseAt.value?form.elements.releaseAt.value+'T00:00:00+08:00':'',groupIds:[...(supportGroup?[supportGroup.id]:[]),...Array.from(form.querySelectorAll('[name="groupId"]:checked'),input=>input.value)]},{uid:getAuth().currentUser?.uid,name:session.name||session.username,game:games.get(form.elements.gameId.value),groups,types:notificationTypes,id:existing?.id||crypto.randomUUID()});const typeLabel=notification.typeName||notification.environment;
+    const isUat=/UAT|^test$/i.test(typeLabel),isProd=/P(?:ROD|ORD)/i.test(typeLabel);
+    const stage=isUat&&!isProd?'uat':isProd&&!isUat?'prod':'both';
+    const exclusions=currentExceptions();
+    const {omitted,...scope}=releaseRecipientScope(notification.groupIds,platforms,exclusions,stage,supportGroup?.id);
+    if(omitted.length){notification.recipientScope=scope;}
+    notification.recipientExclusions=exclusions;
+    const activePlatformIds=new Set(Object.keys(scope.targeted));
+    const platformList=(lead,rows)=>rows.length?'<div class="release-small"><strong>'+lead+'</strong> '+rows.map(platform=>esc(platform.name||platform.id)+(lead==='本次排除平台'&&exclusions.reasons?.[platform.id]?'（'+esc(exclusions.reasons[platform.id])+'）':'')).join('、')+'</div>':'';
+    const scopeMarkup=platformList('群組內接收平台',platforms.filter(platform=>activePlatformIds.has(platform.id)))+platformList('本次排除平台',omitted);
+    notification.templateVariant=({'flow-uat-no-dm':'no-dm','combined':'combined','schedule-updated':'rescheduled'})[notification.environment]||'standard';preview.innerHTML='<section class="release-shell"><div class="release-head"><h2 id="releasePreviewTitle">通知預覽</h2><button type="button" data-back autofocus>返回編輯</button></div><div class="release-preview"><span class="release-tag '+notification.environment+'">'+esc(notification.typeName||ENVIRONMENTS[notification.environment]?.zh||notification.environment)+'</span>'+notificationTitleMarkup(notification,true)+notificationGameMarkup(notification,true)+notificationReleaseTimeMarkup(notification)+bilingualMessageMarkup(notification)+'<div class="release-image-grid">'+images.map(image=>'<figure class="release-image"><img src="'+esc(image.data)+'" alt="'+esc(image.name)+'"></figure>').join('')+'</div>'+recipientGroupsMarkup(notification,true)+scopeMarkup+'<button type="button" class="release-publish" data-publish>'+(existing?'儲存修改並同步群組':'確認發布通知')+'</button><div class="release-error" role="alert"></div></div></section>';preview.querySelector('[data-back]').onclick=()=>preview.close();preview.oncancel=null;bindGameLinks(preview,null);preview.querySelector('[data-publish]').disabled=quotaLimited;preview.querySelector('[data-publish]').onclick=async()=>{if(quotaLimited){errorBox.textContent=releaseErrorMessage({code:'resource-exhausted'});return}const buttons=[...preview.querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);preview.oncancel=e=>e.preventDefault();const publishError=preview.querySelector('[role=alert]');publishError.textContent='';try{await uploadReleaseImages(db,notification.id,images.filter(image=>image.data));if(existing)await editReleaseNotification(db,notification,existing.updatedAt||existing.createdAt);else await publishReleaseNotification(db,notification);preview.close();dialog.close();parent.close();openList();}catch(error){publishError.textContent='發布失敗：'+releaseErrorMessage(error);}finally{buttons.forEach(button=>button.disabled=false);preview.oncancel=null;}};preview.showModal();}catch(error){errorBox.textContent=error.message||String(error);}};
   }catch(error){dialog.querySelector('[data-content]').innerHTML='<div class="release-error" role="alert">'+esc(releaseErrorMessage(error))+'</div><button type="button" data-retry-compose>重新載入表單</button>';dialog.querySelector('[data-retry-compose]').onclick=()=>{dialog.close();compose(parent,existing,prefill);};}
  }
  button.onclick=openList;paintBell();
  const ref=admin?query(collection(db,RELEASE_COLLECTION),orderBy('createdAt','desc'),limit(NOTIFICATION_LIMIT)):doc(db,'omniplay-group-views',groupId);
- let unsubscribe=()=>{},disposed=false;
- const subscribe=()=>{if(disposed)return;unsubscribe=onSnapshot(ref,snapshot=>{loaded=true;error='';items=admin?snapshot.docs.map(item=>item.data()):(snapshot.exists()?snapshot.data().releaseNotifications||[]:[]);paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);},failure=>{loaded=true;error=label('通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: ')+releaseErrorMessage(failure);paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);});};
- subscribe();if(admin)migrateReleaseNotifications(db).catch(failure=>{console.warn('Legacy notification migration deferred',failure.code||failure.message);});
+ const feeds=[ref];
+ if(!admin&&session.platformId)feeds.push(doc(db,'omniplay-group-views',groupId,'release-platform-feeds',session.platformId));
+ const inboxes=feeds.map(()=>[]),failures=feeds.map(()=>''),ready=new Set();
+ function updateInbox(index,contents,failure=''){
+  inboxes[index]=contents;failures[index]=failure;ready.add(index);
+  loaded=ready.size===feeds.length;
+  error=failures.filter(Boolean).join(' / ');
+  items=[...new Map(inboxes.flat().map(item=>[item.id,item])).values()];
+  paintBell();
+  const dialog=document.getElementById('releaseNotificationList');
+  if(dialog?.open)renderList(dialog);
+ }
+ const subscriptions=feeds.map((feed,index)=>onSnapshot(feed,snapshot=>{
+  updateInbox(index,admin?snapshot.docs.map(item=>item.data()):snapshot.data()?.releaseNotifications||[]);
+ },failure=>updateInbox(index,[],label('通知載入失敗，請重新整理後再試：','Unable to load notifications. Refresh and try again: ')+releaseErrorMessage(failure))));
+ if(admin)migrateReleaseNotifications(db).catch(failure=>{console.warn('Legacy notification migration deferred',failure.code||failure.message);});
  window.addEventListener('storage',event=>{if(event.key!==readKey)return;try{read=new Set(JSON.parse(event.newValue||'[]'));paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)renderList(dialog);}catch{}});
  const observer=new MutationObserver(()=>{paintBell();const dialog=document.getElementById('releaseNotificationList');if(dialog?.open)openList();});observer.observe(document.documentElement,{attributes:true,attributeFilter:['lang']});
- window.addEventListener('pagehide',()=>{disposed=true;unsubscribe();observer.disconnect();},{once:true});
+ window.addEventListener('pagehide',()=>{subscriptions.forEach(unsubscribe=>unsubscribe());observer.disconnect();},{once:true});
 }

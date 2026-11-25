@@ -50,7 +50,7 @@ export function buildReleaseNotification(input,{uid,name,game,groups,now=new Dat
  if(!Array.isArray(images)||images.length>3||images.some(image=>!image||!/^[a-zA-Z0-9-]{1,80}$/.test(image.id)||typeof image.name!=='string'||image.name.length>120)||new Set(images.map(image=>image.id)).size!==images.length)throw new Error('通知圖片資料無效，每則最多 3 張');
  return{...(images.length?{images:images.map(({id,name})=>({id,name}))}:{}),id,environment:input.environment,...(selectedType?{typeName:selectedType.name,typeNameEn:selectedType.nameEn,typeCategory:selectedType.category}:{}),title,titleZh,titleEn,message,messageZh,messageEn,releaseAt:noReleaseDate?'':new Date(releaseAt).toISOString(),game:{id:String(game.id),name:String(game.name||''),mandarinName:String(game.mandarinName||''),version:String(game.version||'')},groupIds:selected,groupNames:selected.map(groupId=>String(known.get(groupId).name||'')),createdAt:now,createdBy:uid,createdByName:String(name||''),status:'published'};
 }
-export function publicReleaseNotification(notification){const{groupIds,groupNames,createdBy,createdByName,updatedBy,updatedByName,...content}=notification;return content;}
+export function publicReleaseNotification(notification){const{groupIds,groupNames,recipientScope,recipientExclusions,createdBy,createdByName,updatedBy,updatedByName,...content}=notification;return content;}
 export function appendReleaseNotification(existing,notification){return[notification,...(Array.isArray(existing)?existing:[]).filter(item=>item.id!==notification.id)].slice(0,NOTIFICATION_LIMIT);}
 export function preserveReleaseNotifications(incoming,latest){if(!Object.hasOwn(incoming,'releaseNotifications')&&Object.hasOwn(latest,'releaseNotifications'))incoming.releaseNotifications=structuredClone(latest.releaseNotifications);return incoming;}
 export function visibleReleaseNotifications(items){return(Array.isArray(items)?items:[]).filter(item=>item.status==='published').sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));}
@@ -75,4 +75,17 @@ export function upgradeReleaseTypeConfig(config){
  const builtIn=new Set([...DEFAULT_NOTIFICATION_TYPES.map(type=>type.id),'first-uat','first-pord','other-uat','other-pord','materials']);
  const custom=normalizeReleaseTypes(config?.types).filter(type=>!builtIn.has(type.id));
  return normalizeReleaseTypes([...DEFAULT_NOTIFICATION_TYPES,...custom]);
+}
+
+export function releaseRecipientScope(groupIds, platforms, exclusions, environment, supportId) {
+ const excluded=new Set((environment==='uat'?exclusions.uat:environment==='prod'?exclusions.prod:[...exclusions.uat,...exclusions.prod]).map(item=>item.id));
+ const shared=[],targeted=[],omitted=[];
+ for(const groupId of groupIds){
+  const members=platforms.filter(platform=>platform.groupId===groupId);
+  const removed=groupId===supportId?[]:members.filter(platform=>excluded.has(platform.id));
+  if(!removed.length){shared.push(groupId);continue;}
+  omitted.push(...removed);
+  targeted.push(...members.filter(platform=>!excluded.has(platform.id)));
+ }
+ return {shared,targeted:Object.fromEntries(targeted.map(platform=>[platform.id,platform.groupId])),omitted};
 }
