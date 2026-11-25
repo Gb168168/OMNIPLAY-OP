@@ -40,7 +40,7 @@ async function mockStore(seed={}){
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
- return{data,edit:(item,revision)=>context.editReleaseNotification({},item,revision),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),delete:id=>context.deleteReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
+ return{data,edit:(item,revision,status)=>context.editReleaseNotification({},item,revision,status),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),delete:id=>context.deleteReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
 }
 test('publishes only selected groups atomically, preserves permission fields, retries once per ID',async()=>{
  const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
@@ -276,13 +276,27 @@ test('editing atomically updates retained recipients, adds new recipients, and r
  assert.deepEqual(store.data.get('omniplay-group-views/a').allowedPages,['keep']);
  await assert.rejects(store.edit(changed,original.createdAt),/其他管理員修改/);
 });
-test('editing disabled recipients or withdrawn notifications fails without partial changes',async()=>{
+test('editing disabled recipients or saving an edit after concurrent withdrawal fails',async()=>{
  const store=await mockStore({'omniplay-group-views/a':{enabled:true},'omniplay-group-views/b':{enabled:false}});
  const original=make();await store.publish(original);
  await assert.rejects(store.edit(make({groupIds:['b']}),original.createdAt),/停用/);
  assert.equal(store.data.get('omniplay-group-views/a').releaseNotifications.length,1);
- await store.withdraw('n1');await assert.rejects(store.edit(original,original.createdAt),/撤回/);
+ await store.withdraw('n1');await assert.rejects(store.edit(original,original.createdAt),/狀態已變更/);
 });
+test('editing a withdrawn notification preserves its history and keeps customer feeds empty',async()=>{
+ const group='omniplay-group-views/a',record='omniplay-release-notifications/n1';
+ const store=await mockStore({[group]:{enabled:true}});
+ const original=make();
+ await store.publish(original);
+ await store.withdraw(original.id);
+ const {withdrawnAt}=store.data.get(record);
+ await store.edit({...original,title:'修正後的通知'},original.createdAt,'withdrawn');
+ assert.equal(store.data.get(record).title,'修正後的通知');
+ assert.equal(store.data.get(record).status,'withdrawn');
+ assert.equal(store.data.get(record).withdrawnAt,withdrawnAt);
+ assert.deepEqual(store.data.get(group).releaseNotifications,[]);
+});
+
 test('group badges remain admin-only, and updated notifications become unread',async()=>{
  const source=await readFile(new URL('../release-notifications.js',import.meta.url),'utf8'),start=source.indexOf('function notificationReadKey('),end=source.indexOf('export async function withdrawReleaseNotification(',start),context={esc:value=>String(value)};
  vm.createContext(context);vm.runInContext(source.slice(start,end),context);
