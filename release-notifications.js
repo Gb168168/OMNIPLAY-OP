@@ -405,7 +405,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
   bindGameLinks(list,dialog);
   const find=button=>items.find(item=>item.id===(button.dataset.edit||button.dataset.transition||button.dataset.withdraw||button.dataset.delete||button.dataset.groups||button.dataset.details));
   list.querySelectorAll('[data-edit]').forEach(button=>button.onclick=()=>compose(dialog,find(button)));
-  list.querySelectorAll('[data-transition]').forEach(button=>button.onclick=()=>{const item=find(button);compose(dialog,null,{game:item.game,groupIds:item.groupIds,transition:notificationTransition(item)});});
+  list.querySelectorAll('[data-transition]').forEach(button=>button.onclick=()=>{const item=find(button);compose(dialog,null,{game:item.game,groupIds:item.groupIds,recipientScope:item.recipientScope,transition:notificationTransition(item)});});
   list.querySelectorAll('[data-withdraw],[data-delete]').forEach(button=>button.onclick=async()=>{
    const deleting=button.hasAttribute('data-delete');if(!confirm(deleting?'刪除這則通知？管理列表與接收端會一起移除。':'撤回這則通知？接收端會移除，管理列表保留紀錄。'))return;
    button.disabled=true;try{if(deleting)await deleteReleaseNotification(db,find(button).id);else await withdrawReleaseNotification(db,find(button).id);}catch(error){alert('操作失敗：'+(error.message||error));button.disabled=false;}
@@ -618,6 +618,17 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
      button.textContent=selection?selection.size+' 個':'平台';
     }
    }
+   function restoreRecipients(source){
+    selections.clear();
+    form.querySelectorAll('[name="groupId"]').forEach(input=>{
+     input.checked=(source.groupIds||[]).includes(input.value);
+     if(!input.checked||!source.recipientScope||source.recipientScope.shared.includes(input.value))return;
+     const selected=new Set(Object.entries(source.recipientScope.targeted).filter(([,groupId])=>groupId===input.value).map(([id])=>id));
+     if(selected.size)selections.set(input.value,selected);
+     else input.checked=false;
+    });
+    refreshPlatformButtons();
+   }
    const recipientList=form.querySelector('[data-recipient-list]');
    new MutationObserver(refreshPlatformButtons).observe(recipientList,{childList:true});
    recipientList.addEventListener('click',event=>{
@@ -717,14 +728,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     form.elements.titleZh.value=existing.titleZh||existing.title||'';form.elements.titleEn.value=existing.titleEn||releaseTemplate(existing.environment,games.get(existing.game.id))?.titleEn||'';form.elements.releaseAt.value=notificationHasNoReleaseDate(existing)||!existing.releaseAt?'':new Date(new Date(existing.releaseAt).getTime()+8*3600000).toISOString().slice(0,10);
     form.elements.messageZh.value=existing.messageZh??existing.message??'';form.elements.messageEn.value=existing.messageEn||'';
     if(selectedPeriodType(form.elements.environment.value)){for(const key of ['messageZh','messageEn'])form.elements[key].value=periodDateText(form.elements[key].value);}
-    form.querySelectorAll('[name="groupId"]').forEach(input=>{
-     input.checked=(existing.groupIds||[]).includes(input.value);
-     if(!input.checked||!existing.recipientScope||existing.recipientScope.shared.includes(input.value))return;
-     const selected=new Set(Object.entries(existing.recipientScope.targeted).filter(([,groupId])=>groupId===input.value).map(([id])=>id));
-     if(selected.size)selections.set(input.value,selected);
-     else input.checked=false;
-    });
-    refreshPlatformButtons();
+    restoreRecipients(existing);
     form.querySelector('[data-recipient-hint]').textContent='已帶入原通知的接收群組；儲存後會同步更新新增、保留與移除的群組。';
     draftImages=await Promise.all((existing.images||[]).map(async image=>{if(quotaLimited)return {...image,data:''};try{return {...image,data:await readReleaseImage(db,existing.id,image.id)}}catch{return {...image,data:''}}}));renderDrafts();resizeReleaseMessageFields(form);
    }
@@ -733,7 +737,7 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
     if(!target)throw new Error('找不到對應的通知類型，請先在管理類型新增：'+(prefill.transition.targetName||prefill.transition.label));
     if(!games.has(prefill.game.id))throw new Error('此遊戲已不存在，無法帶入新通知');
     form.elements.environment.value=target.id;form.elements.gameSearch.value=gameLabel(games.get(prefill.game.id));redrawGames();applyTemplate(true);
-    form.querySelectorAll('[name="groupId"]').forEach(input=>input.checked=(prefill.groupIds||[]).includes(input.value));
+    restoreRecipients(prefill);
    }
    updateDateReminder();form.addEventListener('input',event=>{resizeReleaseMessageFields(form);if(!event.target.matches('[data-description-date],[data-description-time],[data-extension-days]'))updateDateReminder();preview.close();});form.addEventListener('change',()=>preview.close());
    form.querySelector('[type="submit"]').disabled=false;
