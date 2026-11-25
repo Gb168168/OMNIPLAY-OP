@@ -206,9 +206,14 @@ export async function editReleaseNotification(db,notification,expectedRevision){
  });
 }
 function notificationReadKey(item){return item.updatedAt?item.id+':'+item.updatedAt:item.id}
+function recipientGroupNames(item){
+ const scope=item.recipientScope;
+ const delivered=scope?new Set([...scope.shared,...Object.values(scope.targeted)]):null;
+ return (item.groupNames||[]).filter((name,index)=>name.trim()&&name.trim()!=='OMNIPLAY Support'&&(!delivered||delivered.has(item.groupIds[index])));
+}
 function recipientGroupsMarkup(item,admin,ownGroup){
  if(!admin)return '';
- const names=(item.groupNames||[]).filter((name,index)=>!item.recipientScope||item.recipientScope.shared.includes(item.groupIds[index])||Object.values(item.recipientScope.targeted).includes(item.groupIds[index])).filter(name=>name.trim()!=='OMNIPLAY Support');
+ const names=recipientGroupNames(item);
  return '<div class="release-recipient-summary"><strong>接收群組'+(admin?'（'+names.length+'）':'')+'</strong><div>'+names.map(name=>'<span class="release-group-pill">'+esc(name)+'</span>').join('')+'</div></div>';
 }
 export async function withdrawReleaseNotification(db,id,status='withdrawn'){
@@ -398,7 +403,9 @@ export function installReleaseNotifications({db=getFirestore(),state,openNotific
    if(!section.length)return '';
    return '<tr class="release-category-row"><th colspan="4" scope="rowgroup">'+esc(categoryLabel(category))+'</th></tr>'+section.map(item=>{
     const transition=notificationTransition(item),published=item.status==='published';
-    return '<tr><td><button type="button" class="release-game-link" data-notification-game="'+esc(item.game?.id)+'">'+esc(item.game?.id)+'</button></td><td><button type="button" class="release-type-detail" data-details="'+esc(item.id)+'">'+esc(notificationTypeLabel(item,true))+'</button>'+(published?'':' <span class="release-meta">已撤回</span>')+'</td><td>'+esc(notificationHasNoReleaseDate(item)?'':releaseDate(item.releaseAt))+'</td><td class="release-actions-cell"><div class="release-row-actions">'+(transition?'<button type="button" data-transition="'+esc(item.id)+'">'+esc(transition.label)+'</button>':'')+(published?'<button type="button" data-edit="'+esc(item.id)+'">編輯</button><button type="button" data-withdraw="'+esc(item.id)+'">撤回</button>':'')+'<button type="button" data-delete="'+esc(item.id)+'">刪除</button><button type="button" data-groups="'+esc(item.id)+'">接收群組（'+(item.groupIds||[]).length+'）</button></div></td></tr>';
+    const groups=recipientGroupNames(item);
+    const groupTooltip=groups.join('\n')||label('無接收群組','No recipient groups');
+    return '<tr><td><button type="button" class="release-game-link" data-notification-game="'+esc(item.game?.id)+'">'+esc(item.game?.id)+'</button></td><td><button type="button" class="release-type-detail" data-details="'+esc(item.id)+'">'+esc(notificationTypeLabel(item,true))+'</button>'+(published?'':' <span class="release-meta">已撤回</span>')+'</td><td>'+esc(notificationHasNoReleaseDate(item)?'':releaseDate(item.releaseAt))+'</td><td class="release-actions-cell"><div class="release-row-actions">'+(transition?'<button type="button" data-transition="'+esc(item.id)+'">'+esc(transition.label)+'</button>':'')+(published?'<button type="button" data-edit="'+esc(item.id)+'">編輯</button><button type="button" data-withdraw="'+esc(item.id)+'">撤回</button>':'')+'<button type="button" data-delete="'+esc(item.id)+'">刪除</button><button type="button" data-groups="'+esc(item.id)+'" title="'+esc(groupTooltip)+'">接收群組（'+groups.length+'）</button></div></td></tr>';
    }).join('');
   }).join('');
   list.innerHTML='<div class="release-table-scroll"><table class="release-admin-table"><thead><tr><th scope="col">Game ID</th><th scope="col">通知類型</th><th scope="col">上架時間（UTC+8）</th><th scope="col" class="release-actions-heading">功能鍵</th></tr></thead><tbody>'+(sections||'<tr><td colspan="4" class="release-meta">目前沒有通知</td></tr>')+'</tbody></table></div>';
