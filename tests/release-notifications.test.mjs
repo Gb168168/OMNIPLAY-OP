@@ -40,7 +40,7 @@ async function mockStore(seed={}){
    data.clear();for(const [key,value] of next)data.set(key,value);
   }};
  vm.createContext(context);vm.runInContext(source.replace(/^import .*;\n/gm,'').replace(/export /g,''),context);
- return{data,edit:(item,revision,status)=>context.editReleaseNotification({},item,revision,status),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),delete:id=>context.deleteReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
+ return{data,edit:(item,revision,status,republish)=>context.editReleaseNotification({},item,revision,status,republish),publish:item=>context.publishReleaseNotification({},item),withdraw:id=>context.withdrawReleaseNotification({},id),delete:id=>context.deleteReleaseNotification({},id),migrate:()=>context.migrateReleaseNotifications({})};
 }
 test('publishes only selected groups atomically, preserves permission fields, retries once per ID',async()=>{
  const base={enabled:true,allowedPages:['game'],allowedDocumentIds:['op-game-customer-records']};
@@ -295,6 +295,20 @@ test('editing a withdrawn notification preserves its history and keeps customer 
  assert.equal(store.data.get(record).status,'withdrawn');
  assert.equal(store.data.get(record).withdrawnAt,withdrawnAt);
  assert.deepEqual(store.data.get(group).releaseNotifications,[]);
+});
+
+test('republishing a withdrawn notification sends the edited record only to the selected recipients',async()=>{
+ const a='omniplay-group-views/a',b='omniplay-group-views/b',record='omniplay-release-notifications/n1';
+ const store=await mockStore({[a]:{enabled:true},[b]:{enabled:true}});
+ const original=make();
+ await store.publish(original);
+ await store.withdraw(original.id);
+ await store.edit(make({groupIds:['b'],title:'重新發布的通知'}),original.createdAt,'withdrawn',true);
+ assert.equal(store.data.get(record).status,'published');
+ assert.equal(store.data.get(record).createdAt,original.createdAt);
+ assert.deepEqual(store.data.get(a).releaseNotifications,[]);
+ assert.equal(store.data.get(b).releaseNotifications[0].title,'重新發布的通知');
+ await assert.rejects(store.edit(original,original.createdAt,'withdrawn',true),/狀態已變更/);
 });
 
 test('group badges remain admin-only, and updated notifications become unread',async()=>{
