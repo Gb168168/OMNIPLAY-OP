@@ -17,9 +17,79 @@ function auditTime(value){const date=value?.toDate?.()||new Date(value||0);retur
 async function showAuditLog(){const {openAudit}=await import('./audit-log-filter.js?v=20261026-api-entry-editor-1');return openAudit()}
 
 const PRESENCE_KEY='omniplay-active-connection-v1';let presenceRef=null,presenceTimer=null,presenceUnsubscribe=null,presenceBusy=false;
-async function startPresence(session){const db=getFirestore();let id=sessionStorage.getItem(PRESENCE_KEY);if(!id){id=crypto.randomUUID();sessionStorage.setItem(PRESENCE_KEY,id)}presenceRef=doc(db,'omniplay-active-sessions',id);try{const existing=await getDoc(presenceRef);if(existing.exists()&&existing.data().revoked){await logout('forced');return}if(!existing.exists())await setDoc(presenceRef,{authUid:session.authUid,username:session.username,name:session.name||session.username,groupName:session.groupName||'',startedAt:serverTimestamp(),lastSeen:serverTimestamp(),active:true,revoked:false});else await updateDoc(presenceRef,{lastSeen:serverTimestamp(),active:true});
+function presenceClient() {
+  const key = 'omniplay-presence-browser-v1';
+  let browserId = '';
+  try {
+    browserId = localStorage.getItem(key) || crypto.randomUUID();
+    localStorage.setItem(key, browserId);
+  } catch {}
+  const ua = navigator.userAgent;
+  const browser = /Edg[eAiOS]*\//.test(ua) ? 'Edge'
+    : /OPR\//.test(ua) ? 'Opera'
+    : /Firefox\/|FxiOS\//.test(ua) ? 'Firefox'
+    : /Chrome\/|CriOS\//.test(ua) ? 'Chrome'
+    : /Safari\//.test(ua) ? 'Safari' : '';
+  const platform = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'iOS / iPadOS'
+    : /Android/.test(ua) ? 'Android'
+    : /Windows/.test(ua) ? 'Windows'
+    : /Macintosh/.test(ua) ? 'macOS'
+    : /Linux/.test(ua) ? 'Linux' : '';
+  return { browserId, deviceLabel: [platform, browser].filter(Boolean).join(' · ') };
+}
+
+function renderActiveConnections(connections) {
+  const sessions = new Map();
+  for (const row of connections) {
+    const key = row.browserId || row.connectionId;
+    const session = sessions.get(key);
+    if (!session) {
+      sessions.set(key, { ...row, count: 1 });
+      continue;
+    }
+    session.count++;
+    if (row.startedAt && (!session.startedAt || row.startedAt.toMillis() < session.startedAt.toMillis())) {
+      session.startedAt = row.startedAt;
+    }
+    if (row.lastSeen && (!session.lastSeen || row.lastSeen.toMillis() > session.lastSeen.toMillis())) {
+      session.lastSeen = row.lastSeen;
+      session.deviceLabel = row.deviceLabel || session.deviceLabel;
+    }
+  }
+  const rows = [...sessions.values()].sort((a, b) => (b.lastSeen?.toMillis() || 0) - (a.lastSeen?.toMillis() || 0));
+  return `<details><summary>${rows.length} 個工作階段（${connections.length} 筆連線）</summary>
+    <div style="overflow-x:auto"><table style="width:100%">
+      <thead><tr><th>登入人員</th><th>裝置／瀏覽器</th><th>分頁數</th><th>首次連線</th><th>最後回報</th></tr></thead>
+      <tbody>${rows.map(row => `<tr><td>${esc(row.name || row.username)}</td><td>${esc(row.deviceLabel || '未記錄')}</td><td>${row.count}</td><td>${row.startedAt ? esc(auditTime(row.startedAt)) : '—'}</td><td>${row.lastSeen ? esc(auditTime(row.lastSeen)) : '—'}</td></tr>`).join('')}</tbody>
+    </table></div>
+  </details>`;
+}
+
+async function startPresence(session){const db=getFirestore();let id=sessionStorage.getItem(PRESENCE_KEY);if(!id){id=crypto.randomUUID();sessionStorage.setItem(PRESENCE_KEY,id)}presenceRef=doc(db,'omniplay-active-sessions',id);try{const existing=await getDoc(presenceRef);if(existing.exists()&&existing.data().revoked){await logout('forced');return}const client = presenceClient();
+if (!existing.exists()) {
+  const connection = {
+    authUid:session.authUid, username:session.username, name:session.name||session.username,
+    groupName:session.groupName||'', startedAt:serverTimestamp(), lastSeen:serverTimestamp(),
+    active:true, revoked:false
+  };
+  try {
+    await setDoc(presenceRef, {...connection, ...client});
+  } catch (error) {
+    if (error.code !== 'permission-denied') throw error;
+    await setDoc(presenceRef, connection);
+  }
+} else {
+  const heartbeat = {lastSeen:serverTimestamp(), active:true};
+  try {
+    await updateDoc(presenceRef, {...heartbeat, ...client});
+  } catch (error) {
+    if (error.code !== 'permission-denied') throw error;
+    await updateDoc(presenceRef, heartbeat);
+  }
+}
+
 presenceUnsubscribe=onSnapshot(presenceRef,snap=>{if(snap.exists()&&snap.data().revoked){alert('管理者已將此帳號強制登出');logout('forced')}},error=>console.warn('active connection listener',error));let lastHeartbeat=Date.now();const heartbeat=async()=>{if(presenceBusy||!getAuth().currentUser||Date.now()-lastHeartbeat<120000)return;lastHeartbeat=Date.now();presenceBusy=true;try{await updateDoc(presenceRef,{lastSeen:serverTimestamp(),active:true})}catch(error){console.warn('connection heartbeat',error)}finally{presenceBusy=false}};presenceTimer=setInterval(heartbeat,120000);window.addEventListener('focus',heartbeat);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')heartbeat()});window.addEventListener('pagehide',()=>{updateDoc(presenceRef,{active:false,lastSeen:serverTimestamp()}).catch(()=>{})});}catch(error){window.__omniplayPresenceError='目前登入者功能尚未啟用，請先發布新版 Firestore 規則。';console.warn('active sessions',error)}}
-async function showActiveSessions(dialog){let panel=dialog.querySelector('#activeSessionPanel');if(!panel){panel=document.createElement('section');panel.id='activeSessionPanel';panel.style.cssText='margin-bottom:20px;padding:14px;border:1px solid #d4e0ef;border-radius:10px;background:#f8fbff';(dialog.querySelector('#auditLogBody')||dialog.querySelector('#auditFilterBody')).before(panel)}panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>目前登入者</strong><small style="display:block;color:#64748b">每 2 分鐘回報；列出最近 5 分鐘仍有回報的連線</small></div><button class="secondary" id="refreshActiveSessions">重新整理</button></div><div id="activeSessionRows" style="margin-top:12px">載入中…</div>';panel.querySelector('#refreshActiveSessions').onclick=()=>showActiveSessions(dialog);const body=panel.querySelector('#activeSessionRows');try{const snap=await getDocs(query(collection(getFirestore(),'omniplay-active-sessions'),where('lastSeen','>',new Date(Date.now()-300000)))),groups=new Map();for(const doc of snap.docs){const row=doc.data();if(!row.active||row.revoked)continue;const item=groups.get(row.authUid)||{...row,count:0};item.count++;if((row.lastSeen?.toMillis?.()||0)>(item.lastSeen?.toMillis?.()||0))item.lastSeen=row.lastSeen;groups.set(row.authUid,item)}const ownerConfig=await getDoc(doc(getFirestore(),'omniplay-security','access')),protectedUid=ownerConfig.exists()?ownerConfig.data().ownerUid:BOOTSTRAP_UID;const rows=[...groups.values()];body.innerHTML=rows.length?'<table style="width:100%;font-size:13px"><thead><tr><th>帳號</th><th>群組</th><th>連線數</th><th>最後回報</th><th>操作</th></tr></thead><tbody>'+rows.map(row=>`<tr><td>${esc(row.username)}</td><td>${esc(row.groupName)}</td><td>${row.count}</td><td>${esc(auditTime(row.lastSeen))}</td><td>${window.__omniplaySession?.canEdit&&row.authUid!==window.__omniplaySession.authUid&&row.authUid!==protectedUid?`<button class="secondary" data-force-logout="${esc(row.authUid)}" data-username="${esc(row.username)}">強制登出</button>`:'—'}</td></tr>`).join('')+'</tbody></table>':'目前沒有登入中的連線';body.querySelectorAll('td,th').forEach(cell=>cell.style.cssText='text-align:left;padding:8px;border-bottom:1px solid #e2e8f0');body.querySelectorAll('[data-force-logout]').forEach(button=>button.onclick=async()=>{if(!confirm('確定將「'+button.dataset.username+'」的所有網站連線登出？'))return;button.disabled=true;try{const snap=await getDocs(query(collection(getFirestore(),'omniplay-active-sessions'),where('authUid','==',button.dataset.forceLogout)));for(let i=0;i<snap.docs.length;i+=200){const batch=writeBatch(getFirestore());for(const row of snap.docs.slice(i,i+200))batch.update(row.ref,{revoked:true,active:false,kickedAt:serverTimestamp(),kickedBy:getAuth().currentUser.uid});await batch.commit()}await recordAudit(window.__omniplaySession,'logout',JSON.stringify({kind:'force_logout',target:String(button.dataset.username||'').slice(0,80)}));await showActiveSessions(dialog);window.refreshOmniplayAudit?.()}catch(error){button.disabled=false;alert('強制登出失敗：'+(error.code||error.message))}})}catch(error){body.textContent=window.__omniplayPresenceError||'無法讀取目前登入者，請確認新版 Firestore 規則已發布。'}}
+async function showActiveSessions(dialog){let panel=dialog.querySelector('#activeSessionPanel');if(!panel){panel=document.createElement('section');panel.id='activeSessionPanel';panel.style.cssText='margin-bottom:20px;padding:14px;border:1px solid #d4e0ef;border-radius:10px;background:#f8fbff';(dialog.querySelector('#auditLogBody')||dialog.querySelector('#auditFilterBody')).before(panel)}panel.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div><strong>目前登入者</strong><small style="display:block;color:#64748b">每 2 分鐘回報；列出最近 5 分鐘仍有回報的連線</small></div><button class="secondary" id="refreshActiveSessions">重新整理</button></div><div id="activeSessionRows" style="margin-top:12px">載入中…</div>';panel.querySelector('#refreshActiveSessions').onclick=()=>showActiveSessions(dialog);const body=panel.querySelector('#activeSessionRows');try{const snap=await getDocs(query(collection(getFirestore(),'omniplay-active-sessions'),where('lastSeen','>',new Date(Date.now()-300000)))),groups=new Map();for(const doc of snap.docs){const row=doc.data();if(!row.active||row.revoked)continue;const item=groups.get(row.authUid)||{...row,connections:[]};item.connections.push({...row,connectionId:doc.id});if((row.lastSeen?.toMillis?.()||0)>(item.lastSeen?.toMillis?.()||0))item.lastSeen=row.lastSeen;groups.set(row.authUid,item)}const ownerConfig=await getDoc(doc(getFirestore(),'omniplay-security','access')),protectedUid=ownerConfig.exists()?ownerConfig.data().ownerUid:BOOTSTRAP_UID;const rows=[...groups.values()];body.innerHTML=rows.length?'<table style="width:100%;font-size:13px"><thead><tr><th>帳號</th><th>群組</th><th>連線數</th><th>最後回報</th><th>操作</th></tr></thead><tbody>'+rows.map(row=>`<tr><td>${esc(row.username)}</td><td>${esc(row.groupName)}</td><td>${renderActiveConnections(row.connections)}</td><td>${esc(auditTime(row.lastSeen))}</td><td>${window.__omniplaySession?.canEdit&&row.authUid!==window.__omniplaySession.authUid&&row.authUid!==protectedUid?`<button class="secondary" data-force-logout="${esc(row.authUid)}" data-username="${esc(row.username)}">強制登出</button>`:'—'}</td></tr>`).join('')+'</tbody></table>':'目前沒有登入中的連線';body.querySelectorAll('td,th').forEach(cell=>cell.style.cssText='text-align:left;padding:8px;border-bottom:1px solid #e2e8f0');body.querySelectorAll('[data-force-logout]').forEach(button=>button.onclick=async()=>{if(!confirm('確定將「'+button.dataset.username+'」的所有網站連線登出？'))return;button.disabled=true;try{const snap=await getDocs(query(collection(getFirestore(),'omniplay-active-sessions'),where('authUid','==',button.dataset.forceLogout)));for(let i=0;i<snap.docs.length;i+=200){const batch=writeBatch(getFirestore());for(const row of snap.docs.slice(i,i+200))batch.update(row.ref,{revoked:true,active:false,kickedAt:serverTimestamp(),kickedBy:getAuth().currentUser.uid});await batch.commit()}await recordAudit(window.__omniplaySession,'logout',JSON.stringify({kind:'force_logout',target:String(button.dataset.username||'').slice(0,80)}));await showActiveSessions(dialog);window.refreshOmniplayAudit?.()}catch(error){button.disabled=false;alert('強制登出失敗：'+(error.code||error.message))}})}catch(error){body.textContent=window.__omniplayPresenceError||'無法讀取目前登入者，請確認新版 Firestore 規則已發布。'}}
 
 window.showOmniplayActiveSessions=showActiveSessions;
 function installDownloadAudit(session){document.addEventListener('click',event=>{const target=event.target.closest?.('a[download],button,[role="button"]');if(!target||target.closest('#auditLogDialog,#auditFilterDialog')||target.closest('.audit-log-btn'))return;const label=(target.getAttribute('download')||target.title||target.getAttribute('aria-label')||target.textContent||'').trim();if(/下載|download/i.test(label))recordAudit(session,'download',label.slice(0,180))},true)}
