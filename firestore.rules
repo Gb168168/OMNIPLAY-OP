@@ -222,16 +222,23 @@ service cloud.firestore {
       }
     }
     match /omniplay-active-sessions/{sessionId} {
+      function validPresenceClient() {
+        let browserId = request.resource.data.get('browserId', '');
+        let deviceLabel = request.resource.data.get('deviceLabel', '');
+        return browserId is string && browserId.size() <= 36
+          && deviceLabel is string && deviceLabel.size() <= 64;
+      }
       allow get: if isAdmin() || (signedIn() && (!exists(/databases/$(database)/documents/omniplay-active-sessions/$(sessionId)) || resource.data.authUid == request.auth.uid));
       allow list: if isAdmin();
       allow create: if signedIn() && (isOwner() || member().enabled == true)
-        && request.resource.data.keys().hasOnly(['authUid','username','name','groupName','startedAt','lastSeen','active','revoked'])
+        && request.resource.data.keys().hasOnly(['authUid','username','name','groupName','startedAt','lastSeen','active','revoked','browserId','deviceLabel'])
         && request.resource.data.authUid == request.auth.uid
         && (isOwner() || (request.resource.data.username == member().username && request.resource.data.groupName == member().groupName))
-        && request.resource.data.startedAt == request.time && request.resource.data.lastSeen == request.time
+        && validPresenceClient() && request.resource.data.startedAt == request.time && request.resource.data.lastSeen == request.time
         && request.resource.data.active == true && request.resource.data.revoked == false;
       allow update: if signedIn() && resource.data.authUid == request.auth.uid && resource.data.revoked == false
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen','active'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastSeen','active','browserId','deviceLabel'])
+        && validPresenceClient()
         && request.resource.data.lastSeen == request.time && request.resource.data.active is bool;
       allow update: if isAdmin() && resource.data.authUid != ownerUid() && resource.data.authUid != request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revoked','active','kickedAt','kickedBy'])
